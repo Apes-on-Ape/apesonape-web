@@ -14,13 +14,14 @@ import SafeImage from '@/app/components/SafeImage';
 type ClothingItem = {
   id: string;
   name: string;
-  src: string; // 4096x4096 transparent PNG aligned to base
+  src: string; // overlay asset used on canvas
   category: 'Hats' | 'Tops' | 'Accessories';
+  previewSrc?: string; // thumbnail shown in picker
 };
 
 const CLOTHES: ClothingItem[] = [
   // Hats
-  { id: 'santa-hat', name: 'Santa Hat', src: '/wardrobe/santa-hat.png', category: 'Hats' },
+  { id: 'santa-hat', name: 'Santa Hat', src: '/wardrobe/hats/santa-hat.png', previewSrc: '/wardrobe/hats-preview/santa-hat.png', category: 'Hats' },
   // Accessories
   { id: 'gm-arm', name: 'GM Arm + Mug', src: '/file.svg', category: 'Accessories' },
   // Tops (reflect current files in public/wardrobe/tops)
@@ -317,7 +318,7 @@ export default function WardrobePage() {
                       onClick={() => toggleSelect(item.id)}
                       title={item.name}
                     >
-                      <SafeImage src={item.src} alt={item.name} className="w-full aspect-square object-contain rounded-md bg-black/30" width={512} height={512} unoptimized />
+                      <SafeImage src={item.previewSrc || item.src} alt={item.name} className="w-full aspect-square object-contain rounded-md bg-black/30" width={512} height={512} unoptimized />
                       <div className="mt-2 text-xs" style={{ color: 'var(--foreground)' }}>{item.name}</div>
                       {isOn && <div className="absolute top-2 right-2 text-hero-blue text-xs">Selected</div>}
                     </button>

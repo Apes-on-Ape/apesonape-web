@@ -1,20 +1,23 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
 import HolderOnly from '@/app/components/HolderOnly';
 import SafeImage from '@/app/components/SafeImage';
+import { usePrivy } from '@privy-io/react-auth';
 
 function isVideo(file: File | null) {
 	return !!file && file.type.startsWith('video/');
 }
 
 export default function GallerySubmitPage() {
+	const privy = (usePrivy() as unknown) as {
+		user?: { twitter?: { username?: string } };
+	};
 
 	const [title, setTitle] = useState('');
 	const [author, setAuthor] = useState('');
-	const [wallet, setWallet] = useState('');
 	const [file, setFile] = useState<File | null>(null);
 	const [preview, setPreview] = useState<string | null>(null);
 	const [artUrl, setArtUrl] = useState('');
@@ -24,6 +27,14 @@ export default function GallerySubmitPage() {
 	const [doneId, setDoneId] = useState<number | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+
+	// Prefill author from Privy twitter username
+	useEffect(() => {
+		const username = privy?.user?.twitter?.username;
+		if (username && !author) {
+			setAuthor(username);
+		}
+	}, [privy?.user?.twitter?.username, author]);
 
 	const onFileChange = (f: File | null) => {
 		setFile(f);
@@ -79,7 +90,6 @@ export default function GallerySubmitPage() {
 				body: JSON.stringify({
 					title,
 					author,
-					wallet,
 					image_url: uploadedUrl,
 					art_url: artUrl,
 					twitter_url: twitterUrl,
@@ -91,7 +101,6 @@ export default function GallerySubmitPage() {
 		setDoneId(json.id ?? null);
 		setTitle('');
 		setAuthor('');
-		setWallet('');
 		onFileChange(null);
 		setArtUrl('');
 		setTwitterUrl('');
@@ -116,16 +125,9 @@ export default function GallerySubmitPage() {
 					<label className="block text-sm mb-1">Title</label>
 					<input value={title} onChange={e => setTitle(e.target.value)} required className="w-full rounded-md bg-black/40 border border-white/10 p-2" />
 				</div>
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-					<div>
-						<label className="block text-sm mb-1">Author</label>
-						<input value={author} onChange={e => setAuthor(e.target.value)} className="w-full rounded-md bg-black/40 border border-white/10 p-2" />
-					</div>
-					<div>
-						<label className="block text-sm mb-1">Wallet (required)</label>
-						<input value={wallet} onChange={e => setWallet(e.target.value)} required placeholder="0x..." className="w-full rounded-md bg-black/40 border border-white/10 p-2" />
-						<p className="text-xs text-off-white/60 mt-1">Must own an NFT from the collection to submit. We verify ownership on-chain.</p>
-					</div>
+				<div>
+					<label className="block text-sm mb-1">Author</label>
+					<input value={author} onChange={e => setAuthor(e.target.value)} className="w-full rounded-md bg-black/40 border border-white/10 p-2" />
 				</div>
 
 				{/* Media Upload */}

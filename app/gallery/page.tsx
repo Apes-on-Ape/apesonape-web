@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Heart, Share2, Check } from 'lucide-react';
+import { Heart, Share2 } from 'lucide-react';
 import SafeImage from '../components/SafeImage';
 import { useGlyph } from '@use-glyph/sdk-react';
 
@@ -156,15 +156,6 @@ export default function GalleryPage() {
 		window.open(intent, '_blank', 'noopener,noreferrer');
 	};
 
-	const onCopy = async (item: UGCItem) => {
-		try {
-			const url = `${window.location.origin}/gallery/${item.id}`;
-			await navigator.clipboard.writeText(url);
-		} catch {
-			// no-op
-		}
-	};
-
 	return (
 		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 			<div className="flex items-center justify-between mb-6">
@@ -251,14 +242,6 @@ export default function GalleryPage() {
 									>
 										<Share2 className="w-4 h-4 text-hero-blue" />
 										<span>Share</span>
-									</button>
-									<button
-										onClick={() => onCopy(item)}
-										className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm"
-										title="Copy link"
-									>
-										<Check className="w-4 h-4 opacity-70" />
-										<span>Copy</span>
 									</button>
 								</div>
 							</div>
