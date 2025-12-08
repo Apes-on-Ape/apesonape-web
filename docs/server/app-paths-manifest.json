@@ -1,8 +1,0 @@
-{
-  "/api/auth/init-user/route": "app/api/auth/init-user/route.js",
-  "/api/profile/summary/route": "app/api/profile/summary/route.js",
-  "/page": "app/page.js",
-  "/_not-found/page": "app/_not-found/page.js",
-  "/creative/wardrobe/page": "app/creative/wardrobe/page.js",
-  "/creative/page": "app/creative/page.js"
-}
