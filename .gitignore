@@ -15,6 +15,7 @@
 
 # production
 /build
+docs/
 
 # misc
 .DS_Store
@@ -55,3 +56,4 @@ cache/
 typechain-types/
 supabase/.temp/
 docs/  
+docs/*
