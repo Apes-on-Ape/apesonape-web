@@ -25,8 +25,9 @@ const CLOTHES: ClothingItem[] = [
   // Accessories
   { id: 'gm-arm', name: 'GM Arm + Mug', src: '/file.svg', category: 'Accessories' },
   // Tops (reflect current files in public/wardrobe/tops)
-  { id: 'bandolier', name: 'Bandolier', src: '/wardrobe/tops/bandolier.png', category: 'Tops' },
-  { id: 'bone-necklace', name: 'Bone Necklace', src: '/wardrobe/tops/bone-necklace.png', category: 'Tops' },
+  { id: 'bandolier', name: 'Bandolier', src: '/wardrobe/tops/bandolier.png', previewSrc: '/wardrobe/tops-preview/bandolier.png', category: 'Tops' },
+  { id: 'bone-necklace', name: 'Bone Necklace', src: '/wardrobe/tops/bone-necklace.png', previewSrc: '/wardrobe/tops-preview/bone-necklace.png', category: 'Tops' },
+  { id: 'santavest', name: 'Santa Vest', src: '/wardrobe/tops/santavest.png', previewSrc: '/wardrobe/tops-preview/santavest-preview.png', category: 'Tops' },
 ];
 
 const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Tops', 'Accessories'];
