@@ -1,0 +1,23 @@
+(()=>{var e={};e.id=9640,e.ids=[9640],e.modules={10846:e=>{"use strict";e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},44870:e=>{"use strict";e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},3295:e=>{"use strict";e.exports=require("next/dist/server/app-render/after-task-async-storage.external.js")},29294:e=>{"use strict";e.exports=require("next/dist/server/app-render/work-async-storage.external.js")},63033:e=>{"use strict";e.exports=require("next/dist/server/app-render/work-unit-async-storage.external.js")},98994:(e,t,r)=>{"use strict";r.r(t),r.d(t,{patchFetch:()=>m,routeModule:()=>d,serverHooks:()=>l,workAsyncStorage:()=>p,workUnitAsyncStorage:()=>_});var a={};r.r(a),r.d(a,{GET:()=>u});var s=r(42706),n=r(28203),i=r(45994),o=r(39187),c=r(73865);async function u(e){try{let{searchParams:t}=new URL(e.url),r=t.get("userId");if(!r)return o.NextResponse.json({error:"userId required"},{status:400});let a=(0,c.nz)(),{data:s}=await a.from("user_profiles").select("bananas, avatar_url, display_name, x_username").eq("glyph_user_id",r).single(),n=s?.bananas||0,{data:i}=await a.from("gamify_user_achievements").select(`
+        achievement_code,
+        earned_at,
+        gamify_achievements_catalog (
+          title,
+          description,
+          badge_icon,
+          bananas_reward,
+          category
+        )
+      `).eq("glyph_user_id",r).order("earned_at",{ascending:!1}),{data:u}=await a.from("gamify_achievements_catalog").select("achievement_code, title, description, badge_icon, bananas_reward, category").order("category",{ascending:!0}),d=new Set((i||[]).map(e=>e.achievement_code)),p=(u||[]).map(e=>{let t=d.has(e.achievement_code),r=(i||[]).find(t=>t.achievement_code===e.achievement_code);return{achievement_code:e.achievement_code,title:e.title,description:e.description,badge_icon:e.badge_icon,bananas_reward:e.bananas_reward,category:e.category,earned:t,earned_at:t&&r?r.earned_at:null}}),{data:_}=await a.from("gamify_user_quests").select(`
+        quest_code,
+        progress,
+        target,
+        status,
+        gamify_quests_catalog (
+          title,
+          description,
+          quest_icon,
+          bananas_reward,
+          category
+        )
+      `).eq("glyph_user_id",r).eq("status","active").order("created_at",{ascending:!1}),{data:l}=await a.from("gamify_quests_catalog").select("quest_code, title, description, quest_icon, bananas_reward, category, target_count").order("category",{ascending:!0}),{data:m}=await a.from("gamify_user_quests").select("quest_code").eq("glyph_user_id",r).eq("status","completed"),g=new Set((m||[]).map(e=>e.quest_code)),f=(l||[]).filter(e=>!g.has(e.quest_code)).map(e=>{let t=(_||[]).find(t=>t.quest_code===e.quest_code);return{quest_code:e.quest_code,title:e.title,description:e.description,quest_icon:e.quest_icon,bananas_reward:e.bananas_reward,category:e.category,progress:t?.progress||0,target:e.target_count,status:t?.status||"not_started"}});return o.NextResponse.json({bananas:n,achievements:p,quests:f,profile:{avatar_url:s?.avatar_url,display_name:s?.display_name,x_username:s?.x_username}})}catch(t){let e=t instanceof Error?t.message:"Unknown error";return console.error("Error fetching profile summary:",e),o.NextResponse.json({error:e},{status:500})}}let d=new s.AppRouteRouteModule({definition:{kind:n.RouteKind.APP_ROUTE,page:"/api/profile/summary/route",pathname:"/api/profile/summary",filename:"route",bundlePath:"app/api/profile/summary/route"},resolvedPagePath:"C:\\Users\\sebas\\Documents\\Git Projects\\apesonape-web\\app\\api\\profile\\summary\\route.ts",nextConfigOutput:"",userland:a}),{workAsyncStorage:p,workUnitAsyncStorage:_,serverHooks:l}=d;function m(){return(0,i.patchFetch)({workAsyncStorage:p,workUnitAsyncStorage:_})}},96487:()=>{},78335:()=>{},73865:(e,t,r)=>{"use strict";r.d(t,{Bv:()=>o,nz:()=>i});var a=r(38013);let s=null,n=null;function i(){let e="https://bqcrbcpmimfojnjdhvrz.supabase.co",t="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxY3JiY3BtaW1mb2puamRodnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3MjE1ODEsImV4cCI6MjA4MDI5NzU4MX0.tlDiLyCdrOAULzLH9fv0rm5wpiHqy4nzDvmpC9xXRGw";if(!e||!t)throw Error("Missing Supabase env: NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");return s||(s=(0,a.UU)(e,t,{auth:{persistSession:!1,autoRefreshToken:!1}}))}function o(){let e="https://bqcrbcpmimfojnjdhvrz.supabase.co",t=process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SERVICE_ROLE_KEY;return e&&t?n||(n=(0,a.UU)(e,t,{auth:{persistSession:!1,autoRefreshToken:!1}})):null}}};var t=require("../../../../webpack-runtime.js");t.C(e);var r=e=>t(t.s=e),a=t.X(0,[638,5452,8013],()=>r(98994));module.exports=a})();

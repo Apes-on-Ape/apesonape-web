@@ -51,9 +51,6 @@ out/
 dist/
 node_modules/
 supabase/.temp/
-docs/
-docs/*
 cache/
 typechain-types/
 supabase/.temp/
-docs
