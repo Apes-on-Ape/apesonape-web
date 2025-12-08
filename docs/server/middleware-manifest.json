@@ -1,0 +1,139 @@
+{
+  "version": 3,
+  "middleware": {},
+  "functions": {
+    "/gallery/[id]/opengraph-image/route": {
+      "files": [
+        "server/middleware-build-manifest.js",
+        "server/middleware-react-loadable-manifest.js",
+        "server/next-font-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "server/edge-runtime-webpack.js",
+        "server/edge-chunks/48.js",
+        "server/app/gallery/[id]/opengraph-image/route.js"
+      ],
+      "name": "app/gallery/[id]/opengraph-image/route",
+      "page": "/gallery/[id]/opengraph-image/route",
+      "matchers": [
+        {
+          "regexp": "^/gallery/(?<id>[^/]+?)/opengraph\\-image$",
+          "originalSource": "/gallery/[id]/opengraph-image"
+        }
+      ],
+      "wasm": [
+        {
+          "name": "wasm_77d9faebf7af9e421806970ce10a58e9d83116d7",
+          "filePath": "server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm"
+        },
+        {
+          "name": "wasm_ef4866ecae192fd87727067cf2c0c0cf9fb8b020",
+          "filePath": "server/edge-chunks/wasm_ef4866ecae192fd87727067cf2c0c0cf9fb8b020.wasm"
+        }
+      ],
+      "assets": [
+        {
+          "name": "noto-sans-v27-latin-regular.5dda3fca77107598.ttf",
+          "filePath": "server/edge-chunks/asset_noto-sans-v27-latin-regular.5dda3fca77107598.ttf"
+        }
+      ],
+      "env": {
+        "__NEXT_BUILD_ID": "Hzg_8dXqHICyOKY25C0bj",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "xfBZNt4nDNHyRQtCFm6IcO4jhS//K2Ec2bpyHC61zJA=",
+        "__NEXT_PREVIEW_MODE_ID": "7df11265d12d16b86597426fd2d53c67",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "86676e45e2fdbf8533f53e65fcb36e18b90623e238d10cd08fae2a89ffd4b214",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "de301c1a82c389f93b4f053b55cd383c8ebc90a47d5e07ef0cc9be76d1c20341"
+      }
+    },
+    "/api/me/stats/route": {
+      "files": [
+        "server/server-reference-manifest.js",
+        "server/app/api/me/stats/route_client-reference-manifest.js",
+        "server/middleware-build-manifest.js",
+        "server/middleware-react-loadable-manifest.js",
+        "server/next-font-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "server/edge-runtime-webpack.js",
+        "server/edge-chunks/48.js",
+        "server/app/api/me/stats/route.js"
+      ],
+      "name": "app/api/me/stats/route",
+      "page": "/api/me/stats/route",
+      "matchers": [
+        {
+          "regexp": "^/api/me/stats$",
+          "originalSource": "/api/me/stats"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "Hzg_8dXqHICyOKY25C0bj",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "xfBZNt4nDNHyRQtCFm6IcO4jhS//K2Ec2bpyHC61zJA=",
+        "__NEXT_PREVIEW_MODE_ID": "7df11265d12d16b86597426fd2d53c67",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "86676e45e2fdbf8533f53e65fcb36e18b90623e238d10cd08fae2a89ffd4b214",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "de301c1a82c389f93b4f053b55cd383c8ebc90a47d5e07ef0cc9be76d1c20341"
+      }
+    },
+    "/api/me/tokens/route": {
+      "files": [
+        "server/server-reference-manifest.js",
+        "server/app/api/me/tokens/route_client-reference-manifest.js",
+        "server/middleware-build-manifest.js",
+        "server/middleware-react-loadable-manifest.js",
+        "server/next-font-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "server/edge-runtime-webpack.js",
+        "server/edge-chunks/48.js",
+        "server/app/api/me/tokens/route.js"
+      ],
+      "name": "app/api/me/tokens/route",
+      "page": "/api/me/tokens/route",
+      "matchers": [
+        {
+          "regexp": "^/api/me/tokens$",
+          "originalSource": "/api/me/tokens"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "Hzg_8dXqHICyOKY25C0bj",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "xfBZNt4nDNHyRQtCFm6IcO4jhS//K2Ec2bpyHC61zJA=",
+        "__NEXT_PREVIEW_MODE_ID": "7df11265d12d16b86597426fd2d53c67",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "86676e45e2fdbf8533f53e65fcb36e18b90623e238d10cd08fae2a89ffd4b214",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "de301c1a82c389f93b4f053b55cd383c8ebc90a47d5e07ef0cc9be76d1c20341"
+      }
+    },
+    "/api/soundcloud/tracks/route": {
+      "files": [
+        "server/server-reference-manifest.js",
+        "server/app/api/soundcloud/tracks/route_client-reference-manifest.js",
+        "server/middleware-build-manifest.js",
+        "server/middleware-react-loadable-manifest.js",
+        "server/next-font-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "server/edge-runtime-webpack.js",
+        "server/edge-chunks/48.js",
+        "server/app/api/soundcloud/tracks/route.js"
+      ],
+      "name": "app/api/soundcloud/tracks/route",
+      "page": "/api/soundcloud/tracks/route",
+      "matchers": [
+        {
+          "regexp": "^/api/soundcloud/tracks$",
+          "originalSource": "/api/soundcloud/tracks"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "Hzg_8dXqHICyOKY25C0bj",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "xfBZNt4nDNHyRQtCFm6IcO4jhS//K2Ec2bpyHC61zJA=",
+        "__NEXT_PREVIEW_MODE_ID": "7df11265d12d16b86597426fd2d53c67",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "86676e45e2fdbf8533f53e65fcb36e18b90623e238d10cd08fae2a89ffd4b214",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "de301c1a82c389f93b4f053b55cd383c8ebc90a47d5e07ef0cc9be76d1c20341"
+      }
+    }
+  },
+  "sortedMiddleware": []
+}
