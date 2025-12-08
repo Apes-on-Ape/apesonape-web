@@ -1,15 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    turbo: {
-      resolveAlias: {
-        '@react-native-async-storage/async-storage': './shims/empty.ts',
-        '@solana-program/system': './shims/solana-system.ts',
-        // Allow Privy modules (required by GlyphPrivyProvider)
-      },
-    },
-  },
   images: {
     unoptimized: true,
     remotePatterns: [
@@ -86,6 +77,29 @@ const nextConfig: NextConfig = {
       ...(config.resolve.alias || {}),
       '@react-native-async-storage/async-storage': require.resolve('./shims/empty.ts'),
       '@solana-program/system': require.resolve('./shims/solana-system.ts'),
+      // Prevent bundling optional test deps referenced in thread-stream tests/benches
+      tap: require.resolve('./shims/empty.ts'),
+      tape: require.resolve('./shims/empty.ts'),
+      'why-is-node-running': require.resolve('./shims/empty.ts'),
+      desm: require.resolve('./shims/empty.ts'),
+      'fastbench': require.resolve('./shims/empty.ts'),
+      'pino-elasticsearch': require.resolve('./shims/empty.ts'),
+      'thread-stream/test': require.resolve('./shims/empty.ts'),
+      'thread-stream/bench.js': require.resolve('./shims/empty.ts'),
+      '@reown/appkit-controllers/node_modules/thread-stream/test': require.resolve('./shims/empty.ts'),
+      '@reown/appkit-controllers/node_modules/thread-stream/bench.js': require.resolve('./shims/empty.ts'),
+      '@reown/appkit-utils/node_modules/thread-stream/test': require.resolve('./shims/empty.ts'),
+      '@reown/appkit-utils/node_modules/thread-stream/bench.js': require.resolve('./shims/empty.ts'),
+      '@reown/appkit/node_modules/thread-stream/test': require.resolve('./shims/empty.ts'),
+      '@reown/appkit/node_modules/thread-stream/bench.js': require.resolve('./shims/empty.ts'),
+      '/ROOT/node_modules/thread-stream/test/create-and-exit.js': require.resolve('./shims/empty.ts'),
+      '/ROOT/node_modules/thread-stream/test/close-on-gc.js': require.resolve('./shims/empty.ts'),
+      '/ROOT/node_modules/@reown/appkit-controllers/node_modules/thread-stream/test/create-and-exit.js': require.resolve('./shims/empty.ts'),
+      '/ROOT/node_modules/@reown/appkit-controllers/node_modules/thread-stream/test/close-on-gc.js': require.resolve('./shims/empty.ts'),
+      '/ROOT/node_modules/@reown/appkit-utils/node_modules/thread-stream/test/create-and-exit.js': require.resolve('./shims/empty.ts'),
+      '/ROOT/node_modules/@reown/appkit-utils/node_modules/thread-stream/test/close-on-gc.js': require.resolve('./shims/empty.ts'),
+      '/ROOT/node_modules/@reown/appkit/node_modules/thread-stream/test/create-and-exit.js': require.resolve('./shims/empty.ts'),
+      '/ROOT/node_modules/@reown/appkit/node_modules/thread-stream/test/close-on-gc.js': require.resolve('./shims/empty.ts'),
       // Allow Privy packages for GlyphPrivyProvider
     };
     return config;
