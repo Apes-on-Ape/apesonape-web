@@ -7,6 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Heart, Share2 } from 'lucide-react';
 import SafeImage from '../components/SafeImage';
 import { useGlyph } from '@use-glyph/sdk-react';
+import Nav from '../components/Nav';
+import Footer from '../components/Footer';
 
 const GallerySubmitControl = dynamic(() => import('../components/GallerySubmitControl'), { ssr: false });
 
@@ -157,7 +159,9 @@ export default function GalleryPage() {
 	};
 
 	return (
-		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+		<div className="min-h-screen relative">
+			<Nav />
+		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
 			<div className="flex items-center justify-between mb-6">
 				<div className="flex items-center gap-3">
 					<h1 className="text-2xl md:text-3xl font-semibold" style={{ color: 'var(--foreground)' }}>Community Gallery</h1>
@@ -249,6 +253,8 @@ export default function GalleryPage() {
 					})}
 				</div>
 			)}
+		</div>
+			<Footer />
 		</div>
 	);
 }

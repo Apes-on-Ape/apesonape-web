@@ -220,6 +220,9 @@ const CLOTHES: ClothingItem[] = [
   { id: 'santa-hat', name: 'Santa Hat', src: '/wardrobe/hats/santa-hat.png', previewSrc: '/wardrobe/hats-preview/santa-hat.png', category: 'Hats' },
   // Tops (reflect current files in public/wardrobe/tops)
   { id: 'santavest', name: 'Santa Vest', src: '/wardrobe/tops/santavest.png', previewSrc: '/wardrobe/tops-preview/santavest-preview.png', category: 'Tops' },
+  { id: 'apesuit', name: 'Apesuit', src: '/wardrobe/tops/apesuit.png', previewSrc: '/wardrobe/tops-preview/apesuit.png', category: 'Tops' },
+  { id: 'survived-apesuit', name: 'Survived Apesuit', src: '/wardrobe/tops/survived-apesuit.png', previewSrc: '/wardrobe/tops-preview/survived-apesuit.png', category: 'Tops' },
+  { id: 'sweater', name: 'Sweater', src: '/wardrobe/tops/sweater.png', previewSrc: '/wardrobe/tops-preview/sweater.png', category: 'Tops' },
 ];
 
 const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Tops', 'Accessories'];
@@ -233,6 +236,12 @@ const furToMugSlug = (fur: string) => {
     case 'Death Bot': return 'deathbot';
     case 'Golden Brown': return 'golden-brown';
     case 'Solid Gold': return 'solid-gold';
+    default: return slugify(fur);
+  }
+};
+const furToAccessorySlug = (fur: string) => {
+  switch (fur) {
+    case 'Death Bot': return 'deathbot';
     default: return slugify(fur);
   }
 };
@@ -261,15 +270,32 @@ export default function WardrobePage() {
   ), []);
   type FurColor = typeof furColors[number];
   const [furColor, setFurColor] = useState<FurColor>('Brown');
-
-  const toggleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+  const furAccessories = useMemo<ClothingItem[]>(() => {
+    const slug = furToAccessorySlug(furColor);
+    const build = (
+      id: string,
+      name: string,
+      folder: string,
+      slugOverrides?: Partial<Record<FurColor, string>>
+    ): ClothingItem => {
+      const effectiveSlug = slugOverrides?.[furColor] || slug;
+      const path = `/wardrobe/accessories/${folder}/${effectiveSlug}-fur-${folder}.png`;
+      return {
+        id,
+        name,
+        src: path,
+        previewSrc: path,
+        category: 'Accessories',
+      };
+    };
+    return [
+      build('bananas', 'Bananas', 'bananas'),
+      build('gn1', 'GN1', 'gn1'),
+      build('graffiti', 'Graffiti', 'graffiti', { 'Dark Brown': 'dark-brow' }),
+      build('kaboom', 'Kaboom', 'kaboom'),
+      build('shotgun', 'Shotgun', 'shotgun'),
+    ];
+  }, [furColor]);
 
   // Build a base image from on-chain traits, optionally excluding hat
   const composeBaseFromTraits = useCallback(async (
@@ -412,9 +438,31 @@ export default function WardrobePage() {
     } : null
   ), [gmMugPreviewOk, getGmMugPath, furColor]);
 
-  const clothesAvailable = useMemo(() => (
-    gmMugItem ? [...CLOTHES, gmMugItem] : CLOTHES
-  ), [gmMugItem]);
+  const clothesAvailable = useMemo(() => {
+    const base = [...CLOTHES, ...furAccessories];
+    return gmMugItem ? [...base, gmMugItem] : base;
+  }, [gmMugItem, furAccessories]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const item = clothesAvailable.find((c) => c.id === id);
+      if (!item) return prev;
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        return next;
+      }
+      // allow only one per category: remove others in the same category
+      for (const selId of Array.from(next)) {
+        const selItem = clothesAvailable.find((c) => c.id === selId);
+        if (selItem && selItem.category === item.category) {
+          next.delete(selId);
+        }
+      }
+      next.add(id);
+      return next;
+    });
+  }, [clothesAvailable]);
 
   const compose = useCallback(async (): Promise<string | null> => {
     if (!baseSrc) return null;
@@ -548,7 +596,7 @@ export default function WardrobePage() {
             <span className="text-xs text-hero-blue">Wardrobe</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold" style={{ color: 'var(--foreground)' }}>
-            Mad Lab Wardrobe
+            Ape Wardrobe
           </h1>
           <p className="text-off-white/80 mt-2 max-w-2xl">
             Step into the scientist’s workshop. Upload a 4096×4096 Ape, select overlays, then generate with a flash of chaotic genius.
