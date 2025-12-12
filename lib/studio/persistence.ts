@@ -155,9 +155,9 @@ async function dbList(options: ListOptions): Promise<ListResult> {
 
 async function dbDelete(id: string): Promise<boolean> {
 	const svc = supabaseClient();
-	const { error, count } = await svc.from('studio_creations').delete().eq('id', id).select('id', { count: 'exact', head: true });
+	const { error, data } = await svc.from('studio_creations').delete().eq('id', id).select('id');
 	if (error) throw new Error(error.message);
-	return (count || 0) > 0;
+	return data && data.length > 0;
 }
 
 // -------- Public API with fallback --------

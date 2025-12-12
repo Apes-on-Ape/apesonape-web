@@ -22,6 +22,13 @@ const DATA_PATH = path.join(process.cwd(), 'data', 'studio-xp.json');
 const SKILLS: Skill[] = ['sound', 'visual', 'interactive', 'code'];
 const XP_PER_PUBLISH = 25;
 const XP_PER_LEVEL = 50;
+const BADGE_INTERVAL = 5;
+const BADGE_TITLES: Record<Skill, string[]> = {
+	sound: ['Rhythm Rookie', 'Beat Master', 'Audio Alchemist', 'Sound Sorcerer', 'Sonic Legend'],
+	visual: ['Pixel Pioneer', 'Art Adept', 'Visual Virtuoso', 'Creative Catalyst', 'Digital Demigod'],
+	interactive: ['Code Cadet', 'Interaction Innovator', 'Experience Expert', 'Digital Dynamo', 'Interactive Icon'],
+	code: ['Script Novice', 'Code Craftsman', 'Algorithm Artist', 'Programming Prodigy', 'Code Grandmaster'],
+};
 
 function dbClient() {
 	const svc = getSupabaseServiceClient();
@@ -86,7 +93,6 @@ async function dbAddExperience(address: string, skill: Skill, amount: number) {
 	if (error) throw new Error(error.message);
 	// increment to avoid overwrite; ignore if RPC missing
 	try {
-		// @ts-expect-error supabase-js rpc types
 		const rpc = (svc as any).rpc?.bind?.(svc);
 		if (rpc) {
 			await rpc('increment_studio_xp', { p_address: addr, p_skill: skill, p_amount: amount });

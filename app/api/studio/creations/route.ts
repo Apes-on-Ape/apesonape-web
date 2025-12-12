@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
 				mime: artifactResult.mime,
 				size: artifactResult.size,
 				externalUrl: artifactResult.externalUrl,
-				provider: soundUrl ? soundProvider || (soundUrl.includes('soundcloud') ? 'soundcloud' : 'spotify') : artifactResult.provider === 'upload' ? 'upload' : undefined,
+				provider: soundUrl ? (soundProvider || (soundUrl.includes('soundcloud') ? 'soundcloud' as const : 'spotify' as const)) : 'upload' as const,
 				text: type === 'code' ? codeText || undefined : undefined,
 			},
 			createdAt,

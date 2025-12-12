@@ -5,10 +5,11 @@ import { deleteCreation, getCreation } from '@/lib/studio/persistence';
 
 export async function GET(
 	_req: NextRequest,
-	{ params }: { params: { id: string } },
+	{ params }: { params: Promise<{ id: string }> },
 ) {
 	try {
-		const creation = await getCreation(params.id);
+		const { id } = await params;
+		const creation = await getCreation(id);
 		if (!creation) {
 			return NextResponse.json({ error: 'Not found' }, { status: 404 });
 		}
@@ -23,10 +24,11 @@ export async function GET(
 
 export async function DELETE(
 	req: NextRequest,
-	{ params }: { params: { id: string } },
+	{ params }: { params: Promise<{ id: string }> },
 ) {
 	try {
-		const creation = await getCreation(params.id);
+		const { id } = await params;
+		const creation = await getCreation(id);
 		if (!creation) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
 		const body = (await req.json().catch(() => ({}))) as {
@@ -42,8 +44,8 @@ export async function DELETE(
 		const creationGlyph = creation.glyphProfile?.glyphId || '';
 
 		// Admin override: ApeProfessore can delete any creation
-		if (requesterHandle === 'apeporfessore') {
-			const ok = await deleteCreation(params.id);
+		if (requesterHandle === 'apeprofessore') {
+			const ok = await deleteCreation(id);
 			if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 			return NextResponse.json({ ok: true, admin: true });
 		}
@@ -56,7 +58,7 @@ export async function DELETE(
 			return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 		}
 
-		const ok = await deleteCreation(params.id);
+		const ok = await deleteCreation(id);
 		if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 		return NextResponse.json({ ok: true });
 	} catch (e: unknown) {

@@ -41,10 +41,10 @@ export function storageProviderFactory(): Provider {
 	return fallbackProvider;
 }
 
-export async function uploadArtifact(args: UploadArgs): Promise<ArtifactInfo & { provider: string }> {
+export async function uploadArtifact(args: UploadArgs): Promise<ArtifactInfo> {
 	const provider = storageProviderFactory();
 	const artifact = await provider.uploadArtifact(args);
-	return { ...artifact, provider: provider.kind };
+	return artifact;
 }
 
 export async function uploadMetadata(

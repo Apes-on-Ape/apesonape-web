@@ -286,8 +286,16 @@ export default function CreationDetailClient({ creation }: Props) {
 						<div className="font-semibold mb-1">Artifact</div>
 						<ul className="space-y-1 text-off-white/70 text-xs">
 							<li>URI: {creation.artifactUrl}</li>
-							{metaArtifact?.mime && <li>MIME: {String(metaArtifact.mime)}</li>}
-							{metaArtifact?.size && <li>Size: {String(metaArtifact.size)} bytes</li>}
+							{(() => {
+								const mime = metaArtifact?.mime;
+								const size = metaArtifact?.size;
+								return (
+									<>
+										{mime != null && <li>MIME: {String(mime)}</li>}
+										{size != null && <li>Size: {String(size)} bytes</li>}
+									</>
+								);
+							})()}
 						</ul>
 					</div>
 					{metadataJson && (
