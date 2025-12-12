@@ -16,7 +16,7 @@ The official website for the Apes On Ape NFT collection on Apechain. A playgroun
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ and npm
+- Node.js 18+ and npm+
 
 ### Installation
 

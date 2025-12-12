@@ -1,0 +1,122 @@
+{
+  "creations": [
+    {
+      "id": "734a0df5-0352-4a1e-a49e-f30b182109b4",
+      "creatorAddress": "0x4864257a381729CdCB8633d13C17F0FEC9D4C5a1",
+      "glyphProfile": {
+        "xHandle": "ApeProfessore",
+        "verified": true
+      },
+      "type": "visual",
+      "title": "GM APE",
+      "description": "It shows the way the apes say gm",
+      "tags": [
+        "ape gm"
+      ],
+      "artifact": {
+        "uri": "https://apesonape.io/studio/ape-wardrobe.png",
+        "mime": "image/png",
+        "size": 10760395
+      },
+      "createdAt": "2025-12-12T13:45:28.909Z",
+      "artifactUrl": "https://apesonape.io/studio/ape-wardrobe.png",
+      "metadataUrl": "https://apesonape.io/studio/1765547129041-vd3z2r4191q.json",
+      "contentHash": "0x63e8a76c63c2065e8b6f71eccc97f762b358d0ea58cfd884073181144b91470c"
+    },
+    {
+      "id": "9b4369e5-55d5-41fa-b76e-06449ecf429a",
+      "creatorAddress": "0x4864257a381729CdCB8633d13C17F0FEC9D4C5a1",
+      "glyphProfile": {
+        "xHandle": "ApeProfessore",
+        "verified": true
+      },
+      "type": "visual",
+      "title": "Test",
+      "description": "test",
+      "tags": [
+        "test"
+      ],
+      "artifact": {
+        "uri": "https://apesonape.io/studio/ape-wardrobe (6).png",
+        "mime": "image/png",
+        "size": 9440036
+      },
+      "createdAt": "2025-12-12T15:44:45.803Z",
+      "artifactUrl": "https://apesonape.io/studio/ape-wardrobe (6).png",
+      "metadataUrl": "https://apesonape.io/studio/1765554285857-0voyzrh3h85.json",
+      "contentHash": "0xe2b40ebe320390b724799fcbbc80c7449bdf520c826bf79d9b1557acee12bf47"
+    },
+    {
+      "id": "504add34-54b0-43f4-af78-e4b3c3fe3771",
+      "creatorAddress": "0x4864257a381729CdCB8633d13C17F0FEC9D4C5a1",
+      "glyphProfile": {
+        "xHandle": "ApeProfessore",
+        "verified": true
+      },
+      "type": "visual",
+      "title": "test",
+      "description": "test",
+      "tags": [
+        "test"
+      ],
+      "artifact": {
+        "uri": "ipfs://Qmc3HBqL2qqqtQ4XgiEk9PRDFyEbdv7Q1T3EjszSvi5JnX",
+        "mime": "image/png",
+        "size": 8943272
+      },
+      "createdAt": "2025-12-12T16:33:09.646Z",
+      "artifactUrl": "ipfs://Qmc3HBqL2qqqtQ4XgiEk9PRDFyEbdv7Q1T3EjszSvi5JnX",
+      "metadataUrl": "ipfs://QmNmKg4LnqzBrm6NeWgKLG2gGcwamWG7FHy5KKF3Fs39N8",
+      "contentHash": "0x85b36b2383aef93afd8c407d912f4495815125560b9fcbadd1887a422c0adcea"
+    },
+    {
+      "id": "7eddfe8f-5354-4781-94f5-eb16f11d3c1c",
+      "creatorAddress": "0x4864257a381729CdCB8633d13C17F0FEC9D4C5a1",
+      "glyphProfile": {
+        "xHandle": "ApeProfessore",
+        "verified": true
+      },
+      "type": "visual",
+      "title": "t",
+      "description": "t",
+      "tags": [
+        "t"
+      ],
+      "artifact": {
+        "uri": "ipfs://QmX6N8jdW76vRspTb3v9jGZASqJfWs3zd3gnETjyBB1ifT",
+        "mime": "image/png",
+        "size": 10543845
+      },
+      "createdAt": "2025-12-12T16:48:20.811Z",
+      "artifactUrl": "ipfs://QmX6N8jdW76vRspTb3v9jGZASqJfWs3zd3gnETjyBB1ifT",
+      "metadataUrl": "ipfs://QmRKJUgBs9GRTu2KBBv8BNWvsN5xpE1vjB6xfVMTkJxMvX",
+      "contentHash": "0x87c34c9e5befa0a0f789c237f2a7e19b2811aad7ba38630be535f80d2fbdb865"
+    },
+    {
+      "id": "62c054bb-20ae-4200-a392-4b9c6405e8e7",
+      "creatorAddress": "0x4864257a381729CdCB8633d13C17F0FEC9D4C5a1",
+      "glyphProfile": {
+        "xHandle": "ApeProfessore",
+        "verified": true
+      },
+      "type": "sound",
+      "title": "Saint Dank album",
+      "description": "Christmas set",
+      "tags": [
+        "soundcloud",
+        "apemusic"
+      ],
+      "artifact": {
+        "uri": "https://soundcloud.com/apesonape/sets/saint-dank-by-smokethatdank",
+        "mime": "text/uri-list",
+        "size": 0,
+        "externalUrl": "https://soundcloud.com/apesonape/sets/saint-dank-by-smokethatdank",
+        "provider": "soundcloud"
+      },
+      "createdAt": "2025-12-12T17:00:57.383Z",
+      "artifactUrl": "https://soundcloud.com/apesonape/sets/saint-dank-by-smokethatdank",
+      "metadataUrl": "ipfs://QmeRPJtkapX2D7LdCoZ1Ysc47WEmfRWFgL7ozyCiBKrpQU",
+      "contentHash": "0x517c376c8bea82d6afd509628026843af12192b70ecf8b1418cf8611ec51e735"
+    }
+  ]
+}
