@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Nav from '../../components/Nav';
 import Footer from '../../components/Footer';
-import { Download, Shirt, Upload } from 'lucide-react';
+import { Download, Shirt } from 'lucide-react';
 import { useToolTracking } from '@/app/hooks/useToolTracking';
 import { magicEdenAPI } from '@/lib/magic-eden';
 import SafeImage from '@/app/components/SafeImage';
@@ -19,15 +19,210 @@ type ClothingItem = {
   previewSrc?: string; // thumbnail shown in picker
 };
 
+type TraitLayer = {
+  name: 'Background' | 'Fur' | 'Clothes' | 'Eyes' | 'Hat' | 'Mouth' | 'Earring';
+  folder: string;
+  optional?: boolean;
+};
+
+const TRAIT_LAYERS: TraitLayer[] = [
+  { name: 'Background', folder: 'Background' },
+  { name: 'Fur', folder: 'Fur' },
+  { name: 'Clothes', folder: 'Clothes', optional: true },
+  { name: 'Eyes', folder: 'Eyes' },
+  { name: 'Hat', folder: 'Hat', optional: true },
+  { name: 'Mouth', folder: 'Mouth' },
+  { name: 'Earring', folder: 'Earring', optional: true },
+];
+
+// Map collection traits to corresponding assets in /public/traits
+const TRAIT_ASSET_MAP: Record<string, Record<string, string>> = {
+  Background: {
+    Ape: 'traits/Background/background.png',
+  },
+  Clothes: {
+    'Admirals Coat': 'traits/Clothes/admiral-coat.png',
+    Bandolier: 'traits/Clothes/bandolier.png',
+    'Biker Vest': 'traits/Clothes/biker-vest.png',
+    'Black Holes T': 'traits/Clothes/black-holes-t.png',
+    'Black Suit': 'traits/Clothes/black-suit.png',
+    'Black T': 'traits/Clothes/black-t.png',
+    'Blue Dress': 'traits/Clothes/blue-dress.png',
+    'Bone Necklace': 'traits/Clothes/bone-necklace.png',
+    'Bone Tee': 'traits/Clothes/bone-tee.png',
+    'Caveman Pelt': 'traits/Clothes/caveman-pelt.png',
+    'Cowboy Shirt': 'traits/Clothes/cowboy-shirt.png',
+    Guayabera: 'traits/Clothes/guayabera.png',
+    Hawaiian: 'traits/Clothes/hawaiian.png',
+    'Hip Hop': 'traits/Clothes/hip-hop.png',
+    "King's Robe": 'traits/Clothes/kings-robe.png',
+    'Lab Coat': 'traits/Clothes/lab-coat.png',
+    'Leather Jacket': 'traits/Clothes/leather-jacket.png',
+    'Leather Punk Jacket': 'traits/Clothes/leather-punk-jacket.png',
+    'Lumberjack Shirt': 'traits/Clothes/lumberjack-shirt.png',
+    'Navy Striped T': 'traits/Clothes/navy-striped-t.png',
+    'Pimp Coat': 'traits/Clothes/pimp-coat.png',
+    'Prison Jumpsuit': 'traits/Clothes/prison-jumpsuit.png',
+    'Prom Dress': 'traits/Clothes/prom-dress.png',
+    'Puffy Vest': 'traits/Clothes/puffy-vest.png',
+    'Rainbow Suspender': 'traits/Clothes/rainbow-suspenders.png',
+    'Rainbow Suspenders': 'traits/Clothes/rainbow-suspenders.png',
+    'Sailor Shirt': 'traits/Clothes/sailor-shirt.png',
+    'Sleeveless T': 'traits/Clothes/sleeveless-t.png',
+    'Smoking Jacket': 'traits/Clothes/smoking-jacket.png',
+    'Space Suit': 'traits/Clothes/space-suit.png',
+    'Striped Tee': 'traits/Clothes/striped-tee.png',
+    'Stunt Jacket': 'traits/Clothes/stunt-jacket.png',
+    Tanktop: 'traits/Clothes/tanktop.png',
+    'Tie Dye': 'traits/Clothes/tie-dye.png',
+    Toga: 'traits/Clothes/toga.png',
+    'Tuxedo Tee': 'traits/Clothes/tuxedo-tee.png',
+    'Tweed Suit': 'traits/Clothes/tweed-suit.png',
+    'Vietnam Jacket': 'traits/Clothes/vietnam-jacket.png',
+    'Wool Turtleneck': 'traits/Clothes/wool-turtleneck.png',
+    'Work Vest': 'traits/Clothes/work-vest.png',
+  },
+  Earring: {
+    Cross: 'traits/Earring/cross.png',
+    'Diamond Stud': 'traits/Earring/diamond-earring.png',
+    'Gold Hoop': 'traits/Earring/gold-hoop.png',
+    'Gold Stud': 'traits/Earring/gold-stud.png',
+    'Silver Hoop': 'traits/Earring/silver-hoop.png',
+    'Silver Stud': 'traits/Earring/silver-stud.png',
+  },
+  Eyes: {
+    Angry: 'traits/Eyes/angry.png',
+    Blindfold: 'traits/Eyes/blindfold.png',
+    Bloodshot: 'traits/Eyes/bloodshot.png',
+    'Blue Beams': 'traits/Eyes/blue-beams.png',
+    Bored: 'traits/Eyes/bored.png',
+    Closed: 'traits/Eyes/closed.png',
+    Coins: 'traits/Eyes/coins.png',
+    Crazy: 'traits/Eyes/crazy.png',
+    Cyborg: 'traits/Eyes/cyborg.png',
+    Eyepatch: 'traits/Eyes/eyepatch.png',
+    Heart: 'traits/Eyes/heart.png',
+    Holographic: 'traits/Eyes/holographic.png',
+    Hypnotized: 'traits/Eyes/hypnotized.png',
+    Laser: 'traits/Eyes/Laser.png',
+    'Laser Eyes': 'traits/Eyes/laser-eyes.png',
+    'NOT A CULT glasses': 'traits/Eyes/3d-glasses.png',
+    Robot: 'traits/Eyes/robot.png',
+    Sad: 'traits/Eyes/sad.png',
+    Scumbag: 'traits/Eyes/scumbag.png',
+    Sleepy: 'traits/Eyes/sleepy.png',
+    Sunglasses: 'traits/Eyes/sunglasses.png',
+    'Wide Eyed': 'traits/Eyes/wide-eyed.png',
+    'X Eyes': 'traits/Eyes/x-eyes.png',
+    Zombie: 'traits/Eyes/zombie.png',
+  },
+  Fur: {
+    Black: 'traits/Fur/black-fur.png',
+    Blue: 'traits/Fur/blue-fur.png',
+    Brown: 'traits/Fur/brown-fur.png',
+    Cheetah: 'traits/Fur/cheetah-fur.png',
+    Cream: 'traits/Fur/cream-fur.png',
+    'Dark Brown': 'traits/Fur/dark-brown-fur.png',
+    'Death Bot': 'traits/Fur/deathbot-fur.png',
+    Dmt: 'traits/Fur/dmt-fur.png',
+    'Golden Brown': 'traits/Fur/golden-brown-fur.png',
+    Gray: 'traits/Fur/gray-fur.png',
+    Noise: 'traits/Fur/noise-fur.png',
+    Pink: 'traits/Fur/pink-fur.png',
+    Red: 'traits/Fur/red-fur.png',
+    Robot: 'traits/Fur/robot-fur.png',
+    'Solid Gold': 'traits/Fur/solid-gold-fur.png',
+    Tan: 'traits/Fur/tan-fur.png',
+    Trippy: 'traits/Fur/trippy-fur.png',
+    White: 'traits/Fur/white-fur.png',
+    Zombie: 'traits/Fur/zombie-fur.png',
+  },
+  Hat: {
+    'Army Hat': 'traits/Hat/army-hat.png',
+    "Baby's Bonnet": 'traits/Hat/baby-bonnet.png',
+    'Bandana Blue': 'traits/Hat/bandana-blue.png',
+    Beanie: 'traits/Hat/beanie.png',
+    Bowler: 'traits/Hat/bowler.png',
+    'Bunny Ears': 'traits/Hat/bunny-ears.png',
+    'Commie Hat': 'traits/Hat/commie-hat.png',
+    'Cowboy Hat': 'traits/Hat/cowboy-hat.png',
+    Fez: 'traits/Hat/fez.png',
+    "Fisherman's Hat": 'traits/Hat/fisherman-hat.png',
+    'Flipped Brim': 'traits/Hat/flipped-brim.png',
+    "Girl's Hair Pink": 'traits/Hat/girl-hair-pink.png',
+    "Girl's Hair Short": 'traits/Hat/girls-hair-short.png',
+    Halo: 'traits/Hat/halo.png',
+    Horns: 'traits/Hat/horns.png',
+    'Irish Boho': 'traits/Hat/irish-boho.png',
+    "King's Crown": 'traits/Hat/kings-crown.png',
+    'Laurels Wreath': 'traits/Hat/laurels-wreath.png',
+    'Party Hat 1': 'traits/Hat/party-hat-1.png',
+    'Party Hat 2': 'traits/Hat/party-hat-2.png',
+    'Prussian Helmet': 'traits/Hat/prussian-helmet.png',
+    'S&m Hat': 'traits/Hat/s&m-hat.png',
+    Safari: 'traits/Hat/safari.png',
+    "Sea Captain's Hat": 'traits/Hat/sea-captain-hat.png',
+    "Seaman's Hat": 'traits/Hat/seaman-hat.png',
+    'Spinner Hat': 'traits/Hat/spinner-hat.png',
+    'Sushi Chef Headband': 'traits/Hat/sushi-chef-headband.png',
+    "Trippy Captain's Hat": 'traits/Hat/trippy-captain-hat.png',
+    'Vietnam Era Helmet': 'traits/Hat/vietnam-era-helmet.png',
+  },
+  Mouth: {
+    Bored: 'traits/Mouth/bored.png',
+    'Bored Bubblegum': 'traits/Mouth/bored-bubblegum.png',
+    'Bored Cigar': 'traits/Mouth/bored-cigar.png',
+    'Bored Cigarette': 'traits/Mouth/bored-cigarette.png',
+    'Bored Dagger': 'traits/Mouth/bored-dagger.png',
+    'Bored Kazoo': 'traits/Mouth/bored-kazoo.png',
+    'Bored Party Horn': 'traits/Mouth/bored-party-horn.png',
+    'Bored Pipe': 'traits/Mouth/bored-pipe.png',
+    'Bored Pizza': 'traits/Mouth/bored-pizza.png',
+    'Bored Unshaven': 'traits/Mouth/bored-unshaven.png',
+    'Bored Unshaven Bubblegum': 'traits/Mouth/bored-unshaven-bubblegum.png',
+    'Bored Unshaven Cigar': 'traits/Mouth/bored-unshaven-cigar.png',
+    'Bored Unshaven Cigarette': 'traits/Mouth/bored-unshaven-cigarette.png',
+    'Bored Unshaven Dagger': 'traits/Mouth/bored-unshaven-dagger.png',
+    'Bored Unshaven Kazoo': 'traits/Mouth/bored-unshaven-kazoo.png',
+    'Bored Unshaven Party Horn': 'traits/Mouth/bored-unshaven-partyhorn.png',
+    'Bored Unshaven Pipe': 'traits/Mouth/bored-unshaven-pipe.png',
+    'Bored Unshaven Pizza': 'traits/Mouth/bored-unshaven-pizza.png',
+    Discomfort: 'traits/Mouth/discomfort.png',
+    Dumbfounded: 'traits/Mouth/dumbfounded.png',
+    Grin: 'traits/Mouth/grin.png',
+    'Grin Diamond Grill': 'traits/Mouth/diamond-grill.png',
+    'Grin Gold Grill': 'traits/Mouth/gold-grill.png',
+    'Grin Multicolored': 'traits/Mouth/rainbow-grill.png',
+    'Grin Multicolored Grill': 'traits/Mouth/rainbow-grill.png',
+    Jovial: 'traits/Mouth/jovial.png',
+    'Phoneme L': 'traits/Mouth/phoneme-l.png',
+    'Phoneme Oh': 'traits/Mouth/phoneme-oh.png',
+    'Phoneme Ooo': 'traits/Mouth/phoneme-ooo.png',
+    'Phoneme Vuh': 'traits/Mouth/phoneme-vuh.png',
+    'Phoneme Wah': 'traits/Mouth/phoneme-wah.png',
+    Rage: 'traits/Mouth/rage.png',
+    'Small Grin': 'traits/Mouth/small-grin.png',
+    'Tongue Out': 'traits/Mouth/tongue-out.png',
+  },
+};
+
+const resolveTraitAsset = (traitType: string, value: string | undefined | null) => {
+  if (!value) return null;
+  const byType = TRAIT_ASSET_MAP[traitType];
+  if (!byType) return null;
+  const rel = byType[value];
+  if (!rel) return null;
+  return rel.startsWith('/') ? rel : `/${rel}`;
+};
+
 const CLOTHES: ClothingItem[] = [
   // Hats
   { id: 'santa-hat', name: 'Santa Hat', src: '/wardrobe/hats/santa-hat.png', previewSrc: '/wardrobe/hats-preview/santa-hat.png', category: 'Hats' },
-  // Accessories
-  { id: 'gm-arm', name: 'GM Arm + Mug', src: '/file.svg', category: 'Accessories' },
   // Tops (reflect current files in public/wardrobe/tops)
-  { id: 'bandolier', name: 'Bandolier', src: '/wardrobe/tops/bandolier.png', previewSrc: '/wardrobe/tops-preview/bandolier.png', category: 'Tops' },
-  { id: 'bone-necklace', name: 'Bone Necklace', src: '/wardrobe/tops/bone-necklace.png', previewSrc: '/wardrobe/tops-preview/bone-necklace.png', category: 'Tops' },
   { id: 'santavest', name: 'Santa Vest', src: '/wardrobe/tops/santavest.png', previewSrc: '/wardrobe/tops-preview/santavest-preview.png', category: 'Tops' },
+  { id: 'apesuit', name: 'Apesuit', src: '/wardrobe/tops/apesuit.png', previewSrc: '/wardrobe/tops-preview/apesuit.png', category: 'Tops' },
+  { id: 'survived-apesuit', name: 'Survived Apesuit', src: '/wardrobe/tops/survived-apesuit.png', previewSrc: '/wardrobe/tops-preview/survived-apesuit.png', category: 'Tops' },
+  { id: 'sweater', name: 'Sweater', src: '/wardrobe/tops/sweater.png', previewSrc: '/wardrobe/tops-preview/sweater.png', category: 'Tops' },
 ];
 
 const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Tops', 'Accessories'];
@@ -35,6 +230,21 @@ const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Tops', 'Accessorie
 const OUTPUT_SIZE = 4096;
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+const furToMugSlug = (fur: string) => {
+  switch (fur) {
+    case 'Dark Brown': return 'darkbrown';
+    case 'Death Bot': return 'deathbot';
+    case 'Golden Brown': return 'golden-brown';
+    case 'Solid Gold': return 'solid-gold';
+    default: return slugify(fur);
+  }
+};
+const furToAccessorySlug = (fur: string) => {
+  switch (fur) {
+    case 'Death Bot': return 'deathbot';
+    default: return slugify(fur);
+  }
+};
 
 export default function WardrobePage() {
   // Track tool usage for gamification
@@ -50,47 +260,108 @@ export default function WardrobePage() {
   const [flashOn, setFlashOn] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [includeGmArm, setIncludeGmArm] = useState<boolean>(true);
+  const [loadedTraits, setLoadedTraits] = useState<Array<{ name: string; value: string }> | null>(null);
+  const [keepHat, setKeepHat] = useState<boolean>(false);
+  const [keepEyes, setKeepEyes] = useState<boolean>(true);
+  const [keepMouth, setKeepMouth] = useState<boolean>(true);
+  const [keepClothes, setKeepClothes] = useState<boolean>(false);
   const furColors = useMemo(() => (
     ['Black','Blue','Brown','Cheetah','Cream','Dark Brown','Death Bot','Dmt','Golden Brown','Gray','Noise','Pink','Red','Robot','Solid Gold','Tan','Trippy','White','Zombie'] as const
   ), []);
   type FurColor = typeof furColors[number];
   const [furColor, setFurColor] = useState<FurColor>('Brown');
-
-  const toggleSelect = useCallback((id: string) => {
-    if (id === 'gm-arm') {
-      setIncludeGmArm((prev) => !prev);
-      return;
-    }
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const handlePickBase = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setBaseSrc(url);
-    setNote(null);
-    setPreviewUrl(null);
-    // Best-effort hint if not 4096x4096
-    const img = new window.Image();
-    img.onload = () => {
-      if ((img.naturalWidth !== OUTPUT_SIZE) || (img.naturalHeight !== OUTPUT_SIZE)) {
-        setNote('Tip: For best results, use a 4096×4096 image.');
-      }
+  const furAccessories = useMemo<ClothingItem[]>(() => {
+    const slug = furToAccessorySlug(furColor);
+    const build = (
+      id: string,
+      name: string,
+      folder: string,
+      slugOverrides?: Partial<Record<FurColor, string>>
+    ): ClothingItem => {
+      const effectiveSlug = slugOverrides?.[furColor] || slug;
+      const path = `/wardrobe/accessories/${folder}/${effectiveSlug}-fur-${folder}.png`;
+      return {
+        id,
+        name,
+        src: path,
+        previewSrc: path,
+        category: 'Accessories',
+      };
     };
-    img.src = url;
+    return [
+      build('bananas', 'Bananas', 'bananas'),
+      build('gn1', 'GN1', 'gn1'),
+      build('graffiti', 'Graffiti', 'graffiti', { 'Dark Brown': 'dark-brow' }),
+      build('kaboom', 'Kaboom', 'kaboom'),
+      build('shotgun', 'Shotgun', 'shotgun'),
+    ];
+  }, [furColor]);
+
+  // Build a base image from on-chain traits, optionally excluding hat
+  const composeBaseFromTraits = useCallback(async (
+    traits: { name: string; value: string }[],
+    opts: { includeHat?: boolean; includeClothes?: boolean; includeEyes?: boolean; includeMouth?: boolean } = {}
+  ) => {
+    const {
+      includeHat = true,
+      includeClothes = true,
+      includeEyes = true,
+      includeMouth = true,
+    } = opts;
+    const canvas = document.createElement('canvas');
+    canvas.width = OUTPUT_SIZE;
+    canvas.height = OUTPUT_SIZE;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    const load = (url: string) =>
+      new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = url;
+      });
+
+    const layers = TRAIT_LAYERS.filter((l) => {
+      if (!includeHat && l.name === 'Hat') return false;
+      if (!includeClothes && l.name === 'Clothes') return false;
+      if (!includeEyes && l.name === 'Eyes') return false;
+      if (!includeMouth && l.name === 'Mouth') return false;
+      return true;
+    });
+    for (const layer of layers) {
+      const traitValue = traits.find((t) => t.name.toLowerCase() === layer.name.toLowerCase())?.value;
+      if (!traitValue) {
+        if (!layer.optional) {
+          // Required layer missing: abort early
+          return null;
+        }
+        continue;
+      }
+      const asset = resolveTraitAsset(layer.name, traitValue);
+      if (!asset) {
+        if (!layer.optional) return null;
+        continue;
+      }
+      try {
+        const img = await load(asset);
+        ctx.drawImage(img, 0, 0, img.naturalWidth || img.width, img.naturalHeight || img.height, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+      } catch (err) {
+        console.warn('Missing trait asset', layer.name, traitValue, err);
+        if (!layer.optional) return null;
+      }
+    }
+    return canvas.toDataURL('image/png');
   }, []);
 
   const handleLoadById = useCallback(async () => {
     if (!tokenId.trim() || loadingNft) return;
     setLoadingNft(true);
     setNote(null);
+    setSelectedIds(new Set());
+    setPreviewUrl(null);
+    setLoadedTraits(null);
     try {
       if (!/^\d+$/.test(tokenId.trim())) {
         setNote('Please enter a numeric token ID (e.g., 1234).');
@@ -101,11 +372,23 @@ export default function WardrobePage() {
         setNote('Token not found. Check the ID and try again.');
         return;
       }
-      setBaseSrc(nft.image);
-      setPreviewUrl(null);
       const furTrait = nft.traits.find((t) => t.name.toLowerCase() === 'fur');
       if (furTrait && furColors.includes(furTrait.value as FurColor)) {
         setFurColor(furTrait.value as FurColor);
+      }
+      setLoadedTraits(nft.traits);
+      // Build a base image from traits, omitting the hat layer so hats can be swapped
+      const composed = await composeBaseFromTraits(nft.traits, {
+        includeHat: keepHat,
+        includeClothes: keepClothes,
+        includeEyes: keepEyes,
+        includeMouth: keepMouth,
+      });
+      if (composed) {
+        setBaseSrc(composed);
+      } else {
+        setBaseSrc(nft.image);
+        setNote('Could not build from traits, fell back to token image.');
       }
     } catch (err) {
       console.error('Load NFT error:', err);
@@ -113,7 +396,7 @@ export default function WardrobePage() {
     } finally {
       setLoadingNft(false);
     }
-  }, [tokenId, loadingNft, furColors]);
+  }, [tokenId, loadingNft, furColors, composeBaseFromTraits, keepHat, keepClothes, keepEyes, keepMouth]);
 
   // Attempt to prime audio on first interaction to avoid autoplay restrictions
   useEffect(() => {
@@ -135,17 +418,51 @@ export default function WardrobePage() {
     };
   }, []);
 
-  // Build GM arm asset path (PNG overlays to be added later by fur color)
-  const getGmArmPath = useCallback((fur: FurColor) => `/wardrobe/gm-arm/${slugify(fur)}.png`, []);
-  const [gmArmPreviewOk, setGmArmPreviewOk] = useState(false);
+  const getGmMugPath = useCallback((fur: FurColor) => `/wardrobe/accessories/mugs/${furToMugSlug(fur)}-fur-mug.png`, []);
+  const [gmMugPreviewOk, setGmMugPreviewOk] = useState(false);
   useEffect(() => {
-    if (!includeGmArm) { setGmArmPreviewOk(false); return; }
-    const url = getGmArmPath(furColor);
+    const url = getGmMugPath(furColor);
     const img = new window.Image();
-    img.onload = () => setGmArmPreviewOk(true);
-    img.onerror = () => setGmArmPreviewOk(false);
+    img.onload = () => setGmMugPreviewOk(true);
+    img.onerror = () => setGmMugPreviewOk(false);
     img.src = url;
-  }, [includeGmArm, furColor, getGmArmPath]);
+  }, [furColor, getGmMugPath]);
+
+  const gmMugItem = useMemo<ClothingItem | null>(() => (
+    gmMugPreviewOk ? {
+      id: 'gm-mug',
+      name: `GM Mug (${furColor})`,
+      src: getGmMugPath(furColor),
+      previewSrc: getGmMugPath(furColor),
+      category: 'Accessories',
+    } : null
+  ), [gmMugPreviewOk, getGmMugPath, furColor]);
+
+  const clothesAvailable = useMemo(() => {
+    const base = [...CLOTHES, ...furAccessories];
+    return gmMugItem ? [...base, gmMugItem] : base;
+  }, [gmMugItem, furAccessories]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const item = clothesAvailable.find((c) => c.id === id);
+      if (!item) return prev;
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        return next;
+      }
+      // allow only one per category: remove others in the same category
+      for (const selId of Array.from(next)) {
+        const selItem = clothesAvailable.find((c) => c.id === selId);
+        if (selItem && selItem.category === item.category) {
+          next.delete(selId);
+        }
+      }
+      next.add(id);
+      return next;
+    });
+  }, [clothesAvailable]);
 
   const compose = useCallback(async (): Promise<string | null> => {
     if (!baseSrc) return null;
@@ -164,25 +481,31 @@ export default function WardrobePage() {
         img.src = url;
       });
 
-    const base = await load(baseSrc);
+    let base: HTMLImageElement | null = null;
+    if (loadedTraits) {
+      // Rebuild base on the fly according to selected keep flags
+      const rebuilt = await composeBaseFromTraits(loadedTraits, {
+        includeHat: keepHat,
+        includeClothes: keepClothes,
+        includeEyes: keepEyes,
+        includeMouth: keepMouth,
+      });
+      if (rebuilt) {
+        base = await load(rebuilt);
+      }
+    }
+    if (!base) {
+      base = await load(baseSrc);
+    }
     ctx.drawImage(base, 0, 0, base.naturalWidth || base.width, base.naturalHeight || base.height, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
 
-    const selected = CLOTHES.filter((c) => selectedIds.has(c.id));
+    const selected = clothesAvailable.filter((c) => selectedIds.has(c.id));
     for (const item of selected) {
-      if (item.id === 'gm-arm') continue;
       const overlay = await load(item.src);
       ctx.drawImage(overlay, 0, 0, overlay.naturalWidth || overlay.width, overlay.naturalHeight || overlay.height, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
     }
-    if (includeGmArm) {
-      try {
-        const gm = await load(getGmArmPath(furColor));
-        ctx.drawImage(gm, 0, 0, gm.naturalWidth || gm.width, gm.naturalHeight || gm.height, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
-      } catch {
-        // If asset not present yet, skip gracefully
-      }
-    }
     return canvas.toDataURL('image/png');
-  }, [baseSrc, selectedIds, includeGmArm, furColor, getGmArmPath]);
+  }, [baseSrc, selectedIds, furColor, clothesAvailable]);
 
   const handleGeneratePreview = useCallback(async () => {
     if (!baseSrc || isGenerating) return;
@@ -223,7 +546,26 @@ export default function WardrobePage() {
     a.click();
   }, [baseSrc, previewUrl, compose]);
 
-  const filtered = CLOTHES.filter((c) => c.category === activeCategory);
+  const filtered = clothesAvailable.filter((c) => c.category === activeCategory);
+
+  // When keep toggles change, rebuild base from traits (if present) to reflect selection
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!loadedTraits) return;
+      const rebuilt = await composeBaseFromTraits(loadedTraits, {
+        includeHat: keepHat,
+        includeClothes: keepClothes,
+        includeEyes: keepEyes,
+        includeMouth: keepMouth,
+      });
+      if (rebuilt && !cancelled) {
+        setBaseSrc(rebuilt);
+        setPreviewUrl(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [loadedTraits, keepHat, keepClothes, keepEyes, keepMouth, composeBaseFromTraits]);
 
   return (
     <div className="min-h-screen relative">
@@ -254,7 +596,7 @@ export default function WardrobePage() {
             <span className="text-xs text-hero-blue">Wardrobe</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold" style={{ color: 'var(--foreground)' }}>
-            Mad Lab Wardrobe
+            Ape Wardrobe
           </h1>
           <p className="text-off-white/80 mt-2 max-w-2xl">
             Step into the scientist’s workshop. Upload a 4096×4096 Ape, select overlays, then generate with a flash of chaotic genius.
@@ -279,21 +621,7 @@ export default function WardrobePage() {
               <div className="text-xs text-off-white/60 mt-2">Loads image and traits from IPFS via tokenURI.</div>
               {note && <div className="text-xs text-red-400 mt-2">{note}</div>}
             </div>
-
-            {/* Upload alternative */}
-            <div className="border-t border-white/10 pt-3">
-              <label className="block text-sm mb-2" style={{ color: 'var(--foreground)' }}>Or upload 4096×4096 image</label>
-              <label className="btn-secondary inline-flex items-center gap-2 cursor-pointer">
-                <Upload className="w-4 h-4" />
-                <span>Upload Ape</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handlePickBase} />
-              </label>
-              <div className="text-xs text-off-white/60 mt-2">Recommended: 4096×4096 PNG with transparency.</div>
-              {note && <div className="text-xs text-off-white/60 mt-2">{note}</div>}
-            </div>
-
-            {/* GM Arm configuration removed; use Accessories tile to toggle */}
-
+              {/* GM Arm configuration removed; use Accessories tile to toggle */}
             <div className="border-t border-white/10 pt-3">
               <div className="flex items-center gap-2 mb-3">
                 {CATEGORIES.map((cat) => (
@@ -306,12 +634,31 @@ export default function WardrobePage() {
                   </button>
                 ))}
               </div>
+              {/* Trait keep toggles */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <label className="flex items-center gap-2 text-xs text-off-white/80">
+                  <input type="checkbox" checked={keepHat} onChange={() => setKeepHat((v) => !v)} className="accent-hero-blue" />
+                  Keep Hat
+                </label>
+                <label className="flex items-center gap-2 text-xs text-off-white/80">
+                  <input type="checkbox" checked={keepClothes} onChange={() => setKeepClothes((v) => !v)} className="accent-hero-blue" />
+                  Keep Clothes
+                </label>
+                <label className="flex items-center gap-2 text-xs text-off-white/80">
+                  <input type="checkbox" checked={keepEyes} onChange={() => setKeepEyes((v) => !v)} className="accent-hero-blue" />
+                  Keep Eyes
+                </label>
+                <label className="flex items-center gap-2 text-xs text-off-white/80">
+                  <input type="checkbox" checked={keepMouth} onChange={() => setKeepMouth((v) => !v)} className="accent-hero-blue" />
+                  Keep Mouth
+                </label>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 {filtered.length === 0 && (
                   <div className="text-sm text-off-white/60 col-span-2">No items yet.</div>
                 )}
                 {filtered.map((item) => {
-                  const isOn = item.id === 'gm-arm' ? includeGmArm : selectedIds.has(item.id);
+                  const isOn = selectedIds.has(item.id);
                   return (
                     <button
                       key={item.id}
@@ -394,7 +741,7 @@ export default function WardrobePage() {
                     <>
                       {/* Live layered preview before generation */}
                       <SafeImage src={baseSrc} alt="Base Ape" className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none" fill unoptimized />
-                      {CLOTHES.filter((c) => selectedIds.has(c.id)).map((item) => (
+                      {clothesAvailable.filter((c) => selectedIds.has(c.id)).map((item) => (
                         <SafeImage
                           key={item.id}
                           src={item.src}
@@ -405,16 +752,6 @@ export default function WardrobePage() {
                           sizes="100vw"
                         />
                       ))}
-                      {includeGmArm && gmArmPreviewOk && (
-                        <SafeImage
-                          src={getGmArmPath(furColor)}
-                          alt="GM Arm"
-                          className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
-                          fill
-                          unoptimized
-                          sizes="100vw"
-                        />
-                      )}
                     </>
                   )}
                 </>

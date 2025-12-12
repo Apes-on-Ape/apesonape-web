@@ -1,15 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    turbo: {
-      resolveAlias: {
-        '@react-native-async-storage/async-storage': './shims/empty.ts',
-        '@solana-program/system': './shims/solana-system.ts',
-        // Allow Privy modules (required by GlyphPrivyProvider)
-      },
-    },
-  },
   images: {
     unoptimized: true,
     remotePatterns: [
@@ -84,9 +75,33 @@ const nextConfig: NextConfig = {
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
-      '@react-native-async-storage/async-storage': require.resolve('./shims/empty.ts'),
-      '@solana-program/system': require.resolve('./shims/solana-system.ts'),
-      // Allow Privy packages for GlyphPrivyProvider
+      '@react-native-async-storage/async-storage': require.resolve('./shims/empty.js'),
+      '@solana-program/system': require.resolve('./shims/solana-system.js'),
+      '@solana-program/token': require.resolve('./shims/solana-token.js'),
+      '@solana-program/token-2022': require.resolve('./shims/solana-token.js'),
+      // Prevent bundling optional test deps referenced in thread-stream tests/benches
+      tap: require.resolve('./shims/empty.js'),
+      tape: require.resolve('./shims/empty.js'),
+      'why-is-node-running': require.resolve('./shims/empty.js'),
+      desm: require.resolve('./shims/empty.js'),
+      'fastbench': require.resolve('./shims/empty.js'),
+      'pino-elasticsearch': require.resolve('./shims/empty.js'),
+      'thread-stream/test': require.resolve('./shims/empty.js'),
+      'thread-stream/bench.js': require.resolve('./shims/empty.js'),
+      '@reown/appkit-controllers/node_modules/thread-stream/test': require.resolve('./shims/empty.js'),
+      '@reown/appkit-controllers/node_modules/thread-stream/bench.js': require.resolve('./shims/empty.js'),
+      '@reown/appkit-utils/node_modules/thread-stream/test': require.resolve('./shims/empty.js'),
+      '@reown/appkit-utils/node_modules/thread-stream/bench.js': require.resolve('./shims/empty.js'),
+      '@reown/appkit/node_modules/thread-stream/test': require.resolve('./shims/empty.js'),
+      '@reown/appkit/node_modules/thread-stream/bench.js': require.resolve('./shims/empty.js'),
+      '/ROOT/node_modules/thread-stream/test/create-and-exit.js': require.resolve('./shims/empty.js'),
+      '/ROOT/node_modules/thread-stream/test/close-on-gc.js': require.resolve('./shims/empty.js'),
+      '/ROOT/node_modules/@reown/appkit-controllers/node_modules/thread-stream/test/create-and-exit.js': require.resolve('./shims/empty.js'),
+      '/ROOT/node_modules/@reown/appkit-controllers/node_modules/thread-stream/test/close-on-gc.js': require.resolve('./shims/empty.js'),
+      '/ROOT/node_modules/@reown/appkit-utils/node_modules/thread-stream/test/create-and-exit.js': require.resolve('./shims/empty.js'),
+      '/ROOT/node_modules/@reown/appkit-utils/node_modules/thread-stream/test/close-on-gc.js': require.resolve('./shims/empty.js'),
+      '/ROOT/node_modules/@reown/appkit/node_modules/thread-stream/test/create-and-exit.js': require.resolve('./shims/empty.js'),
+      '/ROOT/node_modules/@reown/appkit/node_modules/thread-stream/test/close-on-gc.js': require.resolve('./shims/empty.js'),
     };
     return config;
   },
