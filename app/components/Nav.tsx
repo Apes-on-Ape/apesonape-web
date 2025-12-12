@@ -31,6 +31,7 @@ export default function Nav() {
     { href: '/collection', label: 'Collection' },
     { href: '/sound', label: 'Sound' },
     { href: '/gallery', label: 'Gallery' },
+    { href: '/studio', label: 'Studio' },
   ];
 
   return (
