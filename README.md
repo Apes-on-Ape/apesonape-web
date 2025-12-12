@@ -7,6 +7,7 @@ The official website for the Apes On Ape NFT collection on Apechain. A playgroun
 ## 🌟 Features
 
 - **Dynamic NFT Gallery**: Customizable 8×4 grid (adjustable from 4×2 to 12×6) with live Magic Eden integration
+- **ApeChain Culture Dashboard**: Ranks top communities by Magic Eden metadata, on-chain activity, and X (Twitter) mentions with caching and mock fallbacks
 - **Collection Explorer**: Advanced filtering, sorting, and infinite scroll
 - **Sound Studio**: Monthly spotlights and continuous radio streaming from SoundCloud
 - **Community Hub**: Sections for musicians, artists, game devs, and builders
@@ -29,7 +30,7 @@ cd apesonape-web
 npm install
 
 # Copy environment variables
-cp .env.local.example .env.local
+cp env.local.example .env.local
 # Edit .env.local with your API keys
 
 # Run development server
@@ -132,7 +133,35 @@ SOUNDCLOUD_CLIENT_ID=your_client_id
 NEXT_PUBLIC_SITE_URL=https://apesonape.io
 ```
 
-See `.env.local.example` for all available variables.
+See `env.local.example` for all available variables.
+
+## 🧭 ApeChain Culture Dashboard
+
+- **Page**: `/dashboard`
+- **APIs**: `/api/dashboard/communities` (ranked list, cached 5 min) and `/api/dashboard/community` (per-contract detail, cached 5 min + 6h social cache).
+- **Data**:
+  - Collections + images from Magic Eden ApeChain RTP endpoint (cached 5 min)
+  - On-chain metrics from Covalent when `COVALENT_KEY` is set, otherwise mock data keeps UI stable
+  - Social mentions from X counts recent when `X_BEARER_TOKEN` is set, otherwise deterministic mock with “Mock social data” badge
+- **Scoring**: log-normalized composite (50% tx, 30% wallets, 20% social) with 7d/24h toggle
+- **Extras**: shareable PNG card for the top 10, detail drawer with 7d chart and links to Magic Eden + explorer
+
+### Dashboard Environment Variables
+
+```
+# Magic Eden
+MAGICEDEN_API_KEY=
+
+# On-chain
+ONCHAIN_PROVIDER=covalent
+COVALENT_KEY=
+BITQUERY_KEY=
+APECHAIN_RPC_URL=
+NEXT_PUBLIC_APECHAIN_CHAIN_ID=33139
+
+# Social
+X_BEARER_TOKEN=
+```
 
 ### Updating the Monthly Spotlight
 

@@ -28,6 +28,7 @@ export default function Nav() {
 
   const navLinks = [
     { href: '/', label: 'Home' },
+    { href: '/dashboard', label: 'Dashboard' },
     { href: '/collection', label: 'Collection' },
     { href: '/sound', label: 'Sound' },
     { href: '/gallery', label: 'Gallery' },
