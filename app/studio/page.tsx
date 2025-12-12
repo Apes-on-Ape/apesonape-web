@@ -43,8 +43,8 @@ export default function StudioExplorePage() {
 	const [error, setError] = useState<string | null>(null);
 
 	const filteredSubtitle = useMemo(() => {
-		if (typeFilter === 'all') return 'All experiments';
-		return `${typeLabels[typeFilter]} experiments`;
+		if (typeFilter === 'all') return 'All creations';
+		return `${typeLabels[typeFilter]} creations`;
 	}, [typeFilter]);
 
 	const loadFeed = async () => {
@@ -88,6 +88,30 @@ export default function StudioExplorePage() {
 			);
 		}
 		if (creation.type === 'sound') {
+			const url = creation.artifact.externalUrl || creation.artifactUrl;
+			if (url.includes('soundcloud.com')) {
+				return (
+					<iframe
+						title="Sound preview"
+						width="100%"
+						height="100%"
+						allow="autoplay"
+						src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&auto_play=false&hide_related=false&show_comments=false&show_user=true&show_reposts=false&visual=true`}
+					/>
+				);
+			}
+			if (url.includes('spotify.com')) {
+				const embed = url.replace('open.spotify.com/', 'open.spotify.com/embed/');
+				return (
+					<iframe
+						title="Spotify preview"
+						width="100%"
+						height="100%"
+						allow="encrypted-media"
+						src={embed}
+					/>
+				);
+			}
 			return (
 				<div className="flex items-center justify-center h-full w-full bg-black/40">
 					<Play className="w-10 h-10 text-off-white/80" />
@@ -125,16 +149,13 @@ export default function StudioExplorePage() {
 							</div>
 							<h1 className="text-4xl font-bold mt-3">Sound. Art. Code. Vision.</h1>
 							<p className="text-off-white/70 mt-2 max-w-2xl">
-								Raw experiments—published by creators. Every drop is attributed to the wallet that shipped it.
+								Raw creations—published by creators. Every drop is attributed to the wallet that shipped it.
 							</p>
 							<div className="text-off-white/60 text-sm mt-1">{filteredSubtitle}</div>
 						</div>
 						<div className="flex items-center gap-3">
 							<Link href="/studio/new" className="btn-primary px-5 py-2 text-sm">
-								Publish Experiment
-							</Link>
-							<Link href="/gallery" className="btn-secondary px-4 py-2 text-sm">
-								Community Gallery
+								Publish
 							</Link>
 						</div>
 					</div>
@@ -180,7 +201,7 @@ export default function StudioExplorePage() {
 				{error && <div className="text-red-300 text-sm">{error}</div>}
 				{!loading && !error && creations.length === 0 && (
 					<div className="rounded-xl border border-white/10 bg-black/40 p-6 text-off-white/70">
-						No experiments yet. Be the first to <Link href="/studio/new" className="underline">publish</Link>.
+						No creations yet. Be the first to <Link href="/studio/new" className="underline">publish</Link>.
 					</div>
 				)}
 
@@ -208,7 +229,16 @@ export default function StudioExplorePage() {
 								</div>
 								<p className="text-sm text-off-white/70 line-clamp-2">{creation.description}</p>
 								<div className="flex items-center gap-2 text-xs text-off-white/60">
-									<span>{shortAddress(creation.creatorAddress)}</span>
+									<Link
+										href={
+											creation.glyphProfile?.xHandle
+												? `/studio/creator/${creation.glyphProfile.xHandle.toLowerCase()}`
+												: `/studio/creator/${creation.creatorAddress.toLowerCase()}`
+										}
+										className="hover:underline underline-offset-2"
+									>
+										{creation.glyphProfile?.xHandle ? `@${creation.glyphProfile.xHandle}` : shortAddress(creation.creatorAddress)}
+									</Link>
 									{creation.glyphProfile?.verified ? (
 										<span className="inline-flex items-center gap-1 text-green-400">
 											<BadgeCheck className="w-3 h-3" /> Glyph verified

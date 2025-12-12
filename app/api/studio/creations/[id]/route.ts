@@ -1,7 +1,7 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getCreation } from '@/lib/studio/persistence';
+import { deleteCreation, getCreation } from '@/lib/studio/persistence';
 
 export async function GET(
 	_req: NextRequest,
@@ -17,6 +17,50 @@ export async function GET(
 		});
 	} catch (e: unknown) {
 		const msg = e instanceof Error ? e.message : 'Failed to load';
+		return NextResponse.json({ error: msg }, { status: 500 });
+	}
+}
+
+export async function DELETE(
+	req: NextRequest,
+	{ params }: { params: { id: string } },
+) {
+	try {
+		const creation = await getCreation(params.id);
+		if (!creation) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+		const body = (await req.json().catch(() => ({}))) as {
+			creatorAddress?: string;
+			glyphId?: string;
+			handle?: string;
+		};
+		const requesterAddr = (body.creatorAddress || '').toLowerCase();
+		const requesterGlyph = body.glyphId || '';
+		const requesterHandle = (body.handle || '').toLowerCase();
+
+		const creationAddr = (creation.creatorAddress || '').toLowerCase();
+		const creationGlyph = creation.glyphProfile?.glyphId || '';
+
+		// Admin override: ApeProfessore can delete any creation
+		if (requesterHandle === 'apeporfessore') {
+			const ok = await deleteCreation(params.id);
+			if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+			return NextResponse.json({ ok: true, admin: true });
+		}
+
+		if (!requesterAddr || requesterAddr !== creationAddr) {
+			return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+		}
+		// If creation stored glyphId, require match as an extra check
+		if (creationGlyph && requesterGlyph && creationGlyph !== requesterGlyph) {
+			return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+		}
+
+		const ok = await deleteCreation(params.id);
+		if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+		return NextResponse.json({ ok: true });
+	} catch (e: unknown) {
+		const msg = e instanceof Error ? e.message : 'Failed to delete';
 		return NextResponse.json({ error: msg }, { status: 500 });
 	}
 }

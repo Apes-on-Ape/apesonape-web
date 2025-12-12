@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { CreationRecord, CreationType } from './types';
+import { getSupabaseServiceClient } from '../supabase';
 
 const DATA_PATH = path.join(process.cwd(), 'data', 'studio-creations.json');
 const CACHE_TTL_MS = 45 * 1000;
@@ -10,6 +11,7 @@ type ListOptions = {
 	cursor?: string | null;
 	type?: CreationType | 'all';
 	search?: string | null;
+	creator?: string | null;
 };
 
 type ListResult = {
@@ -25,6 +27,7 @@ type CacheEntry = {
 
 const feedCache = new Map<string, CacheEntry>();
 
+// -------- Local JSON fallback --------
 async function ensureStore() {
 	const dir = path.dirname(DATA_PATH);
 	await fs.mkdir(dir, { recursive: true });
@@ -67,64 +70,110 @@ function parseCursor(cursor: string | null | undefined) {
 	}
 }
 
-export async function createCreation(record: CreationRecord): Promise<CreationRecord> {
-	const creations = await readStore();
-	creations.push(record);
-	await writeStore(creations);
+// -------- Supabase provider (optional) --------
+function supabaseClient() {
+	const svc = getSupabaseServiceClient();
+	if (!svc) {
+		throw new Error('Supabase is not configured; studio persistence requires DB (no local fallback).');
+	}
+	return svc;
+}
+
+async function dbCreate(record: CreationRecord): Promise<CreationRecord> {
+	const svc = supabaseClient();
+	const payload = {
+		id: record.id,
+		creator_address: record.creatorAddress,
+		type: record.type,
+		title: record.title,
+		description: record.description,
+		tags: record.tags || [],
+		artifact: record.artifact,
+		artifact_url: record.artifactUrl,
+		metadata_url: record.metadataUrl,
+		content_hash: record.contentHash,
+		code_preview: record.codePreview,
+		glyph_profile: record.glyphProfile || null,
+		created_at: record.createdAt,
+	};
+	const { error } = await svc.from('studio_creations').insert(payload);
+	if (error) throw new Error(error.message);
 	return record;
 }
 
+async function dbGet(id: string): Promise<CreationRecord | null> {
+	const svc = supabaseClient();
+	const { data, error } = await svc.from('studio_creations').select('*').eq('id', id).limit(1).maybeSingle();
+	if (error) return null;
+	if (!data) return null;
+	return normalizeDbRecord(data);
+}
+
+function normalizeDbRecord(row: any): CreationRecord {
+	return {
+		id: row.id,
+		creatorAddress: row.creator_address,
+		glyphProfile: row.glyph_profile || undefined,
+		type: row.type,
+		title: row.title,
+		description: row.description,
+		tags: row.tags || [],
+		artifact: row.artifact,
+		metadataUrl: row.metadata_url,
+		contentHash: row.content_hash,
+		artifactUrl: row.artifact_url,
+		codePreview: row.code_preview,
+		createdAt: row.created_at,
+	};
+}
+
+async function dbList(options: ListOptions): Promise<ListResult> {
+	const svc = supabaseClient();
+	const limit = Math.min(Math.max(options.limit || 20, 1), 50);
+	let query = svc.from('studio_creations').select('*').order('created_at', { ascending: false }).limit(limit);
+	if (options.cursor) {
+		// cursor pagination not implemented for Supabase; rely on limit for now
+	}
+	if (options.type && options.type !== 'all') {
+		query = query.eq('type', options.type);
+	}
+	if (options.creator) {
+		const c = options.creator.toLowerCase();
+		query = query.or(`creator_address.ilike.${c},glyph_profile->>xHandle.ilike.${c}`);
+	}
+	if (options.search) {
+		const term = `%${options.search.toLowerCase()}%`;
+		query = query.or(
+			`title.ilike.${term},description.ilike.${term},creator_address.ilike.${term},glyph_profile->>xHandle.ilike.${term}`,
+		);
+	}
+	const { data, error } = await query;
+	if (error) throw new Error(error.message);
+	const items = (data || []).map(normalizeDbRecord);
+	return { items, nextCursor: null };
+}
+
+async function dbDelete(id: string): Promise<boolean> {
+	const svc = supabaseClient();
+	const { error, count } = await svc.from('studio_creations').delete().eq('id', id).select('id', { count: 'exact', head: true });
+	if (error) throw new Error(error.message);
+	return (count || 0) > 0;
+}
+
+// -------- Public API with fallback --------
+export async function createCreation(record: CreationRecord): Promise<CreationRecord> {
+	return dbCreate(record);
+}
+
 export async function getCreation(id: string): Promise<CreationRecord | null> {
-	const creations = await readStore();
-	return creations.find((c) => c.id === id) || null;
+	return dbGet(id);
+}
+
+export async function deleteCreation(id: string): Promise<boolean> {
+	return dbDelete(id);
 }
 
 export async function listCreations(options: ListOptions = {}): Promise<ListResult> {
-	const key = JSON.stringify({
-		limit: options.limit || 20,
-		cursor: options.cursor || '',
-		type: options.type || 'all',
-		search: options.search?.toLowerCase() || '',
-	});
-	const cached = feedCache.get(key);
-	const now = Date.now();
-	if (cached && now - cached.at < CACHE_TTL_MS) return cached.data;
-
-	const limit = Math.min(Math.max(options.limit || 20, 1), 50);
-	const cursor = parseCursor(options.cursor);
-	const type = (options.type || 'all') as CreationType | 'all';
-	const search = options.search?.toLowerCase()?.trim() || '';
-
-	const creations = await readStore();
-	const filtered = creations
-		.filter((c) => (type === 'all' ? true : c.type === type))
-		.filter((c) => {
-			if (!search) return true;
-			const haystack = [
-				c.title || '',
-				c.description || '',
-				c.creatorAddress || '',
-				c.glyphProfile?.xHandle || '',
-			]
-				.join(' ')
-				.toLowerCase();
-			return haystack.includes(search);
-		})
-		.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-	let startIndex = 0;
-	if (cursor) {
-		startIndex = filtered.findIndex(
-			(c) => c.id === cursor.id || c.createdAt === cursor.createdAt,
-		);
-		if (startIndex >= 0) startIndex += 1;
-	}
-
-	const sliced = filtered.slice(startIndex, startIndex + limit);
-	const nextCursor = sliced.length === limit ? makeCursor(sliced[sliced.length - 1]) : null;
-
-	const result: ListResult = { items: sliced, nextCursor };
-	feedCache.set(key, { key, data: result, at: now });
-	return result;
+	return dbList(options);
 }
 

@@ -30,7 +30,6 @@ export default function Nav() {
     { href: '/', label: 'Home' },
     { href: '/collection', label: 'Collection' },
     { href: '/sound', label: 'Sound' },
-    { href: '/gallery', label: 'Gallery' },
     { href: '/studio', label: 'Studio' },
   ];
 

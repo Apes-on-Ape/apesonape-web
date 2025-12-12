@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { keccak256, stringToBytes } from 'viem';
-import { BadgeCheck, Copy, ExternalLink, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { BadgeCheck, Copy, ExternalLink, ShieldAlert, AlertTriangle, Trash2 } from 'lucide-react';
 import SafeImage from '@/app/components/SafeImage';
 import { CreationRecord } from '@/lib/studio/types';
-import { toGatewayUri } from '@/lib/studio/urls';
+import { toGatewayUri, gatewayCandidates } from '@/lib/studio/urls';
+import { useGlyph } from '@use-glyph/sdk-react';
 
 function shortAddress(addr: string) {
 	if (!addr) return '';
@@ -23,8 +25,20 @@ export default function CreationDetailClient({ creation }: Props) {
 	const [integrityOk, setIntegrityOk] = useState<boolean | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
+	const [deleting, setDeleting] = useState(false);
+	const glyph = (useGlyph() as unknown) as {
+		user?: { id?: string; evmWallet?: string; smartWallet?: string };
+	};
+	const router = useRouter();
 
-	const metadataUri = toGatewayUri(creation.metadataUrl);
+	const metadataGateways = gatewayCandidates(creation.metadataUrl);
+	const metadataUri = metadataGateways[0];
+	const walletAddr = useMemo(
+		() => (glyph?.user?.evmWallet || glyph?.user?.smartWallet || '').toLowerCase(),
+		[glyph?.user?.evmWallet, glyph?.user?.smartWallet],
+	);
+	const isOwner =
+		!!walletAddr && walletAddr === (creation.creatorAddress || '').toLowerCase();
 
 	useEffect(() => {
 		let cancelled = false;
@@ -32,8 +46,18 @@ export default function CreationDetailClient({ creation }: Props) {
 			try {
 				setError(null);
 				setIntegrityOk(null);
-				const res = await fetch(metadataUri, { cache: 'no-store' });
-				const text = await res.text();
+				let text: string | null = null;
+				for (const url of metadataGateways) {
+					try {
+						const res = await fetch(url, { cache: 'no-store' });
+						if (!res.ok) continue;
+						text = await res.text();
+						break;
+					} catch {
+						continue;
+					}
+				}
+				if (!text) throw new Error('Failed to fetch metadata from IPFS gateways');
 				if (cancelled) return;
 				setMetadataJson(text);
 				try {
@@ -53,11 +77,14 @@ export default function CreationDetailClient({ creation }: Props) {
 		return () => {
 			cancelled = true;
 		};
-	}, [creation.contentHash, metadataUri]);
+	}, [creation.contentHash, metadataGateways]);
 
-	const artifactUri = toGatewayUri(creation.artifactUrl);
+	const artifactGateways = gatewayCandidates(creation.artifactUrl);
+	const artifactUri = artifactGateways[0];
 	const metaArtifact = (metadata?.artifact as Record<string, unknown>) || {};
 	const codeText = (metaArtifact?.text as string | undefined) || creation.codePreview || '';
+	const externalUrl = metaArtifact?.externalUrl as string | undefined;
+	const soundUrl = externalUrl || creation.artifact.externalUrl || artifactUri;
 
 	const copyHash = async () => {
 		try {
@@ -66,6 +93,32 @@ export default function CreationDetailClient({ creation }: Props) {
 			setTimeout(() => setCopied(false), 1500);
 		} catch {
 			setCopied(false);
+		}
+	};
+
+	const handleDelete = async () => {
+		if (!isOwner || deleting) return;
+		const confirmed = window.confirm('Delete this creation permanently?');
+		if (!confirmed) return;
+		try {
+			setDeleting(true);
+			const res = await fetch(`/api/studio/creations/${creation.id}`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					creatorAddress: creation.creatorAddress,
+					glyphId: creation.glyphProfile?.glyphId,
+				}),
+			});
+			if (!res.ok) {
+				const json = await res.json().catch(() => ({}));
+				throw new Error(json?.error || 'Delete failed');
+			}
+			router.push('/studio');
+		} catch (err: unknown) {
+			setError(err instanceof Error ? err.message : 'Failed to delete');
+		} finally {
+			setDeleting(false);
 		}
 	};
 
@@ -92,7 +145,20 @@ export default function CreationDetailClient({ creation }: Props) {
 							</span>
 						)}
 						{creation.glyphProfile?.xHandle && (
-							<span className="text-off-white/70">@{creation.glyphProfile.xHandle}</span>
+							<Link
+								href={`/studio/creator/${creation.glyphProfile.xHandle.toLowerCase()}`}
+								className="text-off-white/70 underline-offset-2 hover:underline"
+							>
+								@{creation.glyphProfile.xHandle}
+							</Link>
+						)}
+						{!creation.glyphProfile?.xHandle && creation.creatorAddress && (
+							<Link
+								href={`/studio/creator/${creation.creatorAddress.toLowerCase()}`}
+								className="text-off-white/70 underline-offset-2 hover:underline"
+							>
+								{shortAddress(creation.creatorAddress)}
+							</Link>
 						)}
 					</div>
 					{creation.tags && creation.tags.length > 0 && (
@@ -120,6 +186,23 @@ export default function CreationDetailClient({ creation }: Props) {
 					>
 						View metadata <ExternalLink className="w-4 h-4" />
 					</Link>
+					{isOwner && (
+						<button
+							type="button"
+							onClick={handleDelete}
+							disabled={deleting}
+							className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-400/50 text-red-200 bg-red-500/10 text-sm hover:bg-red-500/20 disabled:opacity-60"
+						>
+							<Trash2 className="w-4 h-4" />
+							{deleting ? 'Deleting…' : 'Delete'}
+						</button>
+					)}
+					<Link
+						href="/studio"
+						className="btn-secondary px-4 py-2 text-sm inline-flex items-center gap-2"
+					>
+						← Back to Studio
+					</Link>
 				</div>
 			</div>
 
@@ -129,11 +212,29 @@ export default function CreationDetailClient({ creation }: Props) {
 						<SafeImage src={artifactUri} alt={creation.title} className="w-full h-full object-contain" fill />
 					)}
 					{creation.type === 'sound' && (
-						<div className="p-6 flex flex-col gap-3">
+						<div className="p-3 flex flex-col gap-3 h-full">
 							<div className="text-off-white/80 text-sm">Listen</div>
-							<audio controls className="w-full">
-								<source src={artifactUri} />
-							</audio>
+							{soundUrl.includes('soundcloud.com') ? (
+								<iframe
+									title="SoundCloud player"
+									width="100%"
+									height="320"
+									allow="autoplay"
+									src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(soundUrl)}&auto_play=false&show_comments=true&show_user=true&visual=true`}
+								/>
+							) : soundUrl.includes('spotify.com') ? (
+								<iframe
+									title="Spotify player"
+									width="100%"
+									height="320"
+									allow="encrypted-media"
+									src={soundUrl.replace('open.spotify.com/', 'open.spotify.com/embed/')}
+								/>
+							) : (
+								<audio controls className="w-full">
+									<source src={artifactUri} />
+								</audio>
+							)}
 						</div>
 					)}
 					{creation.type === 'interactive' && (

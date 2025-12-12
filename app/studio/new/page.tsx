@@ -40,6 +40,8 @@ export default function StudioPublishPage() {
 	const [artifact, setArtifact] = useState<File | null>(null);
 	const [artifactPreview, setArtifactPreview] = useState<string | null>(null);
 	const [codeText, setCodeText] = useState('');
+	const [soundSource, setSoundSource] = useState<'upload' | 'soundcloud' | 'spotify'>('upload');
+	const [soundUrl, setSoundUrl] = useState('');
 	const [busy, setBusy] = useState(false);
 	const [status, setStatus] = useState('');
 	const [error, setError] = useState<string | null>(null);
@@ -50,6 +52,7 @@ export default function StudioPublishPage() {
 	const xHandle = privy?.user?.twitter?.username || '';
 	const glyphVerified = !!glyph?.user?.hasTwitter || !!glyph?.user?.hasProfile;
 	const glyphId = glyph?.user?.id || '';
+	const canPublish = isConnected && !!address;
 
 	useEffect(() => {
 		return () => {
@@ -83,7 +86,7 @@ export default function StudioPublishPage() {
 		setError(null);
 		setSuccessId(null);
 
-		if (!isConnected || !address) {
+		if (!canPublish) {
 			setError('Connect your wallet with Glyph to publish.');
 			return;
 		}
@@ -108,6 +111,19 @@ export default function StudioPublishPage() {
 				setError('Paste your code to publish.');
 				return;
 			}
+		} else if (type === 'sound' && soundSource !== 'upload') {
+			if (!soundUrl.trim()) {
+				setError('Provide a SoundCloud or Spotify link.');
+				return;
+			}
+			const allowed =
+				soundUrl.includes('soundcloud.com') ||
+				soundUrl.includes('open.spotify.com') ||
+				soundUrl.includes('spotify.com');
+			if (!allowed) {
+				setError('Link must be from SoundCloud or Spotify.');
+				return;
+			}
 		} else {
 			if (!artifact) {
 				setError('Please upload a file for this experiment.');
@@ -130,6 +146,9 @@ export default function StudioPublishPage() {
 		form.append('glyphVerified', glyphVerified ? 'true' : 'false');
 		if (type === 'code') {
 			form.append('code', codeText);
+		} else if (type === 'sound' && soundSource !== 'upload') {
+			form.append('soundUrl', soundUrl);
+			form.append('soundProvider', soundSource);
 		} else if (artifact) {
 			form.append('artifact', artifact);
 		}
@@ -161,7 +180,7 @@ export default function StudioPublishPage() {
 
 	const typeDescription: Record<CreationType, string> = {
 		visual: 'Images, covers, posters, album art.',
-		sound: 'WAV/MP3/OGG audio experiments.',
+		sound: 'WAV/MP3/OGG audio creations.',
 		interactive: 'HTML/JS bundles or playable prototypes.',
 		code: 'Pasted snippets or sketches.',
 	};
@@ -175,7 +194,7 @@ export default function StudioPublishPage() {
 						<div>
 							<h1 className="text-3xl font-bold">Publish to AOA Studio</h1>
 							<p className="text-off-white/70 text-sm mt-1">
-								Sound, art, code, interactive experiments. Attributed to your wallet and shared publicly.
+								Sound, art, code, interactive creations. Attributed to your wallet and shared publicly.
 							</p>
 						</div>
 						<div className="flex items-center gap-3 text-sm">
@@ -206,6 +225,7 @@ export default function StudioPublishPage() {
 											? 'border-hero-blue bg-hero-blue/10 text-hero-blue'
 											: 'border-white/10 bg-black/40 hover:border-white/30'
 									}`}
+									disabled={!canPublish}
 								>
 									<div className="font-semibold capitalize">{t}</div>
 									<div className="text-xs text-off-white/70">{typeDescription[t]}</div>
@@ -222,6 +242,7 @@ export default function StudioPublishPage() {
 									required
 									className="w-full rounded-md bg-black/40 border border-white/10 p-3"
 									placeholder="Give your experiment a name"
+									disabled={!canPublish}
 								/>
 								<div className="text-xs text-off-white/60 mt-1">{title.length}/{TITLE_LIMIT}</div>
 							</div>
@@ -232,6 +253,7 @@ export default function StudioPublishPage() {
 									onChange={(e) => setTagsInput(e.target.value)}
 									className="w-full rounded-md bg-black/40 border border-white/10 p-3"
 									placeholder="sound, glitch, prototype"
+									disabled={!canPublish}
 								/>
 								<div className="text-xs text-off-white/60 mt-1">
 									{tags.length} / {TAG_LIMIT} tags
@@ -247,6 +269,7 @@ export default function StudioPublishPage() {
 								rows={3}
 								className="w-full rounded-md bg-black/40 border border-white/10 p-3"
 								placeholder="What is this experiment? Tools, inspirations, context."
+								disabled={!canPublish}
 							/>
 							<div className="text-xs text-off-white/60 mt-1">{description.length}/{DESCRIPTION_LIMIT}</div>
 						</div>
@@ -260,8 +283,104 @@ export default function StudioPublishPage() {
 									rows={10}
 									className="w-full rounded-lg bg-black/50 border border-dashed border-white/15 p-3 font-mono text-sm"
 									placeholder="// drop your snippet here"
+								disabled={!canPublish}
 								/>
 								<p className="text-xs text-off-white/60 mt-1">Plain text is stored and hashed before publish.</p>
+							</div>
+						) : type === 'sound' ? (
+							<div className="space-y-4">
+								<div className="flex flex-col gap-2">
+									<label className="block text-sm">Sound source</label>
+									<select
+										value={soundSource}
+										onChange={(e) => setSoundSource(e.target.value as 'upload' | 'soundcloud' | 'spotify')}
+										className="rounded-md bg-black/40 border border-white/10 p-3 text-sm w-full md:w-72"
+										disabled={!canPublish}
+									>
+										<option value="upload">Upload audio file</option>
+										<option value="soundcloud">SoundCloud URL</option>
+										<option value="spotify">Spotify URL</option>
+									</select>
+								</div>
+
+								{soundSource !== 'upload' ? (
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+										<div>
+											<label className="block text-sm mb-1">Track/album URL</label>
+											<input
+												value={soundUrl}
+												onChange={(e) => setSoundUrl(e.target.value)}
+												className="w-full rounded-md bg-black/40 border border-white/10 p-3"
+												placeholder="https://soundcloud.com/artist/track or https://open.spotify.com/..."
+												disabled={!canPublish}
+											/>
+											<p className="text-xs text-off-white/60 mt-1">We use the link for preview; “Open artifact” goes to the original page.</p>
+										</div>
+										<div>
+											<label className="block text-sm mb-2">Preview</label>
+											<div className="rounded-lg border border-white/15 bg-black/50 h-64 flex items-center justify-center overflow-hidden relative p-3">
+												{soundUrl ? (
+													<div className="w-full h-full">
+														{soundUrl.includes('soundcloud.com') ? (
+															<iframe
+																title="SoundCloud preview"
+																width="100%"
+																height="100%"
+																allow="autoplay"
+																src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(soundUrl)}&auto_play=false&hide_related=false&show_comments=false&show_user=true&show_reposts=false&visual=true`}
+															/>
+														) : soundUrl.includes('spotify.com') ? (
+															<iframe
+																title="Spotify preview"
+																width="100%"
+																height="100%"
+																allow="encrypted-media"
+																src={soundUrl.replace('open.spotify.com/', 'open.spotify.com/embed/')}
+															/>
+														) : (
+															<div className="text-off-white/60 text-sm">Enter a valid SoundCloud or Spotify URL</div>
+														)}
+													</div>
+												) : (
+													<div className="text-off-white/50 text-sm">Paste a link to preview</div>
+												)}
+											</div>
+										</div>
+									</div>
+								) : (
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+										<div>
+											<label className="block text-sm mb-2">Upload artifact</label>
+											<label className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-white/15 bg-black/40 hover:bg-black/30 transition-colors p-6 cursor-pointer">
+												<input
+													type="file"
+													accept="audio/*"
+													className="hidden"
+													onChange={(e) => onFileChange(e.target.files?.[0] || null)}
+													disabled={!canPublish}
+												/>
+												<UploadCloud className="w-7 h-7 text-off-white/70" />
+												<div className="text-center text-sm text-off-white/80">Drag & drop or click to upload</div>
+												<div className="text-center text-xs text-off-white/60">Max {MAX_FILE_MB}MB</div>
+											</label>
+											{artifact && (
+												<div className="text-xs text-off-white/70 mt-2">Selected: {artifact.name}</div>
+											)}
+										</div>
+										<div>
+											<label className="block text-sm mb-2">Preview</label>
+											<div className="rounded-lg border border-white/15 bg-black/50 h-64 flex items-center justify-center overflow-hidden relative">
+												{artifactPreview ? (
+													<audio controls className="w-full">
+														<source src={artifactPreview} />
+													</audio>
+												) : (
+													<div className="text-off-white/50 text-sm">No file selected</div>
+												)}
+											</div>
+										</div>
+									</div>
+								)}
 							</div>
 						) : (
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -270,9 +389,10 @@ export default function StudioPublishPage() {
 									<label className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-white/15 bg-black/40 hover:bg-black/30 transition-colors p-6 cursor-pointer">
 										<input
 											type="file"
-											accept={type === 'sound' ? 'audio/*' : type === 'visual' ? 'image/*' : '*/*'}
+											accept={type === 'visual' ? 'image/*' : '*/*'}
 											className="hidden"
 											onChange={(e) => onFileChange(e.target.files?.[0] || null)}
+											disabled={!canPublish}
 										/>
 										<UploadCloud className="w-7 h-7 text-off-white/70" />
 										<div className="text-center text-sm text-off-white/80">Drag & drop or click to upload</div>
@@ -284,20 +404,14 @@ export default function StudioPublishPage() {
 								</div>
 								<div>
 									<label className="block text-sm mb-2">Preview</label>
-									<div className="rounded-lg border border-white/15 bg-black/50 h-64 flex items-center justify-center overflow-hidden">
+								<div className="rounded-lg border border-white/15 bg-black/50 h-64 flex items-center justify-center overflow-hidden relative">
 										{artifactPreview ? (
-											type === 'sound' ? (
-												<audio controls className="w-full">
-													<source src={artifactPreview} />
-												</audio>
-											) : (
-												<SafeImage
-													src={artifactPreview}
-													alt="Preview"
-													className="w-full h-full object-contain"
-													fill
-												/>
-											)
+											<img
+												src={artifactPreview}
+												alt="Preview"
+												className="object-contain w-full h-full"
+												style={{ maxHeight: '16rem' }}
+											/>
 										) : (
 											<div className="text-off-white/50 text-sm">No file selected</div>
 										)}

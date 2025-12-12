@@ -218,6 +218,8 @@ const resolveTraitAsset = (traitType: string, value: string | undefined | null) 
 const CLOTHES: ClothingItem[] = [
   // Hats
   { id: 'santa-hat', name: 'Santa Hat', src: '/wardrobe/hats/santa-hat.png', previewSrc: '/wardrobe/hats-preview/santa-hat.png', category: 'Hats' },
+  { id: 'touchgrass', name: 'Touchgrass', src: '/wardrobe/hats/touchgrass.png', previewSrc: '/wardrobe/hats-preview/touchgrass.png', category: 'Hats' },
+  { id: 'when', name: 'When', src: '/wardrobe/hats/when.png', previewSrc: '/wardrobe/hats-preview/when.png', category: 'Hats' },
   // Tops (reflect current files in public/wardrobe/tops)
   { id: 'santavest', name: 'Santa Vest', src: '/wardrobe/tops/santavest.png', previewSrc: '/wardrobe/tops-preview/santavest-preview.png', category: 'Tops' },
   { id: 'apesuit', name: 'Apesuit', src: '/wardrobe/tops/apesuit.png', previewSrc: '/wardrobe/tops-preview/apesuit.png', category: 'Tops' },
@@ -294,6 +296,9 @@ export default function WardrobePage() {
       build('graffiti', 'Graffiti', 'graffiti', { 'Dark Brown': 'dark-brow' }),
       build('kaboom', 'Kaboom', 'kaboom'),
       build('shotgun', 'Shotgun', 'shotgun'),
+      build('mugs', 'Mugs', 'mugs'),
+      build('kaboom-prophecy', 'Kaboom Prophecy', 'kaboom', { 'Death Bot': 'prophecy' }),
+      build('haterkiller', 'Haterkiller', 'kaboom', { 'Death Bot': 'haterkiller' }),
     ];
   }, [furColor]);
 

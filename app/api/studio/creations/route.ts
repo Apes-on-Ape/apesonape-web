@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { uploadArtifact, uploadMetadata } from '@/lib/studio/storage';
 import { createCreation, listCreations } from '@/lib/studio/persistence';
 import { CreationRecord, CreationType, GlyphProfile } from '@/lib/studio/types';
+import { addExperience } from '@/lib/studio/xp';
 
 const TITLE_LIMIT = 80;
 const DESCRIPTION_LIMIT = 280;
@@ -54,8 +55,9 @@ export async function GET(req: NextRequest) {
 		const cursor = searchParams.get('cursor');
 		const type = (searchParams.get('type') || 'all') as CreationType | 'all';
 		const search = searchParams.get('search');
+		const creator = searchParams.get('creator');
 
-		const result = await listCreations({ limit, cursor, type, search });
+		const result = await listCreations({ limit, cursor, type, search, creator });
 		return NextResponse.json(result, {
 			headers: {
 				'Cache-Control': 's-maxage=45, stale-while-revalidate=30',
@@ -81,6 +83,8 @@ export async function POST(req: NextRequest) {
 		const tags = parseTags(form.get('tags'));
 		const codeText = form.get('code') as string | null;
 		const artifact = form.get('artifact') as File | null;
+	const soundUrl = form.get('soundUrl') as string | null;
+	const soundProvider = form.get('soundProvider') as ('soundcloud' | 'spotify' | null);
 
 		if (!type || !ALLOWED_TYPES.includes(type)) {
 			return validationError('Invalid creation type');
@@ -93,6 +97,12 @@ export async function POST(req: NextRequest) {
 
 		if (type === 'code') {
 			if (!codeText || !codeText.trim()) return validationError('Code is required for code type');
+		} else if (type === 'sound' && soundUrl) {
+			const allowed =
+				soundUrl.includes('soundcloud.com') ||
+				soundUrl.includes('open.spotify.com') ||
+				soundUrl.includes('spotify.com');
+			if (!allowed) return validationError('Sound URL must be SoundCloud or Spotify');
 		} else {
 			if (!artifact) return validationError('Artifact file is required');
 			if (artifact.size > MAX_FILE_BYTES) {
@@ -103,12 +113,22 @@ export async function POST(req: NextRequest) {
 		const id = crypto.randomUUID();
 		const createdAt = new Date().toISOString();
 
-		const artifactResult = await uploadArtifact({
-			file: type === 'code' ? undefined : artifact || undefined,
-			text: type === 'code' ? codeText || undefined : undefined,
-			filename: type === 'code' ? 'code.txt' : (artifact as File | null)?.name,
-			mime: type === 'code' ? 'text/plain' : (artifact as File | null)?.type,
-		});
+		const artifactResult = soundUrl
+			? {
+					uri: soundUrl,
+					mime: 'text/uri-list',
+					size: 0,
+					text: undefined,
+					externalUrl: soundUrl,
+					provider: soundProvider || (soundUrl.includes('soundcloud') ? 'soundcloud' : 'spotify'),
+					providerLabel: 'external',
+			  }
+			: await uploadArtifact({
+					file: type === 'code' ? undefined : artifact || undefined,
+					text: type === 'code' ? codeText || undefined : undefined,
+					filename: type === 'code' ? 'code.txt' : (artifact as File | null)?.name,
+					mime: type === 'code' ? 'text/plain' : (artifact as File | null)?.type,
+			  });
 
 		const glyphProfile: GlyphProfile | undefined = glyphId || xHandle || glyphVerified
 			? { glyphId, xHandle, verified: glyphVerified }
@@ -126,6 +146,8 @@ export async function POST(req: NextRequest) {
 				uri: artifactResult.uri,
 				mime: artifactResult.mime,
 				size: artifactResult.size,
+				externalUrl: artifactResult.externalUrl,
+				provider: soundUrl ? soundProvider || (soundUrl.includes('soundcloud') ? 'soundcloud' : 'spotify') : artifactResult.provider === 'upload' ? 'upload' : undefined,
 				text: type === 'code' ? codeText || undefined : undefined,
 			},
 			createdAt,
@@ -142,6 +164,7 @@ export async function POST(req: NextRequest) {
 		};
 
 		await createCreation(record);
+		await addExperience(creatorAddress, type);
 
 		return NextResponse.json(
 			{

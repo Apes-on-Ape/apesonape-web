@@ -9,7 +9,7 @@ type UploadArgs = {
 	mime?: string;
 };
 
-const PUBLIC_BASE = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+const PUBLIC_BASE = process.env.STUDIO_PUBLIC_BASE || process.env.NEXT_PUBLIC_SITE_URL || '';
 const STORAGE_DIR = path.join(process.cwd(), 'public', 'studio');
 
 async function ensureDir() {
@@ -25,7 +25,10 @@ async function writeFileToDisk(buffer: Buffer, filename: string) {
 	await ensureDir();
 	const target = path.join(STORAGE_DIR, filename);
 	await fs.writeFile(target, buffer);
-	return `${PUBLIC_BASE}/studio/${filename}`;
+	const publicPath = `/studio/${filename}`;
+	if (!PUBLIC_BASE) return publicPath;
+	const base = PUBLIC_BASE.endsWith('/') ? PUBLIC_BASE.slice(0, -1) : PUBLIC_BASE;
+	return `${base}${publicPath}`;
 }
 
 export async function uploadArtifactFallback(args: UploadArgs): Promise<ArtifactInfo> {

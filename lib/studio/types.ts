@@ -11,6 +11,8 @@ export type ArtifactInfo = {
 	mime?: string;
 	size?: number;
 	text?: string;
+	externalUrl?: string;
+	provider?: 'upload' | 'soundcloud' | 'spotify';
 };
 
 export type CreationMetadata = {

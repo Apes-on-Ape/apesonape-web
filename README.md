@@ -9,7 +9,6 @@ The official website for the Apes On Ape NFT collection on Apechain. A playgroun
 - **Dynamic NFT Gallery**: Customizable 8×4 grid (adjustable from 4×2 to 12×6) with live Magic Eden integration
 - **Collection Explorer**: Advanced filtering, sorting, and infinite scroll
 - **Sound Studio**: Monthly spotlights and continuous radio streaming from SoundCloud
-- **AOA Studio**: Publish sound, visual, interactive, and code experiments with Glyph-linked identity and IPFS-backed metadata
 - **Community Hub**: Sections for musicians, artists, game devs, and builders
 - **Modern Design**: Editorial dark theme with neon accents and kinetic motion
 - **Fully Accessible**: Keyboard navigation, reduced motion support, and ARIA labels
@@ -17,7 +16,7 @@ The official website for the Apes On Ape NFT collection on Apechain. A playgroun
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ and npm
+- Node.js 18+ and npm+
 
 ### Installation
 
@@ -131,23 +130,9 @@ SOUNDCLOUD_CLIENT_ID=your_client_id
 
 # Site
 NEXT_PUBLIC_SITE_URL=https://apesonape.io
-
-# Studio / storage
-PINATA_JWT= # or WEB3_STORAGE_TOKEN
-WEB3_STORAGE_TOKEN=
-STUDIO_MAX_FILE_MB=20
-NEXT_PUBLIC_STUDIO_MAX_FILE_MB=20
 ```
 
-See `.env.example` for all available variables.
-
-### AOA Studio
-
-- **Routes**: `/studio` (feed + filters), `/studio/new` (publish), `/studio/[id]` (detail with integrity check).
-- **Storage**: IPFS-first. If `PINATA_JWT` is set, uploads go to Pinata; else if `WEB3_STORAGE_TOKEN` is set, uploads use web3.storage; otherwise a dev-only disk fallback writes to `public/studio/`.
-- **Persistence (MVP)**: Server JSON store at `data/studio-creations.json` with 45s server-side cache. Each creation stores artifact URL, metadata URL, keccak256 hash, creator address, and Glyph profile snapshot.
-- **Identity**: Publishes require Glyph sign-in. The connected wallet address, Glyph user id, X handle (if linked via Privy/Glyph), and a `glyphVerified` flag (has Twitter/profile) are saved and displayed with a “Verified via Glyph” badge when applicable.
-- **Integrity**: Metadata JSON is hashed (`keccak256` of the JSON string) before upload. Detail pages re-fetch metadata, recompute the hash, and warn on mismatches. Interactive artifacts render in a sandboxed iframe (`allow-scripts allow-forms`).
+See `.env.local.example` for all available variables.
 
 ### Updating the Monthly Spotlight
 
