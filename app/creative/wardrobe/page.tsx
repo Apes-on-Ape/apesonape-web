@@ -290,16 +290,29 @@ export default function WardrobePage() {
         category: 'Accessories',
       };
     };
-    return [
+    const accessories: ClothingItem[] = [
       build('bananas', 'Bananas', 'bananas'),
       build('gn1', 'GN1', 'gn1'),
       build('graffiti', 'Graffiti', 'graffiti', { 'Dark Brown': 'dark-brow' }),
       build('kaboom', 'Kaboom', 'kaboom'),
       build('shotgun', 'Shotgun', 'shotgun'),
-      build('mugs', 'Mugs', 'mugs'),
-      build('kaboom-prophecy', 'Kaboom Prophecy', 'kaboom', { 'Death Bot': 'prophecy' }),
-      build('haterkiller', 'Haterkiller', 'kaboom', { 'Death Bot': 'haterkiller' }),
+      {
+        id: 'prophecy',
+        name: 'Prophecy',
+        src: '/wardrobe/accessories/prophecy.png',
+        previewSrc: '/wardrobe/accessories/prophecy.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'haterkiller',
+        name: 'Haterkiller',
+        src: '/wardrobe/accessories/haterkiller.png',
+        previewSrc: '/wardrobe/accessories/haterkiller.png',
+        category: 'Accessories',
+      },
     ];
+    
+    return accessories;
   }, [furColor]);
 
   // Build a base image from on-chain traits, optionally excluding hat

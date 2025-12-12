@@ -74,6 +74,10 @@ function parseCursor(cursor: string | null | undefined) {
 function supabaseClient() {
 	const svc = getSupabaseServiceClient();
 	if (!svc) {
+		// In preview environments, throw a more user-friendly error
+		if (process.env.NETLIFY || process.env.VERCEL_URL || process.env.CONTEXT === 'deploy-preview') {
+			throw new Error('Studio features are not available in preview deployments. Please deploy to production or set up Supabase environment variables.');
+		}
 		throw new Error('Supabase is not configured; studio persistence requires DB (no local fallback).');
 	}
 	return svc;

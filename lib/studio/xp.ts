@@ -32,7 +32,13 @@ const BADGE_TITLES: Record<Skill, string[]> = {
 
 function dbClient() {
 	const svc = getSupabaseServiceClient();
-	if (!svc) throw new Error('Supabase is not configured; studio XP requires DB.');
+	if (!svc) {
+		// In preview environments, throw a more user-friendly error
+		if (process.env.NETLIFY || process.env.VERCEL_URL || process.env.CONTEXT === 'deploy-preview') {
+			throw new Error('Studio XP features are not available in preview deployments. Please deploy to production or set up Supabase environment variables.');
+		}
+		throw new Error('Supabase is not configured; studio XP requires DB.');
+	}
 	return svc;
 }
 
