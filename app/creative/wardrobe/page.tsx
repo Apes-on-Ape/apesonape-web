@@ -15,7 +15,7 @@ type ClothingItem = {
   id: string;
   name: string;
   src: string; // overlay asset used on canvas
-  category: 'Hats' | 'Tops' | 'Accessories';
+  category: 'Hats' | 'Clothes' | 'Accessories';
   previewSrc?: string; // thumbnail shown in picker
 };
 
@@ -220,14 +220,17 @@ const CLOTHES: ClothingItem[] = [
   { id: 'santa-hat', name: 'Santa Hat', src: '/wardrobe/hats/santa-hat.png', previewSrc: '/wardrobe/hats-preview/santa-hat.png', category: 'Hats' },
   { id: 'touchgrass', name: 'Touchgrass', src: '/wardrobe/hats/touchgrass.png', previewSrc: '/wardrobe/hats-preview/touchgrass.png', category: 'Hats' },
   { id: 'when', name: 'When', src: '/wardrobe/hats/when.png', previewSrc: '/wardrobe/hats-preview/when.png', category: 'Hats' },
-  // Tops (reflect current files in public/wardrobe/tops)
-  { id: 'santavest', name: 'Santa Vest', src: '/wardrobe/tops/santavest.png', previewSrc: '/wardrobe/tops-preview/santavest-preview.png', category: 'Tops' },
-  { id: 'apesuit', name: 'Apesuit', src: '/wardrobe/tops/apesuit.png', previewSrc: '/wardrobe/tops-preview/apesuit.png', category: 'Tops' },
-  { id: 'survived-apesuit', name: 'Survived Apesuit', src: '/wardrobe/tops/survived-apesuit.png', previewSrc: '/wardrobe/tops-preview/survived-apesuit.png', category: 'Tops' },
-  { id: 'sweater', name: 'Sweater', src: '/wardrobe/tops/sweater.png', previewSrc: '/wardrobe/tops-preview/sweater.png', category: 'Tops' },
+  { id: 'apehat', name: 'Ape Hat', src: '/wardrobe/hats/apehat.png', previewSrc: '/wardrobe/hats-preview/apehat-preview.png', category: 'Hats' },
+  { id: 'vikinghat', name: 'Viking Hat', src: '/wardrobe/hats/vikinghat.png', previewSrc: '/wardrobe/hats-preview/vikinghat-preview.png', category: 'Hats' },
+  { id: 'boar', name: 'Boar', src: '/wardrobe/hats/boar-preview.png', previewSrc: '/wardrobe/hats-preview/boar-preview.png', category: 'Hats' },
+  // Clothes (reflect current files in public/wardrobe/tops)
+  { id: 'santavest', name: 'Santa Vest', src: '/wardrobe/tops/santavest.png', previewSrc: '/wardrobe/tops-preview/santavest-preview.png', category: 'Clothes' },
+  { id: 'apesuit', name: 'Apesuit', src: '/wardrobe/tops/apesuit.png', previewSrc: '/wardrobe/tops-preview/apesuit.png', category: 'Clothes' },
+  { id: 'survived-apesuit', name: 'Survived Apesuit', src: '/wardrobe/tops/survived-apesuit.png', previewSrc: '/wardrobe/tops-preview/survived-apesuit.png', category: 'Clothes' },
+  { id: 'sweater', name: 'Sweater', src: '/wardrobe/tops/sweater.png', previewSrc: '/wardrobe/tops-preview/sweater.png', category: 'Clothes' },
 ];
 
-const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Tops', 'Accessories'];
+const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Clothes', 'Accessories'];
 
 const OUTPUT_SIZE = 4096;
 
@@ -296,6 +299,7 @@ export default function WardrobePage() {
       build('graffiti', 'Graffiti', 'graffiti', { 'Dark Brown': 'dark-brow' }),
       build('kaboom', 'Kaboom', 'kaboom'),
       build('shotgun', 'Shotgun', 'shotgun'),
+      build('samurai', 'Samurai', 'samurai'),
       {
         id: 'prophecy',
         name: 'Prophecy',
@@ -308,6 +312,34 @@ export default function WardrobePage() {
         name: 'Haterkiller',
         src: '/wardrobe/accessories/haterkiller.png',
         previewSrc: '/wardrobe/accessories/haterkiller.png',
+        category: 'Accessories',
+      },
+      {
+        id: '2026-glasses',
+        name: '2026 Glasses',
+        src: '/wardrobe/accessories/2026-glasses.png',
+        previewSrc: '/wardrobe/accessories/2026-glasses.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'madscientist',
+        name: 'Mad Scientist',
+        src: '/wardrobe/accessories/madscientist.png',
+        previewSrc: '/wardrobe/accessories/madscientist.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'new-year-glasses',
+        name: 'New Year Glasses',
+        src: '/wardrobe/accessories/new-year-glasses.png',
+        previewSrc: '/wardrobe/accessories/new-year-glasses.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'valhalla',
+        name: 'Valhalla',
+        src: '/wardrobe/accessories/valhalla.png',
+        previewSrc: '/wardrobe/accessories/valhalla.png',
         category: 'Accessories',
       },
     ];
