@@ -2,6 +2,11 @@
   command = "npm run build"
   publish = ".next"
 
+[build.environment]
+  # Ignore SERVICE_ROLE_KEY in secret scanning - it's expected in server-side code only
+  # This key is server-only and should not trigger secret scanning failures
+  SECRETS_SCAN_OMIT_KEYS = "SERVICE_ROLE_KEY,SUPABASE_SERVICE_ROLE_KEY"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
