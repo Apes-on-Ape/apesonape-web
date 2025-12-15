@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 async function fetchCreationViaApi(id: string): Promise<CreationRecord | null> {
 	try {
-		const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ? process.env.NEXT_PUBLIC_SITE_URL : ''}/api/studio/creations/${id}`, {
+		const res = await fetch(`/api/studio/creations/${id}`, {
 			cache: 'no-store',
 		});
 		if (!res.ok) return null;

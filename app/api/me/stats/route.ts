@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-const ME_API_BASE = process.env.ME_API_BASE || 'https://api-mainnet.magiceden.dev/v2';
-const COLLECTION_ADDRESS = process.env.NEXT_PUBLIC_ME_COLLECTION || '0xa6bAbE18F2318D2880DD7dA3126C19536048F8B0';
+const ME_API_BASE = 'https://api-mainnet.magiceden.dev/v2';
+const COLLECTION_ADDRESS = '0xa6bAbE18F2318D2880DD7dA3126C19536048F8B0';
 
 export const runtime = 'edge';
 export const revalidate = 300; // Cache for 5 minutes

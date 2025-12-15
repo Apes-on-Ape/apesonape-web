@@ -9,7 +9,8 @@ type UploadArgs = {
 	mime?: string;
 };
 
-const PUBLIC_BASE = process.env.STUDIO_PUBLIC_BASE || process.env.NEXT_PUBLIC_SITE_URL || '';
+// For local development, use relative paths; production uses absolute URLs from next.config.ts
+const PUBLIC_BASE: string = '';
 const STORAGE_DIR = path.join(process.cwd(), 'public', 'studio');
 
 async function ensureDir() {

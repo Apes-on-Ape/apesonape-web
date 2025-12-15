@@ -22,7 +22,7 @@ function shortAddress(addr: string) {
 
 async function fetchCreations(slug: string): Promise<CreationRecord[]> {
 	const qs = new URLSearchParams({ creator: slug, limit: '100' });
-	const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ? process.env.NEXT_PUBLIC_SITE_URL : ''}/api/studio/creations?${qs.toString()}`, {
+	const res = await fetch(`/api/studio/creations?${qs.toString()}`, {
 		cache: 'no-store',
 	});
 	if (!res.ok) return [];
