@@ -1,9 +1,8 @@
-import { PUBLIC_SUPABASE_URL } from './supabase-env';
+import { SUPABASE_URL } from './constants';
 
 export function getSupabaseFunctionsBase(): string {
-	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || PUBLIC_SUPABASE_URL || '';
 	try {
-		const u = new URL(supabaseUrl);
+		const u = new URL(SUPABASE_URL);
 		// example host: bqcrbcpmimfojnjdhvrz.supabase.co -> bqcrbcpmimfojnjdhvrz.functions.supabase.co
 		const [projectRef] = u.host.split('.');
 		return `https://${projectRef}.functions.supabase.co`;

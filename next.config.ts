@@ -62,16 +62,18 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
   // Environment variables that are safe to expose to the browser
+  // All values are hardcoded - no need for .env variables
   env: {
-    NEXT_PUBLIC_ME_COLLECTION: process.env.NEXT_PUBLIC_ME_COLLECTION || '0xa6bAbE18F2318D2880DD7dA3126C19536048F8B0',
-    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || 'https://apesonape.io',
-    NEXT_PUBLIC_APECHAIN_RPC: process.env.NEXT_PUBLIC_APECHAIN_RPC || 'https://rpc.apechain.com/http',
-    // Hardcoded per request (was env-driven)
+    NEXT_PUBLIC_ME_COLLECTION: '0xa6bAbE18F2318D2880DD7dA3126C19536048F8B0',
+    NEXT_PUBLIC_SITE_URL: 'https://apesonape.io',
+    NEXT_PUBLIC_APECHAIN_RPC: 'https://rpc.apechain.com/http',
     NEXT_PUBLIC_GLYPH_PRIVY_APP_ID: 'cmit1t84p00nllb0c3yzjz8d8',
     NEXT_PUBLIC_GLYPH_APP_ID: 'cly38x0w10ac945q9yg9sm71i',
     NEXT_PUBLIC_APECHAIN_CHAIN_ID: '33139',
+    NEXT_PUBLIC_SUPABASE_URL: 'https://bqcrbcpmimfojnjdhvrz.supabase.co',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxY3JiY3BtaW1mb2puamRodnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3MjE1ODEsImV4cCI6MjA4MDI5NzU4MX0.tlDiLyCdrOAULzLH9fv0rm5wpiHqy4nzDvmpC9xXRGw',
   },
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
@@ -103,6 +105,23 @@ const nextConfig: NextConfig = {
       '/ROOT/node_modules/@reown/appkit/node_modules/thread-stream/test/create-and-exit.js': require.resolve('./shims/empty.js'),
       '/ROOT/node_modules/@reown/appkit/node_modules/thread-stream/test/close-on-gc.js': require.resolve('./shims/empty.js'),
     };
+
+    // CRITICAL: Prevent service role key from being bundled into client code
+    // Only replace process.env variables that start with NEXT_PUBLIC_ in client bundles
+    if (!isServer && config.plugins) {
+      const DefinePlugin = require('webpack').DefinePlugin;
+      const existingDefinePlugin = config.plugins.find(
+        (plugin: any) => plugin instanceof DefinePlugin
+      );
+      
+      if (existingDefinePlugin) {
+        // Remove service role keys from DefinePlugin replacements in client bundles
+        const definitions = existingDefinePlugin.definitions || {};
+        delete definitions['process.env.SUPABASE_SERVICE_ROLE_KEY'];
+        delete definitions['process.env.SERVICE_ROLE_KEY'];
+      }
+    }
+
     return config;
   },
 };

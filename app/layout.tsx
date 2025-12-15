@@ -17,7 +17,7 @@ const raleway = Raleway({
 
 export const metadata: Metadata = {
   // Ensure absolute URLs for OG/Twitter images
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://apesonape.io'),
+  metadataBase: new URL('https://apesonape.io'),
   title: "Apes On Ape | NFT Collection on Apechain",
   description: "A playground for musicians, artists, game devs, and builders. Join the Apes On Ape community on Apechain. Make weird. Make loud. Make games. Ape together.",
   keywords: ["NFT", "Apechain", "Apes On Ape", "Digital Art", "Music", "Gaming", "Web3"],
@@ -95,7 +95,9 @@ export default function RootLayout({
           {holiday === 'christmas' ? <HolidayDecor /> : null}
           {holiday === 'christmas' ? <HolidayPopup /> : null}
           <GlyphClientProvider>
-            {children}
+            <div className="min-h-screen">
+              {children}
+            </div>
             <NotificationToast />
           </GlyphClientProvider>
           <SoundCloudPlayer />

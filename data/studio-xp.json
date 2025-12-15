@@ -1,0 +1,13 @@
+{
+  "creators": [
+    {
+      "address": "0x4864257a381729cdcb8633d13c17f0fec9d4c5a1",
+      "xp": {
+        "sound": 25,
+        "visual": 50,
+        "interactive": 0,
+        "code": 0
+      }
+    }
+  ]
+}

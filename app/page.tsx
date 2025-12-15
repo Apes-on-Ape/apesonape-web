@@ -21,7 +21,6 @@ export default function HomePage() {
         <Hero />
       </div>
 
-
       {/* Section Callouts */}
       <SectionCallouts />
 

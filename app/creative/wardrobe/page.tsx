@@ -15,7 +15,7 @@ type ClothingItem = {
   id: string;
   name: string;
   src: string; // overlay asset used on canvas
-  category: 'Hats' | 'Tops' | 'Accessories';
+  category: 'Hats' | 'Clothes' | 'Accessories';
   previewSrc?: string; // thumbnail shown in picker
 };
 
@@ -218,14 +218,26 @@ const resolveTraitAsset = (traitType: string, value: string | undefined | null) 
 const CLOTHES: ClothingItem[] = [
   // Hats
   { id: 'santa-hat', name: 'Santa Hat', src: '/wardrobe/hats/santa-hat.png', previewSrc: '/wardrobe/hats-preview/santa-hat.png', category: 'Hats' },
-  // Tops (reflect current files in public/wardrobe/tops)
-  { id: 'santavest', name: 'Santa Vest', src: '/wardrobe/tops/santavest.png', previewSrc: '/wardrobe/tops-preview/santavest-preview.png', category: 'Tops' },
-  { id: 'apesuit', name: 'Apesuit', src: '/wardrobe/tops/apesuit.png', previewSrc: '/wardrobe/tops-preview/apesuit.png', category: 'Tops' },
-  { id: 'survived-apesuit', name: 'Survived Apesuit', src: '/wardrobe/tops/survived-apesuit.png', previewSrc: '/wardrobe/tops-preview/survived-apesuit.png', category: 'Tops' },
-  { id: 'sweater', name: 'Sweater', src: '/wardrobe/tops/sweater.png', previewSrc: '/wardrobe/tops-preview/sweater.png', category: 'Tops' },
+  { id: 'touchgrass', name: 'Touchgrass', src: '/wardrobe/hats/touchgrass.png', previewSrc: '/wardrobe/hats-preview/touchgrass.png', category: 'Hats' },
+  { id: 'when', name: 'When', src: '/wardrobe/hats/when.png', previewSrc: '/wardrobe/hats-preview/when.png', category: 'Hats' },
+  { id: 'apehat', name: 'Ape Hat', src: '/wardrobe/hats/apehat.png', previewSrc: '/wardrobe/hats-preview/apehat-preview.png', category: 'Hats' },
+  { id: 'vikinghat', name: 'Viking Hat', src: '/wardrobe/hats/vikinghat.png', previewSrc: '/wardrobe/hats-preview/vikinghat-preview.png', category: 'Hats' },
+  { id: 'boar', name: 'Boar', src: '/wardrobe/hats/boar.png', previewSrc: '/wardrobe/hats-preview/boar-preview.png', category: 'Hats' },
+  { id: 'grinch', name: 'Grinch', src: '/wardrobe/hats/grinch.png', previewSrc: '/wardrobe/hats-preview/grinch-preview.png', category: 'Hats' },
+  { id: 'wutang', name: 'Wu-Tang', src: '/wardrobe/hats/wutang.png', previewSrc: '/wardrobe/hats-preview/wu-tang-preview.png', category: 'Hats' },
+  // Clothes
+  { id: 'santavest', name: 'Santa Vest', src: '/wardrobe/clothes/santavest.png', previewSrc: '/wardrobe/clothes-preview/santavest-preview.png', category: 'Clothes' },
+  { id: 'apesuit', name: 'Apesuit', src: '/wardrobe/clothes/apesuit.png', previewSrc: '/wardrobe/clothes-preview/apesuit.png', category: 'Clothes' },
+  { id: 'survived-apesuit', name: 'Survived Apesuit', src: '/wardrobe/clothes/survived-apesuit.png', previewSrc: '/wardrobe/clothes-preview/survived-apesuit.png', category: 'Clothes' },
+  { id: 'sweater', name: 'Sweater', src: '/wardrobe/clothes/sweater.png', previewSrc: '/wardrobe/clothes-preview/sweater.png', category: 'Clothes' },
+  { id: 'captain-ape', name: 'Captain Ape', src: '/wardrobe/clothes/captain-ape.png', previewSrc: '/wardrobe/clothes-preview/captain-ape-preview.png', category: 'Clothes' },
+  { id: 'cyberpunk-jacket', name: 'Cyberpunk Jacket', src: '/wardrobe/clothes/cyberpunk-jacket.png', previewSrc: '/wardrobe/clothes-preview/cyberpunk-jacket-preview.png', category: 'Clothes' },
+  { id: 'cyberpunk-jacket-2', name: 'Cyberpunk Jacket 2', src: '/wardrobe/clothes/cyberpunk-jacket-2.png', previewSrc: '/wardrobe/clothes-preview/cyberpunk-jacket-2-preview.png', category: 'Clothes' },
+  { id: 'samurai-armor', name: 'Samurai Armor', src: '/wardrobe/clothes/samurai-armor.png', previewSrc: '/wardrobe/clothes-preview/samurai-armor-preview.png', category: 'Clothes' },
+  { id: 'superman', name: 'Superman', src: '/wardrobe/clothes/superman.png', previewSrc: '/wardrobe/clothes-preview/superman-preview.png', category: 'Clothes' },
 ];
 
-const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Tops', 'Accessories'];
+const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Clothes', 'Accessories'];
 
 const OUTPUT_SIZE = 4096;
 
@@ -288,13 +300,60 @@ export default function WardrobePage() {
         category: 'Accessories',
       };
     };
-    return [
+    const accessories: ClothingItem[] = [
       build('bananas', 'Bananas', 'bananas'),
       build('gn1', 'GN1', 'gn1'),
       build('graffiti', 'Graffiti', 'graffiti', { 'Dark Brown': 'dark-brow' }),
       build('kaboom', 'Kaboom', 'kaboom'),
       build('shotgun', 'Shotgun', 'shotgun'),
+      build('samurai', 'Samurai', 'samurai'),
+      build('dinner', 'Dinner', 'dinner'),
+      build('twin-glocks', 'Twin Glocks', 'twin-glocks'),
+      {
+        id: 'prophecy',
+        name: 'Prophecy',
+        src: '/wardrobe/accessories/prophecy.png',
+        previewSrc: '/wardrobe/accessories/prophecy.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'haterkiller',
+        name: 'Haterkiller',
+        src: '/wardrobe/accessories/haterkiller.png',
+        previewSrc: '/wardrobe/accessories/haterkiller.png',
+        category: 'Accessories',
+      },
+      {
+        id: '2026-glasses',
+        name: '2026 Glasses',
+        src: '/wardrobe/accessories/2026-glasses.png',
+        previewSrc: '/wardrobe/accessories/2026-glasses.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'madscientist',
+        name: 'Mad Scientist',
+        src: '/wardrobe/accessories/madscientist.png',
+        previewSrc: '/wardrobe/accessories/madscientist.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'new-year-glasses',
+        name: 'New Year Glasses',
+        src: '/wardrobe/accessories/new-year-glasses.png',
+        previewSrc: '/wardrobe/accessories/new-year-glasses.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'valhalla',
+        name: 'Valhalla',
+        src: '/wardrobe/accessories/valhalla.png',
+        previewSrc: '/wardrobe/accessories/valhalla.png',
+        category: 'Accessories',
+      },
     ];
+    
+    return accessories;
   }, [furColor]);
 
   // Build a base image from on-chain traits, optionally excluding hat
@@ -653,22 +712,22 @@ export default function WardrobePage() {
                   Keep Mouth
                 </label>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {filtered.length === 0 && (
-                  <div className="text-sm text-off-white/60 col-span-2">No items yet.</div>
+                  <div className="text-sm text-off-white/60 col-span-3">No items yet.</div>
                 )}
                 {filtered.map((item) => {
                   const isOn = selectedIds.has(item.id);
                   return (
                     <button
                       key={item.id}
-                      className={`relative rounded-lg border p-2 text-left transition-colors ${isOn ? 'border-hero-blue/60 bg-hero-blue/10' : 'border-white/10 hover:bg-white/10'}`}
+                      className={`relative rounded-lg border p-1.5 text-left transition-colors ${isOn ? 'border-hero-blue/60 bg-hero-blue/10' : 'border-white/10 hover:bg-white/10'}`}
                       onClick={() => toggleSelect(item.id)}
                       title={item.name}
                     >
-                      <SafeImage src={item.previewSrc || item.src} alt={item.name} className="w-full aspect-square object-contain rounded-md bg-black/30" width={512} height={512} unoptimized />
-                      <div className="mt-2 text-xs" style={{ color: 'var(--foreground)' }}>{item.name}</div>
-                      {isOn && <div className="absolute top-2 right-2 text-hero-blue text-xs">Selected</div>}
+                      <SafeImage src={item.previewSrc || item.src} alt={item.name} className="w-full aspect-square object-contain rounded-md bg-black/30" width={256} height={256} unoptimized />
+                      <div className="mt-1 text-xs leading-tight" style={{ color: 'var(--foreground)' }}>{item.name}</div>
+                      {isOn && <div className="absolute top-1 right-1 text-hero-blue text-xs">✓</div>}
                     </button>
                   );
                 })}

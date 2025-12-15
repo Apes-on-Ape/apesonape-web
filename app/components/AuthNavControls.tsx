@@ -131,7 +131,10 @@ export default function AuthNavControls() {
 
 	if (signedIn) {
 		return (
-			<Link href="/profile" className="inline-flex items-center justify-center">
+			<Link
+				href={privyUser?.twitter?.username ? `/profile/${privyUser.twitter.username}` : '/profile'}
+				className="inline-flex items-center justify-center"
+			>
 				{avatarUrl ? (
 					<SafeImage
 						src={avatarUrl}
