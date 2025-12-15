@@ -179,7 +179,7 @@ export default function StudioExplorePage() {
 									placeholder="Search title, creator address, or handle"
 								/>
 							</div>
-							<div className="flex items-center gap-2 lg:justify-end overflow-x-auto scrollbar-hide whitespace-nowrap">
+							<div className="flex items-center gap-2 lg:justify-end overflow-x-auto scrollbar-hide whitespace-nowrap pr-2">
 								{(['all', 'sound', 'visual', 'interactive', 'code'] as (CreationType | 'all')[]).map((t) => (
 									<button
 										key={t}

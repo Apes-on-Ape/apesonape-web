@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-interface SectionProps extends React.HTMLAttributes<HTMLElement> {
+interface SectionProps extends Omit<React.HTMLAttributes<HTMLElement>, 'onDrag' | 'onDragEnd' | 'onDragStart' | 'onAnimationStart' | 'onAnimationEnd' | 'onAnimationIteration'> {
   children: React.ReactNode;
   spacing?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
   background?: 'default' | 'elevated' | 'surface';
