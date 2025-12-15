@@ -52,8 +52,8 @@ export default function NFTCard({
       {...motionProps}
       onClick={onClick}
     >
-      {/* Card Container */}
-      <div className="relative w-full h-full rounded-xl overflow-hidden border-2 border-white/10 group-hover:border-neon-cyan/50 transition-all duration-300 bg-charcoal-light">
+      {/* Premium Card Container */}
+      <div className="relative w-full h-full rounded-2xl overflow-hidden border group-hover:border-hero-blue/50 transition-all duration-500 bg-background-surface" style={{ borderColor: 'var(--border-color)' }}>
         {/* NFT Image */}
         <div className="relative w-full h-full">
           <Image
@@ -61,45 +61,46 @@ export default function NFTCard({
             alt={nft.name}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-110"
+            className="object-cover transition-transform duration-700 group-hover:scale-110"
             loading="lazy"
           />
         </div>
 
-        {/* Gradient Overlay on Hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {/* Premium Gradient Overlay on Hover */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
         {/* Info Overlay */}
-        <div className="absolute inset-0 flex flex-col justify-end p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="absolute inset-0 flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
           <motion.div
-            initial={{ y: 10 }}
-            whileHover={{ y: 0 }}
+            initial={{ y: 10, opacity: 0 }}
+            whileHover={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.3 }}
+            className="glass rounded-xl p-3 backdrop-blur-md"
           >
-            <h3 className="text-white font-semibold text-sm md:text-base truncate mb-1">
+            <h3 className="text-white font-semibold text-sm md:text-base truncate mb-2">
               {nft.name}
             </h3>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-neon-cyan font-bold text-xs md:text-sm">
+              <span className="text-hero-blue font-bold text-xs md:text-sm">
                 {nft.price.toFixed(2)} {nft.currency}
               </span>
-              <span className={`text-xs ${getRarityColor(nft.rarity)}`}>
+              <span className={`badge text-xs ${getRarityColor(nft.rarity)}`}>
                 {getRarityLabel(nft.rarity)}
               </span>
             </div>
           </motion.div>
         </div>
 
-        {/* Rarity Badge (Top Right) */}
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getRarityColor(nft.rarity)} bg-black/60 backdrop-blur-sm`}>
+        {/* Premium Rarity Badge (Top Right) */}
+        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <span className={`badge-primary text-xs font-semibold ${getRarityColor(nft.rarity)}`}>
             #{nft.rarity}
           </span>
         </div>
       </div>
 
-      {/* Glow Effect on Hover */}
-      <div className="absolute -inset-1 bg-gradient-to-r from-neon-cyan to-neon-green rounded-xl blur opacity-0 group-hover:opacity-20 transition-opacity duration-500 -z-10" />
+      {/* Premium Glow Effect on Hover */}
+      <div className="absolute -inset-1 bg-gradient-to-r from-hero-blue via-accent-cyan to-accent-purple rounded-2xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity duration-500 -z-10" />
     </motion.div>
   );
 }

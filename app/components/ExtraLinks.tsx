@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { useGlyph, useGlyphTokenGate } from '@use-glyph/sdk-react';
 
 export default function ExtraLinks() {
@@ -37,18 +39,40 @@ export default function ExtraLinks() {
 		return () => { cancelled = true; };
 	}, [isSignedIn, checkTokenGate]);
 
+	const pathname = usePathname();
+	
+	const isActive = (href: string) => {
+		if (href === '/') {
+			return pathname === '/';
+		}
+		return pathname?.startsWith(href);
+	};
+
 	if (!isSignedIn || !hasAccess) return null;
+	
 	return (
 		<>
-			<Link href="/creative" className="transition-colors duration-300 font-medium hover:text-hero-blue" style={{ color: 'var(--foreground)' }}>
+			<Link 
+				href="/creative" 
+				className="relative px-4 py-2 rounded-lg font-medium transition-all duration-300 hover:text-hero-blue"
+				style={!isActive('/creative') ? { color: 'rgba(245, 245, 245, 1)' } : undefined}
+			>
 				Tools
+				{isActive('/creative') && (
+					<motion.div
+						className="absolute -bottom-1 left-2 right-2 h-0.5 bg-hero-blue rounded-full"
+						layoutId="activeIndicator"
+						initial={false}
+						transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+					/>
+				)}
 			</Link>
 			<a
 				href="https://arcade.apesonape.io"
 				target="_blank"
 				rel="noopener noreferrer"
-				className="transition-colors duration-300 font-medium hover:text-hero-blue"
-				style={{ color: 'var(--foreground)' }}
+				className="relative px-4 py-2 rounded-lg font-medium transition-all duration-300 hover:text-hero-blue"
+				style={{ color: 'rgba(245, 245, 245, 1)' }}
 			>
 				Arcade
 			</a>

@@ -10,6 +10,8 @@ export default {
     extend: {
       colors: {
         background: "var(--background)",
+        'background-elevated': "var(--background-elevated)",
+        'background-surface': "var(--background-surface)",
         foreground: "var(--foreground)",
         // Apechain blue theme
         'hero-blue': {
@@ -28,6 +30,16 @@ export default {
           light: '#B8C5DC',
           dark: '#5E729A',
         },
+        // Premium accent colors
+        'accent-cyan': '#00D9FF',
+        'accent-purple': '#8B5CF6',
+        'accent-pink': '#EC4899',
+        'accent-green': '#10B981',
+        // Card & border
+        'card-bg': 'var(--card-bg)',
+        'border-color': 'var(--border-color)',
+        'border-color-hover': 'var(--border-color-hover)',
+        'border-color-active': 'var(--border-color-active)',
       },
       fontFamily: {
         'sans': ['Raleway', 'system-ui', 'sans-serif'],
@@ -76,6 +88,11 @@ export default {
       },
       backdropBlur: {
         xs: '2px',
+      },
+      boxShadow: {
+        'glow-blue': '0 0 20px rgba(0, 84, 249, 0.4)',
+        'glow-gold': '0 0 20px rgba(255, 215, 0, 0.3)',
+        'glow-cyan': '0 0 20px rgba(0, 217, 255, 0.3)',
       },
     },
   },

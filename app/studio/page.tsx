@@ -140,120 +140,147 @@ export default function StudioExplorePage() {
 	return (
 		<div className="min-h-screen flex flex-col">
 			<Nav />
-			<main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16">
-				<div className="glass-dark border border-white/10 rounded-2xl p-6 mb-8 shadow-2xl shadow-black/40">
-					<div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-						<div>
-							<div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-hero-blue/40 text-hero-blue text-sm font-semibold">
-								AOA Studio
+			<main className="flex-1 container-premium pt-24 pb-16">
+				{/* Premium Hero Section */}
+				<div className="glass-premium rounded-2xl p-8 md:p-12 mb-12 relative overflow-hidden">
+					{/* Background gradient */}
+					<div className="absolute inset-0 bg-gradient-to-br from-hero-blue/5 via-transparent to-accent-purple/5 opacity-50" />
+					<div className="relative z-10">
+						<div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+							<div className="space-y-4">
+								<div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border-hero-blue/40 text-hero-blue text-sm font-semibold">
+									<span className="w-2 h-2 bg-hero-blue rounded-full animate-pulse" />
+									AOA Studio
+								</div>
+								<h1 className="section-heading text-4xl md:text-5xl lg:text-6xl">
+									Sound. Art. Code. Vision.
+								</h1>
+								<p className="section-description max-w-2xl">
+									Raw creations—published by creators. Every drop is attributed to the wallet that shipped it.
+								</p>
+								<div className="text-muted text-sm">{filteredSubtitle}</div>
 							</div>
-							<h1 className="text-4xl font-bold mt-3">Sound. Art. Code. Vision.</h1>
-							<p className="text-off-white/70 mt-2 max-w-2xl">
-								Raw creations—published by creators. Every drop is attributed to the wallet that shipped it.
-							</p>
-							<div className="text-off-white/60 text-sm mt-1">{filteredSubtitle}</div>
+							<div className="flex items-center gap-3">
+								<Link href="/studio/new" className="btn-primary btn-lg">
+									Publish
+								</Link>
+							</div>
 						</div>
-						<div className="flex items-center gap-3">
-							<Link href="/studio/new" className="btn-primary px-5 py-2 text-sm">
-								Publish
-							</Link>
-						</div>
-					</div>
 
-					<form onSubmit={onSearch} className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-3">
-						<div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg px-3 py-2">
-							<Search className="w-4 h-4 text-off-white/60" />
-							<input
-								value={search}
-								onChange={(e) => setSearch(e.target.value)}
-								className="bg-transparent flex-1 outline-none text-sm"
-								placeholder="Search title, creator address, or handle"
-							/>
-						</div>
-						<div className="flex items-center gap-2 lg:justify-end">
-							{(['all', 'sound', 'visual', 'interactive', 'code'] as (CreationType | 'all')[]).map((t) => (
-								<button
-									key={t}
-									type="button"
-									onClick={() => setTypeFilter(t)}
-									className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
-										typeFilter === t
-											? 'border-hero-blue bg-hero-blue/10 text-hero-blue'
-											: 'border-white/10 text-off-white/80 hover:border-white/30'
-									}`}
-								>
-									{t === 'all' ? 'All' : typeLabels[t as CreationType]}
-								</button>
-							))}
-						</div>
-						<div className="flex items-center lg:justify-end gap-3">
-							<button type="submit" className="btn-secondary px-4 py-2 text-sm">Search</button>
-						</div>
-					</form>
+						{/* Premium Search & Filters */}
+						<form onSubmit={onSearch} className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
+							<div className="flex items-center gap-3 glass rounded-xl px-4 py-3 focus-within:border-hero-blue/50 transition-colors" style={{ borderColor: 'rgba(0, 84, 249, 0.3)' }}>
+								<Search className="w-5 h-5 text-muted" />
+								<input
+									value={search}
+									onChange={(e) => setSearch(e.target.value)}
+									className="bg-transparent flex-1 outline-none text-sm placeholder:text-muted"
+									style={{ color: 'var(--foreground)' }}
+									placeholder="Search title, creator address, or handle"
+								/>
+							</div>
+							<div className="flex items-center gap-2 lg:justify-end overflow-x-auto scrollbar-hide whitespace-nowrap">
+								{(['all', 'sound', 'visual', 'interactive', 'code'] as (CreationType | 'all')[]).map((t) => (
+									<button
+										key={t}
+										type="button"
+										onClick={() => setTypeFilter(t)}
+										className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-300 flex-shrink-0 ${
+											typeFilter === t
+												? 'border-hero-blue bg-hero-blue/20 text-hero-blue shadow-md shadow-hero-blue/20'
+												: 'text-muted hover:border-hero-blue/30'
+										}
+										style={typeFilter === t ? undefined : { borderColor: 'rgba(0, 84, 249, 0.3)', color: 'var(--foreground)' }}
+										`}
+									>
+										{t === 'all' ? 'All' : typeLabels[t as CreationType]}
+									</button>
+								))}
+							</div>
+							<div className="flex items-center lg:justify-end gap-3">
+								<button type="submit" className="btn-secondary">Search</button>
+							</div>
+						</form>
+					</div>
 				</div>
 
+				{/* Loading State */}
 				{loading && (
-					<div className="flex items-center gap-2 text-off-white/70">
-						<Loader2 className="w-4 h-4 animate-spin" />
+					<div className="flex items-center justify-center gap-3 text-muted py-20">
+						<Loader2 className="w-5 h-5 animate-spin text-hero-blue" />
 						<span>Loading feed…</span>
 					</div>
 				)}
-				{error && <div className="text-red-300 text-sm">{error}</div>}
+				
+				{/* Error State */}
+				{error && (
+					<div className="card-premium border-red-500/30 bg-red-500/5 p-6 text-red-400">
+						{error}
+					</div>
+				)}
+				
+				{/* Empty State */}
 				{!loading && !error && creations.length === 0 && (
-					<div className="rounded-xl border border-white/10 bg-black/40 p-6 text-off-white/70">
-						No creations yet. Be the first to <Link href="/studio/new" className="underline">publish</Link>.
+					<div className="card-premium text-center p-12">
+						<p className="text-muted text-lg mb-4">
+							No creations yet. Be the first to{' '}
+							<Link href="/studio/new" className="text-hero-blue hover:underline font-semibold">
+								publish
+							</Link>.
+						</p>
 					</div>
 				)}
 
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+				{/* Premium Creation Grid */}
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 					{creations.map((creation) => (
 						<Link
 							key={creation.id}
 							href={`/studio/${creation.id}`}
-							className="group rounded-xl border border-white/10 bg-black/40 hover:border-hero-blue/40 transition-colors overflow-hidden flex flex-col"
+							className="group card-premium overflow-hidden flex flex-col hover:border-hero-blue/50 transition-all duration-500"
 						>
-							<div className="relative aspect-[4/3] w-full overflow-hidden bg-black/30">
+							<div className="relative aspect-[4/3] w-full overflow-hidden bg-background-surface rounded-xl mb-4">
 								{renderPreview(creation)}
-								<div className="absolute top-3 left-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs bg-black/60 border border-white/10">
-									{creation.type === 'sound' && <Play className="w-4 h-4" />}
-									{creation.type === 'visual' && <ImageIcon className="w-4 h-4" />}
-									{creation.type === 'interactive' && <MousePointerClick className="w-4 h-4" />}
-									{creation.type === 'code' && <Code2 className="w-4 h-4" />}
+								<div className="absolute top-3 left-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs glass font-medium" style={{ borderColor: 'rgba(0, 84, 249, 0.3)' }}>
+									{creation.type === 'sound' && <Play className="w-3.5 h-3.5" />}
+									{creation.type === 'visual' && <ImageIcon className="w-3.5 h-3.5" />}
+									{creation.type === 'interactive' && <MousePointerClick className="w-3.5 h-3.5" />}
+									{creation.type === 'code' && <Code2 className="w-3.5 h-3.5" />}
 									<span>{typeLabels[creation.type]}</span>
 								</div>
 							</div>
-							<div className="p-4 space-y-2">
-								<div className="flex items-center justify-between gap-2">
-									<h3 className="font-semibold text-lg line-clamp-1">{creation.title}</h3>
-									<span className="text-xs text-off-white/60">{formatTimeAgo(creation.createdAt)}</span>
+							<div className="space-y-3 flex-1 flex flex-col">
+								<div className="flex items-start justify-between gap-2">
+									<h3 className="font-bold text-lg line-clamp-1 group-hover:text-hero-blue transition-colors">
+										{creation.title}
+									</h3>
+									<span className="text-xs text-muted whitespace-nowrap">{formatTimeAgo(creation.createdAt)}</span>
 								</div>
-								<p className="text-sm text-off-white/70 line-clamp-2">{creation.description}</p>
-								<div className="flex items-center gap-2 text-xs text-off-white/60">
+								<p className="text-sm text-muted line-clamp-2 leading-relaxed flex-1">
+									{creation.description}
+								</p>
+								<div className="flex items-center gap-2 text-xs flex-wrap">
 									<Link
 										href={
 											creation.glyphProfile?.xHandle
 												? `/studio/creator/${creation.glyphProfile.xHandle.toLowerCase()}`
 												: `/studio/creator/${creation.creatorAddress.toLowerCase()}`
 										}
-										className="hover:underline underline-offset-2"
+										onClick={(e) => e.stopPropagation()}
+										className="text-hero-blue hover:underline underline-offset-2 font-medium"
 									>
 										{creation.glyphProfile?.xHandle ? `@${creation.glyphProfile.xHandle}` : shortAddress(creation.creatorAddress)}
 									</Link>
 									{creation.glyphProfile?.verified ? (
-										<span className="inline-flex items-center gap-1 text-green-400">
-											<BadgeCheck className="w-3 h-3" /> Glyph verified
+										<span className="inline-flex items-center gap-1 text-accent-green badge-primary text-xs">
+											<BadgeCheck className="w-3 h-3" /> Verified
 										</span>
-									) : (
-										<span className="text-off-white/50">Not verified</span>
-									)}
-									{creation.glyphProfile?.xHandle && (
-										<span className="text-off-white/70">@{creation.glyphProfile.xHandle}</span>
-									)}
+									) : null}
 								</div>
 								{creation.tags && creation.tags.length > 0 && (
-									<div className="flex flex-wrap gap-2">
+									<div className="flex flex-wrap gap-2 pt-2">
 										{creation.tags.map((tag) => (
-											<span key={tag} className="px-2 py-1 text-2xs rounded-full bg-white/5 border border-white/10 text-off-white/70">
+											<span key={tag} className="badge text-xs">
 												#{tag}
 											</span>
 										))}

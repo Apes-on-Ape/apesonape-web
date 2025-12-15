@@ -95,7 +95,9 @@ export default function RootLayout({
           {holiday === 'christmas' ? <HolidayDecor /> : null}
           {holiday === 'christmas' ? <HolidayPopup /> : null}
           <GlyphClientProvider>
-            {children}
+            <div className="min-h-screen">
+              {children}
+            </div>
             <NotificationToast />
           </GlyphClientProvider>
           <SoundCloudPlayer />

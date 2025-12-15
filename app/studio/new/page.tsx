@@ -268,7 +268,7 @@ export default function StudioPublishPage() {
 								onChange={(e) => setDescription(e.target.value.slice(0, DESCRIPTION_LIMIT))}
 								rows={3}
 								className="w-full rounded-md bg-black/40 border border-white/10 p-3"
-								placeholder="What is this experiment? Tools, inspirations, context."
+								placeholder="Describe your work"
 								disabled={!canPublish}
 							/>
 							<div className="text-xs text-off-white/60 mt-1">{description.length}/{DESCRIPTION_LIMIT}</div>
