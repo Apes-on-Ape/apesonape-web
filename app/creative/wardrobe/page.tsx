@@ -15,7 +15,7 @@ type ClothingItem = {
   id: string;
   name: string;
   src: string; // overlay asset used on canvas
-  category: 'Hats' | 'Clothes' | 'Accessories';
+  category: 'Hats' | 'Clothes' | 'Accessories' | 'Suits';
   previewSrc?: string; // thumbnail shown in picker
 };
 
@@ -225,19 +225,41 @@ const CLOTHES: ClothingItem[] = [
   { id: 'boar', name: 'Boar', src: '/wardrobe/hats/boar.png', previewSrc: '/wardrobe/hats-preview/boar-preview.png', category: 'Hats' },
   { id: 'grinch', name: 'Grinch', src: '/wardrobe/hats/grinch.png', previewSrc: '/wardrobe/hats-preview/grinch-preview.png', category: 'Hats' },
   { id: 'wutang', name: 'Wu-Tang', src: '/wardrobe/hats/wutang.png', previewSrc: '/wardrobe/hats-preview/wu-tang-preview.png', category: 'Hats' },
+  { id: 'luigihat', name: 'Luigi Hat', src: '/wardrobe/hats/luigihat.png', previewSrc: '/wardrobe/hats/luigihat.png', category: 'Hats' },
+  { id: 'mariohat', name: 'Mario Hat', src: '/wardrobe/hats/mariohat.png', previewSrc: '/wardrobe/hats/mariohat.png', category: 'Hats' },
+  { id: 'sparrowhat', name: 'Sparrow Hat', src: '/wardrobe/hats/sparrowhat.png', previewSrc: '/wardrobe/hats-preview/sparrowhat.png', category: 'Hats' },
+  { id: 'visor-glasses', name: 'Visor Glasses', src: '/wardrobe/hats/visor glasses.png', previewSrc: '/wardrobe/hats-preview/visor glasses.png', category: 'Hats' },
   // Clothes
   { id: 'santavest', name: 'Santa Vest', src: '/wardrobe/clothes/santavest.png', previewSrc: '/wardrobe/clothes-preview/santavest-preview.png', category: 'Clothes' },
-  { id: 'apesuit', name: 'Apesuit', src: '/wardrobe/clothes/apesuit.png', previewSrc: '/wardrobe/clothes-preview/apesuit.png', category: 'Clothes' },
-  { id: 'survived-apesuit', name: 'Survived Apesuit', src: '/wardrobe/clothes/survived-apesuit.png', previewSrc: '/wardrobe/clothes-preview/survived-apesuit.png', category: 'Clothes' },
   { id: 'sweater', name: 'Sweater', src: '/wardrobe/clothes/sweater.png', previewSrc: '/wardrobe/clothes-preview/sweater.png', category: 'Clothes' },
   { id: 'captain-ape', name: 'Captain Ape', src: '/wardrobe/clothes/captain-ape.png', previewSrc: '/wardrobe/clothes-preview/captain-ape-preview.png', category: 'Clothes' },
   { id: 'cyberpunk-jacket', name: 'Cyberpunk Jacket', src: '/wardrobe/clothes/cyberpunk-jacket.png', previewSrc: '/wardrobe/clothes-preview/cyberpunk-jacket-preview.png', category: 'Clothes' },
   { id: 'cyberpunk-jacket-2', name: 'Cyberpunk Jacket 2', src: '/wardrobe/clothes/cyberpunk-jacket-2.png', previewSrc: '/wardrobe/clothes-preview/cyberpunk-jacket-2-preview.png', category: 'Clothes' },
-  { id: 'samurai-armor', name: 'Samurai Armor', src: '/wardrobe/clothes/samurai-armor.png', previewSrc: '/wardrobe/clothes-preview/samurai-armor-preview.png', category: 'Clothes' },
-  { id: 'superman', name: 'Superman', src: '/wardrobe/clothes/superman.png', previewSrc: '/wardrobe/clothes-preview/superman-preview.png', category: 'Clothes' },
+  { id: 'aoa-tshirt', name: 'AOA T-Shirt', src: '/wardrobe/clothes/aoa-tshirt.png', previewSrc: '/wardrobe/clothes-preview/aoa-tshirt-preview.png', category: 'Clothes' },
+  { id: 'blastoise', name: 'Blastoise', src: '/wardrobe/clothes/blastoise.png', previewSrc: '/wardrobe/clothes-preview/blastoise.png', category: 'Clothes' },
+  // Suits (full-body suits)
+  { id: 'apesuit', name: 'Apesuit', src: '/wardrobe/clothes/apesuit.png', previewSrc: '/wardrobe/clothes-preview/apesuit.png', category: 'Suits' },
+  { id: 'survived-apesuit', name: 'Survived Apesuit', src: '/wardrobe/clothes/survived-apesuit.png', previewSrc: '/wardrobe/clothes-preview/survived-apesuit.png', category: 'Suits' },
+  { id: 'samurai-armor', name: 'Samurai Armor', src: '/wardrobe/clothes/samurai-armor.png', previewSrc: '/wardrobe/clothes-preview/samurai-armor-preview.png', category: 'Suits' },
+  { id: 'superman', name: 'Superman', src: '/wardrobe/suits/superman.png', previewSrc: '/wardrobe/suits-preview/superman-preview.png', category: 'Suits' },
+  { id: 'batman', name: 'Batman', src: '/wardrobe/suits/batman.png', previewSrc: '/wardrobe/suits-preview/batman-preview.png', category: 'Suits' },
+  { id: 'hulk', name: 'Hulk', src: '/wardrobe/suits/hulk.PNG', previewSrc: '/wardrobe/suits-preview/hulk-preview.png', category: 'Suits' },
+  { id: 'cyborg', name: 'Cyborg', src: '/wardrobe/suits/cyborg.png', previewSrc: '/wardrobe/suits-preview/cyborg-preview.png', category: 'Suits' },
+  { id: 'elf', name: 'Elf', src: '/wardrobe/suits/elf.png', previewSrc: '/wardrobe/suits-preview/elf-preview.png', category: 'Suits' },
+  { id: 'gold-cloak', name: 'Gold Cloak', src: '/wardrobe/suits/gold-cloak.png', previewSrc: '/wardrobe/suits-preview/gold-cloak-preview.png', category: 'Suits' },
+  { id: 'jedi', name: 'Jedi', src: '/wardrobe/suits/jedi.png', previewSrc: '/wardrobe/suits-preview/jedi-preview.png', category: 'Suits' },
+  { id: 'mcaoa', name: 'McAoA', src: '/wardrobe/suits/McAoA.png', previewSrc: '/wardrobe/suits-preview/McAoA-preview.png', category: 'Suits' },
+  { id: 'robotsuit', name: 'Robot Suit', src: '/wardrobe/suits/robotsuit.png', previewSrc: '/wardrobe/suits-preview/robotsuit-preview.png', category: 'Suits' },
+  { id: 'snowman', name: 'Snowman', src: '/wardrobe/suits/snowman.png', previewSrc: '/wardrobe/suits-preview/snowman-preview.png', category: 'Suits' },
+  { id: 'spawn-frog', name: 'Spawn Frog', src: '/wardrobe/suits/spawn-frog.png', previewSrc: '/wardrobe/suits-preview/spawn-frog-preview.png', category: 'Suits' },
+  { id: 'sparrowsuit', name: 'Sparrow Suit', src: '/wardrobe/clothes/sparrowsuit.png', previewSrc: '/wardrobe/clothes/sparrowsuit.png', category: 'Suits' },
+  { id: 'bulbasaur', name: 'Bulbasaur', src: '/wardrobe/suits/Bulbasaur_with_blue.png', previewSrc: '/wardrobe/suits-preview/bulbasaur-preview.png', category: 'Suits' },
+  { id: 'charizard', name: 'Charizard', src: '/wardrobe/suits/Charizard_with_blue.png', previewSrc: '/wardrobe/suits-preview/charizard-preview.png', category: 'Suits' },
+  { id: 'gengar', name: 'Gengar', src: '/wardrobe/suits/Gengar_with_blue.png', previewSrc: '/wardrobe/suits-preview/gengar-preview.png', category: 'Suits' },
+  { id: 'king-baldwin', name: 'King Baldwin', src: '/wardrobe/suits/King Baldwin-preview.png', previewSrc: '/wardrobe/suits-preview/King Baldwin-preview.png', category: 'Suits' },
 ];
 
-const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Clothes', 'Accessories'];
+const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Clothes', 'Accessories', 'Suits'];
 
 const OUTPUT_SIZE = 4096;
 
@@ -349,6 +371,34 @@ export default function WardrobePage() {
         name: 'Valhalla',
         src: '/wardrobe/accessories/valhalla.png',
         previewSrc: '/wardrobe/accessories/valhalla.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'beardead',
+        name: 'Bear Dead',
+        src: '/wardrobe/accessories/beardead.png',
+        previewSrc: '/wardrobe/accessories/beardead.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'bulldead',
+        name: 'Bull Dead',
+        src: '/wardrobe/accessories/bulldead.png',
+        previewSrc: '/wardrobe/accessories/bulldead.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'diamondhands',
+        name: 'Diamond Hands',
+        src: '/wardrobe/accessories/diamondhands.png',
+        previewSrc: '/wardrobe/accessories/diamondhands.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'rentfree',
+        name: 'Rent Free',
+        src: '/wardrobe/accessories/rentfree.png',
+        previewSrc: '/wardrobe/accessories/rentfree.png',
         category: 'Accessories',
       },
     ];
