@@ -33,6 +33,7 @@ export default function Nav() {
     { href: '/collection', label: 'Collection' },
     { href: '/sound', label: 'Sound' },
     { href: '/studio', label: 'Studio' },
+    { href: '/wardrobe', label: 'Wardrobe' },
   ];
   
   const isActive = (href: string) => {

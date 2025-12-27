@@ -65,7 +65,7 @@ export default function CreativeHubPage() {
             </div>
             <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--foreground)' }}>Wardrobe</h3>
             <p className="text-sm text-off-white/80 mb-3">Add clothes and customize your Ape with overlay layers. Upload transparent PNGs and position them.</p>
-            <Link href="/creative/wardrobe" className="btn-secondary inline-flex items-center w-fit">Customize Ape</Link>
+            <Link href="/wardrobe" className="btn-secondary inline-flex items-center w-fit">Customize Ape</Link>
           </div>
 
           <div className="group rounded-xl border border-white/10 bg-black/30 hover:bg-black/40 transition-colors p-5 flex flex-col">
