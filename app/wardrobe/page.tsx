@@ -4,11 +4,12 @@ export const dynamic = 'force-dynamic';
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import Nav from '../../components/Nav';
-import Footer from '../../components/Footer';
+import Nav from '../components/Nav';
+import Footer from '../components/Footer';
 import { Download, Shirt } from 'lucide-react';
 import { useToolTracking } from '@/app/hooks/useToolTracking';
 import { magicEdenAPI } from '@/lib/magic-eden';
+import { baycAPI } from '@/lib/bayc-api';
 import SafeImage from '@/app/components/SafeImage';
 
 type ClothingItem = {
@@ -284,6 +285,7 @@ export default function WardrobePage() {
   // Track tool usage for gamification
   useToolTracking('wardrobe');
 
+  const [collection, setCollection] = useState<'aoa' | 'bayc'>('aoa');
   const [tokenId, setTokenId] = useState<string>('');
   const [loadingNft, setLoadingNft] = useState(false);
   const [baseSrc, setBaseSrc] = useState<string>('');
@@ -476,7 +478,11 @@ export default function WardrobePage() {
         setNote('Please enter a numeric token ID (e.g., 1234).');
         return;
       }
-      const nft = await magicEdenAPI.getNFTByTokenId(tokenId.trim());
+      // Use different API based on collection selection
+      const nft = collection === 'bayc' 
+        ? await baycAPI.getNFTByTokenId(tokenId.trim())
+        : await magicEdenAPI.getNFTByTokenId(tokenId.trim());
+      
       if (!nft) {
         setNote('Token not found. Check the ID and try again.');
         return;
@@ -486,18 +492,36 @@ export default function WardrobePage() {
         setFurColor(furTrait.value as FurColor);
       }
       setLoadedTraits(nft.traits);
-      // Build a base image from traits, omitting the hat layer so hats can be swapped
-      const composed = await composeBaseFromTraits(nft.traits, {
-        includeHat: keepHat,
-        includeClothes: keepClothes,
-        includeEyes: keepEyes,
-        includeMouth: keepMouth,
-      });
-      if (composed) {
-        setBaseSrc(composed);
+      
+      // For BAYC, only use traits if available; otherwise use image directly
+      if (collection === 'bayc') {
+        // Build a base image from traits for BAYC
+        const composed = await composeBaseFromTraits(nft.traits, {
+          includeHat: keepHat,
+          includeClothes: keepClothes,
+          includeEyes: keepEyes,
+          includeMouth: keepMouth,
+        });
+        if (composed) {
+          setBaseSrc(composed);
+        } else {
+          setBaseSrc(nft.image);
+          setNote('Using BAYC image - traits may not be fully mapped.');
+        }
       } else {
-        setBaseSrc(nft.image);
-        setNote('Could not build from traits, fell back to token image.');
+        // For AoA, build from traits
+        const composed = await composeBaseFromTraits(nft.traits, {
+          includeHat: keepHat,
+          includeClothes: keepClothes,
+          includeEyes: keepEyes,
+          includeMouth: keepMouth,
+        });
+        if (composed) {
+          setBaseSrc(composed);
+        } else {
+          setBaseSrc(nft.image);
+          setNote('Could not build from traits, fell back to token image.');
+        }
       }
     } catch (err) {
       console.error('Load NFT error:', err);
@@ -505,7 +529,7 @@ export default function WardrobePage() {
     } finally {
       setLoadingNft(false);
     }
-  }, [tokenId, loadingNft, furColors, composeBaseFromTraits, keepHat, keepClothes, keepEyes, keepMouth]);
+  }, [tokenId, loadingNft, collection, furColors, composeBaseFromTraits, keepHat, keepClothes, keepEyes, keepMouth]);
 
   // Attempt to prime audio on first interaction to avoid autoplay restrictions
   useEffect(() => {
@@ -549,8 +573,19 @@ export default function WardrobePage() {
 
   const clothesAvailable = useMemo(() => {
     const base = [...CLOTHES, ...furAccessories];
-    return gmMugItem ? [...base, gmMugItem] : base;
-  }, [gmMugItem, furAccessories]);
+    const allItems = gmMugItem ? [...base, gmMugItem] : base;
+    
+    // For BAYC, only allow accessories (no hats, clothes, suits) and exclude specific items
+    if (collection === 'bayc') {
+      const baycExcluded = ['gn1', 'samurai'];
+      return allItems.filter(item => 
+        item.category === 'Accessories' && !baycExcluded.includes(item.id)
+      );
+    }
+    
+    // For AoA, allow all clothes
+    return allItems;
+  }, [collection, gmMugItem, furAccessories]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -655,7 +690,11 @@ export default function WardrobePage() {
     a.click();
   }, [baseSrc, previewUrl, compose]);
 
-  const filtered = clothesAvailable.filter((c) => c.category === activeCategory);
+  // For BAYC, show all available items (already filtered to accessories only)
+  // For AoA, filter by active category
+  const filtered = collection === 'bayc' 
+    ? clothesAvailable 
+    : clothesAvailable.filter((c) => c.category === activeCategory);
 
   // When keep toggles change, rebuild base from traits (if present) to reflect selection
   useEffect(() => {
@@ -675,6 +714,20 @@ export default function WardrobePage() {
     })();
     return () => { cancelled = true; };
   }, [loadedTraits, keepHat, keepClothes, keepEyes, keepMouth, composeBaseFromTraits]);
+
+  // When collection changes, reset state and clear preview
+  useEffect(() => {
+    if (collection === 'bayc') {
+      setActiveCategory('Accessories');
+    }
+    // Clear selection, preview, base image, and loaded traits when switching collections
+    setSelectedIds(new Set());
+    setPreviewUrl(null);
+    setBaseSrc('');
+    setLoadedTraits(null);
+    setTokenId('');
+    setNote(null);
+  }, [collection]);
 
   return (
     <div className="min-h-screen relative">
@@ -708,14 +761,40 @@ export default function WardrobePage() {
             Ape Wardrobe
           </h1>
           <p className="text-off-white/80 mt-2 max-w-2xl">
-            Step into the scientist’s workshop. Upload a 4096×4096 Ape, select overlays, then generate with a flash of chaotic genius.
+            Step into the scientist's workshop. Load your Apes On Ape or Bored Ape Yacht Club NFT, select overlays, then generate with a flash of chaotic genius.
           </p>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="glass-dark rounded-xl p-4 border border-white/10 space-y-4">
             <div>
-              <label className="block text-sm mb-2" style={{ color: 'var(--foreground)' }}>Ape Token ID</label>
+              <label className="block text-sm mb-2" style={{ color: 'var(--foreground)' }}>Collection</label>
+              <div className="flex gap-2 mb-4">
+                <button
+                  className={`flex-1 px-3 py-2 rounded-md text-sm border transition-colors ${
+                    collection === 'aoa' 
+                      ? 'border-hero-blue/50 bg-hero-blue/10 text-hero-blue' 
+                      : 'border-white/10 hover:bg-white/10'
+                  }`}
+                  onClick={() => setCollection('aoa')}
+                >
+                  Apes On Ape
+                </button>
+                <button
+                  className={`flex-1 px-3 py-2 rounded-md text-sm border transition-colors ${
+                    collection === 'bayc' 
+                      ? 'border-hero-blue/50 bg-hero-blue/10 text-hero-blue' 
+                      : 'border-white/10 hover:bg-white/10'
+                  }`}
+                  onClick={() => setCollection('bayc')}
+                >
+                  BAYC
+                </button>
+              </div>
+              
+              <label className="block text-sm mb-2" style={{ color: 'var(--foreground)' }}>
+                {collection === 'bayc' ? 'BAYC Token ID' : 'Ape Token ID'}
+              </label>
               <div className="flex gap-2">
                 <input
                   value={tokenId}
@@ -727,22 +806,33 @@ export default function WardrobePage() {
                   {loadingNft ? 'Loading…' : 'Load NFT'}
                 </button>
               </div>
-              <div className="text-xs text-off-white/60 mt-2">Loads image and traits from IPFS via tokenURI.</div>
+              <div className="text-xs text-off-white/60 mt-2">
+                {collection === 'bayc' 
+                  ? 'Loads BAYC from Ethereum. Accessories only (no hats/clothes).' 
+                  : 'Loads image and traits from IPFS via tokenURI.'}
+              </div>
               {note && <div className="text-xs text-red-400 mt-2">{note}</div>}
             </div>
               {/* GM Arm configuration removed; use Accessories tile to toggle */}
             <div className="border-t border-white/10 pt-3">
-              <div className="flex items-center gap-2 mb-3">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    className={`px-3 py-1.5 rounded-md text-sm border ${activeCategory === cat ? 'border-hero-blue/50 bg-hero-blue/10' : 'border-white/10 hover:bg-white/10'}`}
-                    onClick={() => setActiveCategory(cat)}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
+              {collection === 'aoa' && (
+                <div className="flex items-center gap-2 mb-3">
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      className={`px-3 py-1.5 rounded-md text-sm border ${activeCategory === cat ? 'border-hero-blue/50 bg-hero-blue/10' : 'border-white/10 hover:bg-white/10'}`}
+                      onClick={() => setActiveCategory(cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {collection === 'bayc' && (
+                <div className="mb-3 text-sm text-hero-blue/80 font-medium">
+                  Accessories Available
+                </div>
+              )}
               {/* Trait keep toggles */}
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <label className="flex items-center gap-2 text-xs text-off-white/80">
