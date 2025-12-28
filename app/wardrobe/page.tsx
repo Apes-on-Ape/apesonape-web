@@ -710,11 +710,8 @@ export default function WardrobePage() {
     a.click();
   }, [baseSrc, previewUrl, compose]);
 
-  // For BAYC, show all available items (already filtered to accessories only)
-  // For AoA, filter by active category
-  const filtered = collection === 'bayc' 
-    ? clothesAvailable 
-    : clothesAvailable.filter((c) => c.category === activeCategory);
+  // Filter by active category for both collections
+  const filtered = clothesAvailable.filter((c) => c.category === activeCategory);
 
   // When keep toggles change, rebuild base from traits (if present) to reflect selection
   useEffect(() => {
@@ -836,7 +833,7 @@ export default function WardrobePage() {
               {/* GM Arm configuration removed; use Accessories tile to toggle */}
             <div className="border-t border-white/10 pt-3">
               {collection === 'aoa' && (
-                <div className="flex items-center gap-2 mb-3">
+                <div className="grid grid-cols-3 gap-2 mb-3">
                   {CATEGORIES.map((cat) => (
                     <button
                       key={cat}
@@ -849,8 +846,19 @@ export default function WardrobePage() {
                 </div>
               )}
               {collection === 'bayc' && (
-                <div className="mb-3 text-sm text-hero-blue/80 font-medium">
-                  Hands & Accessories Available
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button
+                    className={`px-3 py-1.5 rounded-md text-sm border ${activeCategory === 'Hands' ? 'border-hero-blue/50 bg-hero-blue/10' : 'border-white/10 hover:bg-white/10'}`}
+                    onClick={() => setActiveCategory('Hands')}
+                  >
+                    Hands
+                  </button>
+                  <button
+                    className={`px-3 py-1.5 rounded-md text-sm border ${activeCategory === 'Accessories' ? 'border-hero-blue/50 bg-hero-blue/10' : 'border-white/10 hover:bg-white/10'}`}
+                    onClick={() => setActiveCategory('Accessories')}
+                  >
+                    Accessories
+                  </button>
                 </div>
               )}
               {/* Trait keep toggles - only show for AoA collection */}
