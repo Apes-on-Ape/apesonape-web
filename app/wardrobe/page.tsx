@@ -18,6 +18,7 @@ type ClothingItem = {
   src: string; // overlay asset used on canvas
   category: 'Hats' | 'Clothes' | 'Accessories' | 'Hands' | 'Suits';
   previewSrc?: string; // thumbnail shown in picker
+  baycOnly?: boolean; // Only available for BAYC collection
 };
 
 type TraitLayer = {
@@ -257,6 +258,7 @@ const CLOTHES: ClothingItem[] = [
   { id: 'bulbasaur', name: 'Bulbasaur', src: '/wardrobe/suits/Bulbasaur_with_blue.png', previewSrc: '/wardrobe/suits-preview/bulbasaur-preview.png', category: 'Suits' },
   { id: 'charizard', name: 'Charizard', src: '/wardrobe/suits/Charizard_with_blue.png', previewSrc: '/wardrobe/suits-preview/charizard-preview.png', category: 'Suits' },
   { id: 'gengar', name: 'Gengar', src: '/wardrobe/suits/Gengar_with_blue.png', previewSrc: '/wardrobe/suits-preview/gengar-preview.png', category: 'Suits' },
+  { id: 'pikachu', name: 'Pikachu', src: '/wardrobe/suits/Pikachu_with_blue.png', previewSrc: '/wardrobe/suits-preview/Pikachu.png', category: 'Suits' },
   { id: 'king-baldwin', name: 'King Baldwin', src: '/wardrobe/suits/King Baldwin-preview.png', previewSrc: '/wardrobe/suits-preview/King Baldwin-preview.png', category: 'Suits' },
 ];
 
@@ -413,30 +415,34 @@ export default function WardrobePage() {
       {
         id: 'boxing-gloves',
         name: 'Boxing Gloves',
-        src: '/wardrobe/accessories/boxing gloves.png',
-        previewSrc: '/wardrobe/accessories/boxing gloves.png',
-        category: 'Accessories',
+        src: '/wardrobe/hands/boxing gloves.png',
+        previewSrc: '/wardrobe/hands/boxing gloves.png',
+        category: 'Hands',
+        baycOnly: true,
       },
       {
         id: 'diamond-hands-acc',
         name: 'Diamond Hands',
-        src: '/wardrobe/accessories/diamond hands.png',
-        previewSrc: '/wardrobe/accessories/diamond hands.png',
-        category: 'Accessories',
+        src: '/wardrobe/hands/diamond hands.png',
+        previewSrc: '/wardrobe/hands/diamond hands.png',
+        category: 'Hands',
+        baycOnly: true,
       },
       {
         id: 'nachos-beer',
         name: 'Nachos Beer',
-        src: '/wardrobe/accessories/nachos beer.png',
-        previewSrc: '/wardrobe/accessories/nachos beer.png',
-        category: 'Accessories',
+        src: '/wardrobe/hands/nachos beer.png',
+        previewSrc: '/wardrobe/hands/nachos beer.png',
+        category: 'Hands',
+        baycOnly: true,
       },
       {
         id: 'snowboard',
         name: 'Snowboard',
-        src: '/wardrobe/accessories/snowboard.png',
-        previewSrc: '/wardrobe/accessories/snowboard.png',
-        category: 'Accessories',
+        src: '/wardrobe/hands/snowboard.png',
+        previewSrc: '/wardrobe/hands/snowboard.png',
+        category: 'Hands',
+        baycOnly: true,
       },
     ];
     
@@ -625,14 +631,14 @@ export default function WardrobePage() {
     
     // For BAYC, only allow hands and accessories (no hats, clothes, suits) and exclude specific items
     if (collection === 'bayc') {
-      const baycExcluded = ['gn1', 'samurai'];
+      const baycExcluded = ['gn1', 'samurai', 'diamondhands'];
       return allItems.filter(item => 
         (item.category === 'Hands' || item.category === 'Accessories') && !baycExcluded.includes(item.id)
       );
     }
     
-    // For AoA, allow all clothes
-    return allItems;
+    // For AoA, allow all clothes except BAYC-only items
+    return allItems.filter(item => !item.baycOnly);
   }, [collection, gmMugItem, furAccessories]);
 
   const toggleSelect = useCallback((id: string) => {
