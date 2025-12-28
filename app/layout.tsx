@@ -3,8 +3,6 @@ import { Raleway } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 import SoundCloudPlayer from "./components/SoundCloudPlayer";
-import HolidayDecor from "./components/HolidayDecor";
-import HolidayPopup from "./components/HolidayPopup";
 import GlyphClientProvider from "./components/GlyphClientProvider";
 import NotificationToast from "./components/NotificationToast";
 
@@ -63,13 +61,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Enable Christmas vibes automatically in December or via env override
-  const holidayMode = process.env.NEXT_PUBLIC_HOLIDAY_MODE?.toLowerCase();
-  const isDecember = new Date().getMonth() === 11;
-  const holiday = holidayMode === 'christmas' || (!holidayMode && isDecember) ? 'christmas' : undefined;
-
   return (
-    <html lang="en" className="dark" data-holiday={holiday}>
+    <html lang="en" className="dark">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.png" type="image/png" />
@@ -92,8 +85,6 @@ export default function RootLayout({
         className={`${raleway.variable} antialiased font-sans`}
       >
         <ThemeProvider>
-          {holiday === 'christmas' ? <HolidayDecor /> : null}
-          {holiday === 'christmas' ? <HolidayPopup /> : null}
           <GlyphClientProvider>
             <div className="min-h-screen">
               {children}
