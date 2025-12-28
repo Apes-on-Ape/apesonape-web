@@ -315,7 +315,7 @@ export default function WardrobePage() {
       slugOverrides?: Partial<Record<FurColor, string>>
     ): ClothingItem => {
       const effectiveSlug = slugOverrides?.[furColor] || slug;
-      const path = `/wardrobe/accessories/${folder}/${effectiveSlug}-fur-${folder}.png`;
+      const path = `/wardrobe/hands/${folder}/${effectiveSlug}-fur-${folder}.png`;
       return {
         id,
         name,
@@ -336,71 +336,71 @@ export default function WardrobePage() {
       {
         id: 'prophecy',
         name: 'Prophecy',
-        src: '/wardrobe/accessories/prophecy.png',
-        previewSrc: '/wardrobe/accessories/prophecy.png',
+        src: '/wardrobe/hands/prophecy.png',
+        previewSrc: '/wardrobe/hands/prophecy.png',
         category: 'Hands',
       },
       {
         id: 'haterkiller',
         name: 'Haterkiller',
-        src: '/wardrobe/accessories/haterkiller.png',
-        previewSrc: '/wardrobe/accessories/haterkiller.png',
+        src: '/wardrobe/hands/haterkiller.png',
+        previewSrc: '/wardrobe/hands/haterkiller.png',
         category: 'Hands',
       },
       {
         id: '2026-glasses',
         name: '2026 Glasses',
-        src: '/wardrobe/accessories/2026-glasses.png',
-        previewSrc: '/wardrobe/accessories/2026-glasses.png',
+        src: '/wardrobe/hands/2026-glasses.png',
+        previewSrc: '/wardrobe/hands/2026-glasses.png',
         category: 'Hands',
       },
       {
         id: 'madscientist',
         name: 'Mad Scientist',
-        src: '/wardrobe/accessories/madscientist.png',
-        previewSrc: '/wardrobe/accessories/madscientist.png',
+        src: '/wardrobe/hands/madscientist.png',
+        previewSrc: '/wardrobe/hands/madscientist.png',
         category: 'Hands',
       },
       {
         id: 'new-year-glasses',
         name: 'New Year Glasses',
-        src: '/wardrobe/accessories/new-year-glasses.png',
-        previewSrc: '/wardrobe/accessories/new-year-glasses.png',
+        src: '/wardrobe/hands/new-year-glasses.png',
+        previewSrc: '/wardrobe/hands/new-year-glasses.png',
         category: 'Hands',
       },
       {
         id: 'valhalla',
         name: 'Valhalla',
-        src: '/wardrobe/accessories/valhalla.png',
-        previewSrc: '/wardrobe/accessories/valhalla.png',
+        src: '/wardrobe/hands/valhalla.png',
+        previewSrc: '/wardrobe/hands/valhalla.png',
         category: 'Hands',
       },
       {
         id: 'beardead',
         name: 'Bear Dead',
-        src: '/wardrobe/accessories/beardead.png',
-        previewSrc: '/wardrobe/accessories/beardead.png',
+        src: '/wardrobe/hands/beardead.png',
+        previewSrc: '/wardrobe/hands/beardead.png',
         category: 'Hands',
       },
       {
         id: 'bulldead',
         name: 'Bull Dead',
-        src: '/wardrobe/accessories/bulldead.png',
-        previewSrc: '/wardrobe/accessories/bulldead.png',
+        src: '/wardrobe/hands/bulldead.png',
+        previewSrc: '/wardrobe/hands/bulldead.png',
         category: 'Hands',
       },
       {
         id: 'diamondhands',
         name: 'Diamond Hands',
-        src: '/wardrobe/accessories/diamondhands.png',
-        previewSrc: '/wardrobe/accessories/diamondhands.png',
+        src: '/wardrobe/hands/diamondhands.png',
+        previewSrc: '/wardrobe/hands/diamondhands.png',
         category: 'Hands',
       },
       {
         id: 'rentfree',
         name: 'Rent Free',
-        src: '/wardrobe/accessories/rentfree.png',
-        previewSrc: '/wardrobe/accessories/rentfree.png',
+        src: '/wardrobe/hands/rentfree.png',
+        previewSrc: '/wardrobe/hands/rentfree.png',
         category: 'Hands',
       },
       {
@@ -408,6 +408,34 @@ export default function WardrobePage() {
         name: 'Studio Microphone',
         src: '/wardrobe/accessories/studio-microphone.png',
         previewSrc: '/wardrobe/accessories/studio-microphone.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'boxing-gloves',
+        name: 'Boxing Gloves',
+        src: '/wardrobe/accessories/boxing gloves.png',
+        previewSrc: '/wardrobe/accessories/boxing gloves.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'diamond-hands-acc',
+        name: 'Diamond Hands',
+        src: '/wardrobe/accessories/diamond hands.png',
+        previewSrc: '/wardrobe/accessories/diamond hands.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'nachos-beer',
+        name: 'Nachos Beer',
+        src: '/wardrobe/accessories/nachos beer.png',
+        previewSrc: '/wardrobe/accessories/nachos beer.png',
+        category: 'Accessories',
+      },
+      {
+        id: 'snowboard',
+        name: 'Snowboard',
+        src: '/wardrobe/accessories/snowboard.png',
+        previewSrc: '/wardrobe/accessories/snowboard.png',
         category: 'Accessories',
       },
     ];
@@ -563,10 +591,10 @@ export default function WardrobePage() {
     if (collectionType === 'bayc') {
       // BAYC mugs use format: "BAYC mug [color] fur.png"
       const furName = fur.toLowerCase();
-      return `/wardrobe/accessories/bayc-mugs/BAYC mug ${furName} fur.png`;
+      return `/wardrobe/hands/bayc-mugs/BAYC mug ${furName} fur.png`;
     } else {
       // AoA uses regular GM mugs
-      return `/wardrobe/accessories/mugs/${furToMugSlug(fur)}-fur-mug.png`;
+      return `/wardrobe/hands/mugs/${furToMugSlug(fur)}-fur-mug.png`;
     }
   }, []);
 
