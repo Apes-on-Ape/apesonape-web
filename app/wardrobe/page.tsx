@@ -16,7 +16,7 @@ type ClothingItem = {
   id: string;
   name: string;
   src: string; // overlay asset used on canvas
-  category: 'Hats' | 'Clothes' | 'Accessories' | 'Suits';
+  category: 'Hats' | 'Clothes' | 'Accessories' | 'Hands' | 'Suits';
   previewSrc?: string; // thumbnail shown in picker
 };
 
@@ -260,7 +260,7 @@ const CLOTHES: ClothingItem[] = [
   { id: 'king-baldwin', name: 'King Baldwin', src: '/wardrobe/suits/King Baldwin-preview.png', previewSrc: '/wardrobe/suits-preview/King Baldwin-preview.png', category: 'Suits' },
 ];
 
-const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Clothes', 'Accessories', 'Suits'];
+const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Clothes', 'Hands', 'Accessories', 'Suits'];
 
 const OUTPUT_SIZE = 4096;
 
@@ -321,7 +321,7 @@ export default function WardrobePage() {
         name,
         src: path,
         previewSrc: path,
-        category: 'Accessories',
+        category: 'Hands',
       };
     };
     const accessories: ClothingItem[] = [
@@ -338,70 +338,70 @@ export default function WardrobePage() {
         name: 'Prophecy',
         src: '/wardrobe/accessories/prophecy.png',
         previewSrc: '/wardrobe/accessories/prophecy.png',
-        category: 'Accessories',
+        category: 'Hands',
       },
       {
         id: 'haterkiller',
         name: 'Haterkiller',
         src: '/wardrobe/accessories/haterkiller.png',
         previewSrc: '/wardrobe/accessories/haterkiller.png',
-        category: 'Accessories',
+        category: 'Hands',
       },
       {
         id: '2026-glasses',
         name: '2026 Glasses',
         src: '/wardrobe/accessories/2026-glasses.png',
         previewSrc: '/wardrobe/accessories/2026-glasses.png',
-        category: 'Accessories',
+        category: 'Hands',
       },
       {
         id: 'madscientist',
         name: 'Mad Scientist',
         src: '/wardrobe/accessories/madscientist.png',
         previewSrc: '/wardrobe/accessories/madscientist.png',
-        category: 'Accessories',
+        category: 'Hands',
       },
       {
         id: 'new-year-glasses',
         name: 'New Year Glasses',
         src: '/wardrobe/accessories/new-year-glasses.png',
         previewSrc: '/wardrobe/accessories/new-year-glasses.png',
-        category: 'Accessories',
+        category: 'Hands',
       },
       {
         id: 'valhalla',
         name: 'Valhalla',
         src: '/wardrobe/accessories/valhalla.png',
         previewSrc: '/wardrobe/accessories/valhalla.png',
-        category: 'Accessories',
+        category: 'Hands',
       },
       {
         id: 'beardead',
         name: 'Bear Dead',
         src: '/wardrobe/accessories/beardead.png',
         previewSrc: '/wardrobe/accessories/beardead.png',
-        category: 'Accessories',
+        category: 'Hands',
       },
       {
         id: 'bulldead',
         name: 'Bull Dead',
         src: '/wardrobe/accessories/bulldead.png',
         previewSrc: '/wardrobe/accessories/bulldead.png',
-        category: 'Accessories',
+        category: 'Hands',
       },
       {
         id: 'diamondhands',
         name: 'Diamond Hands',
         src: '/wardrobe/accessories/diamondhands.png',
         previewSrc: '/wardrobe/accessories/diamondhands.png',
-        category: 'Accessories',
+        category: 'Hands',
       },
       {
         id: 'rentfree',
         name: 'Rent Free',
         src: '/wardrobe/accessories/rentfree.png',
         previewSrc: '/wardrobe/accessories/rentfree.png',
-        category: 'Accessories',
+        category: 'Hands',
       },
       {
         id: 'studio-microphone',
@@ -587,7 +587,7 @@ export default function WardrobePage() {
       name: `${mugName} (${furColor})`,
       src: getMugPath(furColor, collection),
       previewSrc: getMugPath(furColor, collection),
-      category: 'Accessories',
+      category: 'Hands',
     };
   }, [gmMugPreviewOk, getMugPath, furColor, collection]);
 
@@ -595,11 +595,11 @@ export default function WardrobePage() {
     const base = [...CLOTHES, ...furAccessories];
     const allItems = gmMugItem ? [...base, gmMugItem] : base;
     
-    // For BAYC, only allow accessories (no hats, clothes, suits) and exclude specific items
+    // For BAYC, only allow hands and accessories (no hats, clothes, suits) and exclude specific items
     if (collection === 'bayc') {
       const baycExcluded = ['gn1', 'samurai'];
       return allItems.filter(item => 
-        item.category === 'Accessories' && !baycExcluded.includes(item.id)
+        (item.category === 'Hands' || item.category === 'Accessories') && !baycExcluded.includes(item.id)
       );
     }
     
@@ -710,11 +710,8 @@ export default function WardrobePage() {
     a.click();
   }, [baseSrc, previewUrl, compose]);
 
-  // For BAYC, show all available items (already filtered to accessories only)
-  // For AoA, filter by active category
-  const filtered = collection === 'bayc' 
-    ? clothesAvailable 
-    : clothesAvailable.filter((c) => c.category === activeCategory);
+  // Filter by active category for both collections
+  const filtered = clothesAvailable.filter((c) => c.category === activeCategory);
 
   // When keep toggles change, rebuild base from traits (if present) to reflect selection
   useEffect(() => {
@@ -738,7 +735,7 @@ export default function WardrobePage() {
   // When collection changes, reset state and clear preview
   useEffect(() => {
     if (collection === 'bayc') {
-      setActiveCategory('Accessories');
+      setActiveCategory('Hands');
     }
     // Clear selection, preview, base image, and loaded traits when switching collections
     setSelectedIds(new Set());
@@ -751,7 +748,7 @@ export default function WardrobePage() {
 
   return (
     <div className="min-h-screen relative">
-      {/* Lab ambient background */}
+      {/* Wardrobe ambient background */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10"
@@ -781,7 +778,7 @@ export default function WardrobePage() {
             Ape Wardrobe
           </h1>
           <p className="text-off-white/80 mt-2 max-w-2xl">
-            Step into the scientist's workshop. Load your Apes On Ape or Bored Ape Yacht Club NFT, select overlays, then generate with a flash of chaotic genius.
+            Step into the wardrobe. Load your Apes On Ape or Bored Ape Yacht Club NFT, select overlays, then generate with a flash of chaotic genius.
           </p>
         </motion.div>
 
@@ -828,7 +825,7 @@ export default function WardrobePage() {
               </div>
               <div className="text-xs text-off-white/60 mt-2">
                 {collection === 'bayc' 
-                  ? 'Loads BAYC from Ethereum. Accessories only (no hats/clothes).' 
+                  ? 'Loads BAYC from Ethereum. Hands & Accessories only (no hats/clothes).' 
                   : 'Loads image and traits from IPFS via tokenURI.'}
               </div>
               {note && <div className="text-xs text-red-400 mt-2">{note}</div>}
@@ -836,7 +833,7 @@ export default function WardrobePage() {
               {/* GM Arm configuration removed; use Accessories tile to toggle */}
             <div className="border-t border-white/10 pt-3">
               {collection === 'aoa' && (
-                <div className="flex items-center gap-2 mb-3">
+                <div className="grid grid-cols-3 gap-2 mb-3">
                   {CATEGORIES.map((cat) => (
                     <button
                       key={cat}
@@ -849,29 +846,42 @@ export default function WardrobePage() {
                 </div>
               )}
               {collection === 'bayc' && (
-                <div className="mb-3 text-sm text-hero-blue/80 font-medium">
-                  Accessories Available
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button
+                    className={`px-3 py-1.5 rounded-md text-sm border ${activeCategory === 'Hands' ? 'border-hero-blue/50 bg-hero-blue/10' : 'border-white/10 hover:bg-white/10'}`}
+                    onClick={() => setActiveCategory('Hands')}
+                  >
+                    Hands
+                  </button>
+                  <button
+                    className={`px-3 py-1.5 rounded-md text-sm border ${activeCategory === 'Accessories' ? 'border-hero-blue/50 bg-hero-blue/10' : 'border-white/10 hover:bg-white/10'}`}
+                    onClick={() => setActiveCategory('Accessories')}
+                  >
+                    Accessories
+                  </button>
                 </div>
               )}
-              {/* Trait keep toggles */}
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <label className="flex items-center gap-2 text-xs text-off-white/80">
-                  <input type="checkbox" checked={keepHat} onChange={() => setKeepHat((v) => !v)} className="accent-hero-blue" />
-                  Keep Hat
-                </label>
-                <label className="flex items-center gap-2 text-xs text-off-white/80">
-                  <input type="checkbox" checked={keepClothes} onChange={() => setKeepClothes((v) => !v)} className="accent-hero-blue" />
-                  Keep Clothes
-                </label>
-                <label className="flex items-center gap-2 text-xs text-off-white/80">
-                  <input type="checkbox" checked={keepEyes} onChange={() => setKeepEyes((v) => !v)} className="accent-hero-blue" />
-                  Keep Eyes
-                </label>
-                <label className="flex items-center gap-2 text-xs text-off-white/80">
-                  <input type="checkbox" checked={keepMouth} onChange={() => setKeepMouth((v) => !v)} className="accent-hero-blue" />
-                  Keep Mouth
-                </label>
-              </div>
+              {/* Trait keep toggles - only show for AoA collection */}
+              {collection === 'aoa' && (
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <label className="flex items-center gap-2 text-xs text-off-white/80">
+                    <input type="checkbox" checked={keepHat} onChange={() => setKeepHat((v) => !v)} className="accent-hero-blue" />
+                    Keep Hat
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-off-white/80">
+                    <input type="checkbox" checked={keepClothes} onChange={() => setKeepClothes((v) => !v)} className="accent-hero-blue" />
+                    Keep Clothes
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-off-white/80">
+                    <input type="checkbox" checked={keepEyes} onChange={() => setKeepEyes((v) => !v)} className="accent-hero-blue" />
+                    Keep Eyes
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-off-white/80">
+                    <input type="checkbox" checked={keepMouth} onChange={() => setKeepMouth((v) => !v)} className="accent-hero-blue" />
+                    Keep Mouth
+                  </label>
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-2">
                 {filtered.length === 0 && (
                   <div className="text-sm text-off-white/60 col-span-3">No items yet.</div>
@@ -925,7 +935,7 @@ export default function WardrobePage() {
               className="relative rounded-xl border border-white/10 overflow-hidden"
               style={{ width: '100%', aspectRatio: '1 / 1' }}
             >
-              {/* Lab backdrop inside the stage */}
+              {/* Wardrobe backdrop inside the stage */}
               <div
                 aria-hidden="true"
                 className="absolute inset-0"
@@ -984,7 +994,7 @@ export default function WardrobePage() {
               {isGenerating && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
                   <div className="px-4 py-2 rounded-md border border-white/10 bg-black/60 text-off-white/90 text-sm">
-                    Assembling in the workshop...
+                    Assembling in the wardrobe...
                   </div>
                 </div>
               )}
@@ -995,7 +1005,7 @@ export default function WardrobePage() {
               )}
             </div>
             <div className="text-xs text-off-white/60 mt-2">
-              The lab composes selected clothes as full-size overlays aligned to the base image.
+              The wardrobe composes selected clothes as full-size overlays aligned to the base image.
             </div>
           </div>
         </div>
