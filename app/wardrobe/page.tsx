@@ -403,6 +403,13 @@ export default function WardrobePage() {
         previewSrc: '/wardrobe/accessories/rentfree.png',
         category: 'Accessories',
       },
+      {
+        id: 'studio-microphone',
+        name: 'Studio Microphone',
+        src: '/wardrobe/accessories/studio-microphone.png',
+        previewSrc: '/wardrobe/accessories/studio-microphone.png',
+        category: 'Accessories',
+      },
     ];
     
     return accessories;
@@ -551,25 +558,38 @@ export default function WardrobePage() {
     };
   }, []);
 
-  const getGmMugPath = useCallback((fur: FurColor) => `/wardrobe/accessories/mugs/${furToMugSlug(fur)}-fur-mug.png`, []);
+  // Get mug path based on collection and fur color
+  const getMugPath = useCallback((fur: FurColor, collectionType: 'aoa' | 'bayc') => {
+    if (collectionType === 'bayc') {
+      // BAYC mugs use format: "BAYC mug [color] fur.png"
+      const furName = fur.toLowerCase();
+      return `/wardrobe/accessories/bayc-mugs/BAYC mug ${furName} fur.png`;
+    } else {
+      // AoA uses regular GM mugs
+      return `/wardrobe/accessories/mugs/${furToMugSlug(fur)}-fur-mug.png`;
+    }
+  }, []);
+
   const [gmMugPreviewOk, setGmMugPreviewOk] = useState(false);
   useEffect(() => {
-    const url = getGmMugPath(furColor);
+    const url = getMugPath(furColor, collection);
     const img = new window.Image();
     img.onload = () => setGmMugPreviewOk(true);
     img.onerror = () => setGmMugPreviewOk(false);
     img.src = url;
-  }, [furColor, getGmMugPath]);
+  }, [furColor, collection, getMugPath]);
 
-  const gmMugItem = useMemo<ClothingItem | null>(() => (
-    gmMugPreviewOk ? {
+  const gmMugItem = useMemo<ClothingItem | null>(() => {
+    if (!gmMugPreviewOk) return null;
+    const mugName = collection === 'bayc' ? 'BAYC Mug' : 'GM Mug';
+    return {
       id: 'gm-mug',
-      name: `GM Mug (${furColor})`,
-      src: getGmMugPath(furColor),
-      previewSrc: getGmMugPath(furColor),
+      name: `${mugName} (${furColor})`,
+      src: getMugPath(furColor, collection),
+      previewSrc: getMugPath(furColor, collection),
       category: 'Accessories',
-    } : null
-  ), [gmMugPreviewOk, getGmMugPath, furColor]);
+    };
+  }, [gmMugPreviewOk, getMugPath, furColor, collection]);
 
   const clothesAvailable = useMemo(() => {
     const base = [...CLOTHES, ...furAccessories];
