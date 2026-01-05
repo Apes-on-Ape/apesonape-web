@@ -194,6 +194,9 @@ class MagicEdenAPI {
   }
 
   // Public method for numeric token IDs only (Apechain EVM collection)
+  // Note: AoA collection uses 1-indexed token IDs for users (token #1 is the first NFT)
+  // but the smart contract is 0-indexed (token ID 0 is the first NFT)
+  // This method handles the conversion automatically
   async getNFTByTokenId(tokenId: string): Promise<MagicEdenNFT | null> {
     if (!/^\d+$/.test(tokenId)) return null;
     return this.getEvmNFTByTokenId(tokenId);
@@ -204,9 +207,14 @@ class MagicEdenAPI {
     const rpcUrl = this.getApechainRpcUrl();
     if (!contract || !rpcUrl) return null;
 
+    // AoA collection is 0-indexed in the contract, but users expect 1-indexed IDs
+    // So if user searches for token #5, we need to fetch token ID 4 from the contract
+    const userFacingTokenId = tokenId;
+    const contractTokenId = String(Math.max(0, parseInt(tokenId) - 1));
+
     // Build eth_call for tokenURI(uint256)
     const selector = '0xc87b56dd'; // keccak256("tokenURI(uint256)").slice(0,10)
-    const tokenIdHex = BigInt(tokenId).toString(16);
+    const tokenIdHex = BigInt(contractTokenId).toString(16);
     const padded = tokenIdHex.padStart(64, '0');
     const data = selector + padded;
 
@@ -240,7 +248,8 @@ class MagicEdenAPI {
 
     // Normalize IPFS gateway and build candidate metadata URLs
     const normalizedBase = this.normalizeIpfsUrl(tokenUri);
-    const tokenIdDec = String(tokenId);
+    // Use contract token ID for metadata URLs (0-indexed)
+    const tokenIdDec = contractTokenId;
 
     const candidates: string[] = [];
     // Replace common placeholders in base URIs
@@ -285,16 +294,17 @@ class MagicEdenAPI {
     if (!metadata) return null;
 
     const image = this.normalizeIpfsUrl(metadata.image || metadata.image_url || metadata.imageUrl || '');
-    const name = metadata.name || `Ape On Ape #${tokenId}`;
+    // Use user-facing token ID (1-indexed) for display
+    const name = metadata.name || `Ape On Ape #${userFacingTokenId}`;
     return {
-      id: `${contract}:${tokenId}`,
+      id: `${contract}:${userFacingTokenId}`,
       name,
       image,
       price: 0,
       currency: 'APE',
       rarity: Math.floor(Math.random() * 1000) + 1,
       traits: this.normalizeAttributes(metadata.attributes || []),
-      magicEdenUrl: `https://magiceden.us/item-details/apechain/${contract}/${tokenId}`,
+      magicEdenUrl: `https://magiceden.us/item-details/apechain/${contract}/${userFacingTokenId}`,
       owner: '',
     };
   }
