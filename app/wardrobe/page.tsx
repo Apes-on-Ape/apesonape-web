@@ -405,6 +405,7 @@ export default function WardrobePage() {
       build('shotgun', 'Shotgun', 'shotgun', undefined, { strength: 12, agility: 6 }),
       build('samurai', 'Samurai', 'samurai', undefined, { strength: 14, agility: 8 }),
       build('dinner', 'Dinner', 'dinner', undefined, { vitality: 8, charisma: 4 }),
+      build('twin-glocks', 'Twin Glocks', 'twin-glocks', undefined, { strength: 16, agility: 10 }),
       {
         id: 'prophecy',
         name: 'Prophecy',
@@ -701,21 +702,37 @@ export default function WardrobePage() {
         setNote('Token not found. Check the ID and try again.');
         return;
       }
-      const furTrait = nft.traits.find((t) => t.name.toLowerCase() === 'fur');
-      if (furTrait && furColors.includes(furTrait.value as FurColor)) {
-        setFurColor(furTrait.value as FurColor);
+      
+      // For MAYC, extract mutant type from trait prefixes (most reliable method)
+      let detectedMutantType: 'm1' | 'm2' = 'm1';
+      if (collection === 'mayc') {
+        // MAYC traits include M1/M2 prefix in values (e.g., "M1 Dark Brown", "M2 Blue")
+        // Check any trait for M1/M2 prefix
+        const anyTraitWithPrefix = nft.traits.find(t => 
+          t.value.startsWith('M1 ') || t.value.startsWith('M2 ')
+        );
+        if (anyTraitWithPrefix) {
+          detectedMutantType = anyTraitWithPrefix.value.startsWith('M1 ') ? 'm1' : 'm2';
+          console.log(`Detected MAYC mutant type from trait prefix: ${detectedMutantType}`);
+        }
+        setMaycMutantType(detectedMutantType);
       }
       
-      // Extract mutant type for MAYC (M1 or M2)
-      if (collection === 'mayc') {
-        const typeTrait = nft.traits.find((t) => t.name.toLowerCase() === 'type');
-        if (typeTrait) {
-          const typeValue = typeTrait.value.toLowerCase();
-          if (typeValue.includes('m1')) {
-            setMaycMutantType('m1');
-          } else if (typeValue.includes('m2')) {
-            setMaycMutantType('m2');
-          }
+      // Extract fur color, handling MAYC's "M1 " or "M2 " prefix
+      const furTrait = nft.traits.find((t) => t.name.toLowerCase() === 'fur');
+      if (furTrait) {
+        let furValue = furTrait.value;
+        
+        // For MAYC, strip "M1 " or "M2 " prefix from fur value
+        if (collection === 'mayc') {
+          furValue = furValue.replace(/^M[12]\s+/, '');
+          console.log(`Token ${tokenId} - Original fur: ${furTrait.value}, Cleaned: ${furValue}`);
+        }
+        
+        if (furColors.includes(furValue as FurColor)) {
+          setFurColor(furValue as FurColor);
+        } else {
+          console.log(`Token ${tokenId} - Fur color not recognized:`, furValue);
         }
       }
       
@@ -791,7 +808,9 @@ export default function WardrobePage() {
     } else if (collectionType === 'mayc') {
       // MAYC mugs use format: "MAYC MUG m1/m2 [color] fur.png" (uppercase MUG)
       const furName = fur.toLowerCase();
-      return `/wardrobe/hands/mayc-mugs/MAYC MUG ${maycMutantType} ${furName} fur.png`;
+      const path = `/wardrobe/hands/mayc-mugs/MAYC MUG ${maycMutantType} ${furName} fur.png`;
+      console.log(`getMugPath for MAYC: mutantType=${maycMutantType}, fur=${fur}, path=${path}`);
+      return path;
     } else {
       // AoA uses regular GM mugs
       return `/wardrobe/hands/mugs/${furToMugSlug(fur)}-fur-mug.png`;
@@ -808,12 +827,16 @@ export default function WardrobePage() {
       return;
     }
     
+    console.log(`Loading mug: ${url}`);
+    
     const img = new window.Image();
     img.onload = () => {
+      console.log(`✅ Mug loaded successfully: ${url}`);
       setGmMugPreviewOk(true);
       setActualMugPath(url);
     };
     img.onerror = () => {
+      console.error(`❌ Mug failed to load: ${url}`);
       setGmMugPreviewOk(false);
       setActualMugPath('');
     };
