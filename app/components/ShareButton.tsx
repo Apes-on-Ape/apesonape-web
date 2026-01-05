@@ -8,7 +8,7 @@ interface ShareButtonProps {
   text: string;
   url?: string;
   hashtags?: string[]; // e.g., ['AOA', 'ApesOnApe']
-  mention?: boolean; // Whether to include @apechainapes
+  mention?: boolean; // Whether to include @apesonape
   shareType?: 'gallery' | 'general';
   questCode?: string; // Quest code to progress when sharing
   className?: string;
@@ -39,7 +39,7 @@ export default function ShareButton({
     
     // Add mention
     if (mention) {
-      shareText += ' @apechainapes';
+      shareText += ' @apesonape';
     }
     
     // Add URL - always use production URL for sharing

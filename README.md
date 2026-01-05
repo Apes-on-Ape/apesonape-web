@@ -87,7 +87,7 @@ apesonape-web/
 
 - **Website**: [apesonape.io](https://apesonape.io)
 - **Discord**: [Join our community](https://discord.gg/gVmqW6SExU)
-- **X (Twitter)**: [@apechainapes](https://x.com/apechainapes)
+- **X (Twitter)**: [@apesonape](https://x.com/apesonape)
 - **Magic Eden**: [View Collection](https://magiceden.us/collections/apechain/0xa6bAbE18F2318D2880DD7dA3126C19536048F8B0)
 - **SoundCloud**: [Listen to our tracks](https://soundcloud.com/apesonape)
 - **Arcade**: [Play games](https://arcade.apesonape.io)

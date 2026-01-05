@@ -155,7 +155,7 @@ INSERT INTO public.gamify_achievements_catalog (achievement_code, title, descrip
 ('first_share', 'Sharer', 'Share content from the site', '📤', 3, 'social'),
 ('hashtag_aoa', 'AOA Ambassador', 'Use #AOA in a post', '🏷️', 5, 'social'),
 ('hashtag_apesonape', 'Apes Advocate', 'Use #ApesOnApe in a post', '🏷️', 5, 'social'),
-('tag_official', 'Ape Ally', 'Tag @apechainapes in a post', '🦍', 5, 'social'),
+('tag_official', 'Ape Ally', 'Tag @apesonape in a post', '🦍', 5, 'social'),
 
 -- MILESTONES
 ('100_bananas', 'Banana Collector', 'Earn your first 100 bananas', '🍌', 10, 'milestone'),
@@ -192,7 +192,7 @@ INSERT INTO public.gamify_quests_catalog (quest_code, title, description, quest_
 -- SOCIAL QUESTS
 ('share_with_aoa', 'AOA Hashtag Hero', 'Share on X with #AOA', '🏷️', 5, 'social', 1),
 ('share_with_apesonape', 'ApesOnApe Promoter', 'Share on X with #ApesOnApe', '🏷️', 5, 'social', 1),
-('tag_apechainapes', 'Official Mention', 'Tag @apechainapes in a post', '🦍', 5, 'social', 1),
+('tag_apechainapes', 'Official Mention', 'Tag @apesonape in a post', '🦍', 5, 'social', 1),
 ('share_3_times', 'Social Butterfly', 'Share from the site 3 times', '🦋', 10, 'social', 3),
 
 -- COMMUNITY QUESTS
