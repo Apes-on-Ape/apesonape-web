@@ -377,6 +377,7 @@ export default function WardrobePage() {
   type FurColor = typeof furColors[number];
   const [furColor, setFurColor] = useState<FurColor>('Brown');
   const [maycMutantType, setMaycMutantType] = useState<'m1' | 'm2'>('m1');
+  const [backgroundColor, setBackgroundColor] = useState<string>(''); // Empty = use original background
   const furAccessories = useMemo<ClothingItem[]>(() => {
     const slug = furToAccessorySlug(furColor);
     const build = (
@@ -624,13 +625,14 @@ export default function WardrobePage() {
   // Build a base image from on-chain traits, optionally excluding hat
   const composeBaseFromTraits = useCallback(async (
     traits: { name: string; value: string }[],
-    opts: { includeHat?: boolean; includeClothes?: boolean; includeEyes?: boolean; includeMouth?: boolean } = {}
+    opts: { includeHat?: boolean; includeClothes?: boolean; includeEyes?: boolean; includeMouth?: boolean; bgColor?: string } = {}
   ) => {
     const {
       includeHat = true,
       includeClothes = true,
       includeEyes = true,
       includeMouth = true,
+      bgColor = '',
     } = opts;
     const canvas = document.createElement('canvas');
     canvas.width = OUTPUT_SIZE;
@@ -647,7 +649,15 @@ export default function WardrobePage() {
         img.src = url;
       });
 
+    // If custom background color is set, fill it first
+    if (bgColor) {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+    }
+
     const layers = TRAIT_LAYERS.filter((l) => {
+      // Skip background layer if custom color is set
+      if (l.name === 'Background' && bgColor) return false;
       if (!includeHat && l.name === 'Hat') return false;
       if (!includeClothes && l.name === 'Clothes') return false;
       if (!includeEyes && l.name === 'Eyes') return false;
@@ -750,6 +760,7 @@ export default function WardrobePage() {
           includeClothes: keepClothes,
           includeEyes: keepEyes,
           includeMouth: keepMouth,
+          bgColor: backgroundColor,
         });
         if (composed) {
           setBaseSrc(composed);
@@ -763,6 +774,7 @@ export default function WardrobePage() {
           includeClothes: keepClothes,
           includeEyes: keepEyes,
           includeMouth: keepMouth,
+          bgColor: backgroundColor,
         });
         if (composed) {
           setBaseSrc(composed);
@@ -934,6 +946,7 @@ export default function WardrobePage() {
         includeClothes: keepClothes,
         includeEyes: keepEyes,
         includeMouth: keepMouth,
+        bgColor: backgroundColor,
       });
       if (rebuilt) {
         base = await load(rebuilt);
@@ -1004,6 +1017,7 @@ export default function WardrobePage() {
         includeClothes: keepClothes,
         includeEyes: keepEyes,
         includeMouth: keepMouth,
+        bgColor: backgroundColor,
       });
       if (rebuilt && !cancelled) {
         setBaseSrc(rebuilt);
@@ -1011,12 +1025,13 @@ export default function WardrobePage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [loadedTraits, keepHat, keepClothes, keepEyes, keepMouth, composeBaseFromTraits]);
+  }, [loadedTraits, keepHat, keepClothes, keepEyes, keepMouth, backgroundColor, composeBaseFromTraits]);
 
   // When collection changes, reset state and clear preview
   useEffect(() => {
     if (collection === 'bayc' || collection === 'mayc') {
       setActiveCategory('Hands');
+      setBackgroundColor(''); // Clear background color for BAYC/MAYC (not supported)
     }
     // Clear selection, preview, base image, loaded traits, and stats when switching collections
     setSelectedIds(new Set());
@@ -1029,6 +1044,15 @@ export default function WardrobePage() {
     setMaycMutantType('m1'); // Reset to M1 by default
     setActualMugPath(''); // Clear mug path
   }, [collection]);
+
+  // When background color is changed from original to custom, uncheck hat and clothes
+  useEffect(() => {
+    if (backgroundColor && collection === 'aoa') {
+      // Custom background color is set, uncheck hat and clothes to show clean background
+      setKeepHat(false);
+      setKeepClothes(false);
+    }
+  }, [backgroundColor, collection]);
 
   return (
     <div className="min-h-screen relative">
@@ -1121,6 +1145,78 @@ export default function WardrobePage() {
                 </div>
               </div>
             </div>
+
+            {/* Background Color Picker Card - AoA Only */}
+            {collection === 'aoa' && (
+              <div className="rpg-card">
+                <div className="rpg-card-header">
+                  <h3 className="text-sm font-bold uppercase tracking-wider">Background</h3>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="grid grid-cols-5 gap-2">
+                    {/* Original Background Option */}
+                    <button
+                      onClick={() => setBackgroundColor('')}
+                      className={`w-full aspect-square rounded border-2 transition-all ${
+                        backgroundColor === '' 
+                          ? 'border-amber-400 shadow-lg shadow-amber-400/50' 
+                          : 'border-amber-900/50 hover:border-amber-600/70'
+                      }`}
+                      style={{
+                        background: 'linear-gradient(135deg, #a0522d 0%, #8b4513 50%, #654321 100%)',
+                        position: 'relative',
+                      }}
+                      title="Original"
+                    >
+                      {backgroundColor === '' && (
+                        <div className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">✓</div>
+                      )}
+                    </button>
+                    
+                    {/* Preset Colors */}
+                    {['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DFE6E9', '#2D3436', '#6C5CE7', '#FD79A8'].map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => setBackgroundColor(color)}
+                        className={`w-full aspect-square rounded border-2 transition-all ${
+                          backgroundColor === color 
+                            ? 'border-amber-400 shadow-lg shadow-amber-400/50' 
+                            : 'border-amber-900/50 hover:border-amber-600/70'
+                        }`}
+                        style={{ backgroundColor: color, position: 'relative' }}
+                        title={color}
+                      >
+                        {backgroundColor === color && (
+                          <div className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold drop-shadow-lg">✓</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Custom Color Input */}
+                  <div className="pt-2 border-t border-amber-900/30">
+                    <label className="block text-xs font-medium text-amber-200/70 mb-2 uppercase tracking-wide">
+                      Custom Color
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
+                        value={backgroundColor || '#8B4513'}
+                        onChange={(e) => setBackgroundColor(e.target.value)}
+                        className="w-12 h-10 rounded border border-amber-900/50 bg-black/50 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={backgroundColor}
+                        onChange={(e) => setBackgroundColor(e.target.value)}
+                        placeholder="#8B4513"
+                        className="flex-1 rounded bg-black/50 border border-amber-900/50 px-3 py-2 text-xs text-amber-100 placeholder:text-amber-900/50 outline-none focus:border-amber-600/70 focus:ring-1 focus:ring-amber-600/50"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Equipped Items Card */}
             <div className="rpg-card">

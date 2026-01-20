@@ -31,7 +31,7 @@ export default function Nav() {
 
   const navLinks = [
     { href: '/collection', label: 'Collection' },
-    { href: '/sound', label: 'Sound' },
+    { href: '/music', label: 'Music' },
     { href: '/studio', label: 'Studio' },
     { href: '/wardrobe', label: 'Wardrobe' },
   ];
