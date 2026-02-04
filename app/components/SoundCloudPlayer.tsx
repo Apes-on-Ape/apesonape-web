@@ -46,7 +46,7 @@ declare global {
   }
 }
 
-const PLAYLIST_URL = 'https://soundcloud.com/apesonape/sets/saint-dank-by-smokethatdank';
+const PLAYLIST_URL = 'https://soundcloud.com/apesonape/sets/fubar-by-smokethatdank';
 
 export default function SoundCloudPlayer() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);

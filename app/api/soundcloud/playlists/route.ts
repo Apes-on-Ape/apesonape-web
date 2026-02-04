@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 const SOUNDCLOUD_USER_URL = process.env.SOUNDCLOUD_USER_URL || 'https://soundcloud.com/apesonape';
 const SOUNDCLOUD_CLIENT_ID = process.env.SOUNDCLOUD_CLIENT_ID;
+// Public Widget API client_id (used by SoundCloud's own widget)
+const WIDGET_CLIENT_ID = 'gqKBMSuBw5rbN9rDRYPqKNvF17ovlObu';
 
 export const runtime = 'edge';
 export const revalidate = 3600; // Cache for 1 hour
@@ -16,48 +18,59 @@ interface Playlist {
 
 export async function GET() {
   try {
-    // If we have a SoundCloud Client ID, use the API
-    if (SOUNDCLOUD_CLIENT_ID) {
-      const username = SOUNDCLOUD_USER_URL.split('/').pop();
-      
-      // First resolve the user
-      const resolveUrl = `https://api.soundcloud.com/resolve?url=${SOUNDCLOUD_USER_URL}&client_id=${SOUNDCLOUD_CLIENT_ID}`;
-      const userResponse = await fetch(resolveUrl, {
-        headers: { 'Accept': 'application/json' },
-        next: { revalidate: 3600 },
-      });
+    // Use the widget client_id for public API access
+    const clientId = WIDGET_CLIENT_ID;
 
-      if (userResponse.ok) {
-        const user = await userResponse.json();
-        
-        // Fetch user's playlists
-        const playlistsUrl = `https://api.soundcloud.com/users/${user.id}/playlists?client_id=${SOUNDCLOUD_CLIENT_ID}&limit=50`;
-        const playlistsResponse = await fetch(playlistsUrl, {
-          headers: { 'Accept': 'application/json' },
-          next: { revalidate: 3600 },
-        });
+    // Step 1: Resolve the user URL using Widget API (no auth required)
+    const resolveUrl = `https://api-widget.soundcloud.com/resolve?url=${encodeURIComponent(SOUNDCLOUD_USER_URL)}&format=json&client_id=${clientId}`;
+    
+    const userResponse = await fetch(resolveUrl, {
+      headers: { 'Accept': 'application/json' },
+      next: { revalidate: 3600 },
+    });
 
-        if (playlistsResponse.ok) {
-          const playlists = await playlistsResponse.json();
-          
-          const formattedPlaylists = playlists.map((playlist: any) => ({
-            id: String(playlist.id),
-            title: playlist.title || 'Untitled',
-            permalink: playlist.permalink_url || '',
-            artwork: playlist.artwork_url?.replace('-large', '-t500x500') || '/AoA-placeholder-apecoinblue.jpg',
-            trackCount: playlist.track_count || 0,
-          }));
-
-          return NextResponse.json({ playlists: formattedPlaylists });
-        }
-      }
+    if (!userResponse.ok) {
+      const errorText = await userResponse.text();
+      return NextResponse.json({ error: 'Failed to fetch user data', details: errorText }, { status: userResponse.status });
     }
 
-    // Return empty array if API not available
-    return NextResponse.json({ playlists: [] });
+    const user = await userResponse.json();
+
+    // Step 2: Fetch user's playlists using Widget API
+    const playlistsUrl = `https://api-widget.soundcloud.com/users/${user.id}/playlists?format=json&client_id=${clientId}&limit=50`;
+    
+    const playlistsResponse = await fetch(playlistsUrl, {
+      headers: { 'Accept': 'application/json' },
+      next: { revalidate: 3600 },
+    });
+
+    if (!playlistsResponse.ok) {
+      const errorText = await playlistsResponse.text();
+      return NextResponse.json({ error: 'Failed to fetch playlists', details: errorText }, { status: playlistsResponse.status });
+    }
+
+    const playlistsData = await playlistsResponse.json();
+    
+    // Handle different response formats (array or paginated object)
+    const playlists = Array.isArray(playlistsData) ? playlistsData : (playlistsData.collection || []);
+    
+    // Format playlists with high-quality artwork
+    const formattedPlaylists = playlists.map((playlist: any) => {
+      // Replace -large with -t500x500 for higher quality artwork
+      const artwork = playlist.artwork_url?.replace('-large.jpg', '-t500x500.jpg').replace('-large.png', '-t500x500.png') || '';
+      
+      return {
+        id: String(playlist.id),
+        title: playlist.title || 'Untitled',
+        permalink: playlist.permalink_url || '',
+        artwork: artwork,
+        trackCount: playlist.track_count || 0,
+      };
+    });
+
+    return NextResponse.json({ playlists: formattedPlaylists });
 
   } catch (error) {
-    console.error('Error fetching SoundCloud playlists:', error);
-    return NextResponse.json({ playlists: [] });
+    return NextResponse.json({ error: 'Internal server error', details: String(error) }, { status: 500 });
   }
 }

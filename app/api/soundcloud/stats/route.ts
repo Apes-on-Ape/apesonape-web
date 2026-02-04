@@ -1,56 +1,106 @@
 import { NextResponse } from 'next/server';
-import { SoundCloudClient } from '@/lib/soundcloud-client';
 
 const SOUNDCLOUD_USER_URL = process.env.SOUNDCLOUD_USER_URL || 'https://soundcloud.com/apesonape';
 const SOUNDCLOUD_CLIENT_ID = process.env.SOUNDCLOUD_CLIENT_ID;
-const SOUNDCLOUD_CLIENT_SECRET = process.env.SOUNDCLOUD_CLIENT_SECRET;
+// Public Widget API client_id (used by SoundCloud's own widget)
+const WIDGET_CLIENT_ID = 'gqKBMSuBw5rbN9rDRYPqKNvF17ovlObu';
 
 export const runtime = 'edge';
 export const revalidate = 3600; // Cache for 1 hour
 
-
 export async function GET() {
   try {
-    // Use official SoundCloud API if we have a client ID
-    if (SOUNDCLOUD_CLIENT_ID) {
-      const username = SOUNDCLOUD_USER_URL.split('/').pop();
-      if (!username) {
-        return NextResponse.json(getMockStats());
-      }
+    // Use the widget client_id for public API access
+    const clientId = WIDGET_CLIENT_ID;
 
-      const client = new SoundCloudClient(SOUNDCLOUD_CLIENT_ID, SOUNDCLOUD_CLIENT_SECRET);
-      const stats = await client.getUserStats(username);
+    // Step 1: Resolve the user URL using Widget API (no auth required)
+    const resolveUrl = `https://api-widget.soundcloud.com/resolve?url=${encodeURIComponent(SOUNDCLOUD_USER_URL)}&format=json&client_id=${clientId}`;
+    
+    const userResponse = await fetch(resolveUrl, {
+      headers: { 'Accept': 'application/json' },
+      next: { revalidate: 3600 },
+    });
 
-      if (stats) {
-        return NextResponse.json({
-          followers: stats.followers,
-          tracks: stats.tracks,
-          playlists: stats.playlists,
-          likes: stats.likes,
-          reposts: stats.reposts,
-          totalPlays: stats.totalPlays,
-        });
-      }
+    if (!userResponse.ok) {
+      const errorText = await userResponse.text();
+      return NextResponse.json({ error: 'Failed to fetch user data', details: errorText }, { status: userResponse.status });
     }
 
-    // Fallback to mock stats if API fails or no credentials
-    return NextResponse.json(getMockStats());
+    const user = await userResponse.json();
+
+    // Step 2: Fetch ALL user's tracks using pagination
+    
+    let allTracks: any[] = [];
+    let nextUrl = `https://api-widget.soundcloud.com/users/${user.id}/tracks?format=json&client_id=${clientId}&limit=200`;
+    let pageCount = 0;
+    const maxPages = 10; // Limit to prevent infinite loops (10 pages = 2000 tracks)
+
+    while (nextUrl && pageCount < maxPages) {
+      pageCount++;
+      const tracksResponse = await fetch(nextUrl, {
+        headers: { 'Accept': 'application/json' },
+        next: { revalidate: 3600 },
+      });
+
+      if (!tracksResponse.ok) {
+        break;
+      }
+
+      const tracksData = await tracksResponse.json();
+      const tracks = Array.isArray(tracksData) ? tracksData : (tracksData.collection || []);
+      
+      allTracks = allTracks.concat(tracks);
+      
+      // Get next page URL
+      nextUrl = tracksData.next_href ? `${tracksData.next_href}&client_id=${clientId}` : '';
+      
+      // Stop if we've fetched all tracks
+      if (tracks.length === 0 || !nextUrl) break;
+    }
+
+    let totalPlays = 0;
+    let totalLikes = 0;
+    let totalReposts = 0;
+
+    if (allTracks.length > 0) {
+      // Calculate aggregate stats from all tracks
+      totalPlays = allTracks.reduce((sum: number, track: any) => sum + (track.playback_count || 0), 0);
+      totalLikes = allTracks.reduce((sum: number, track: any) => sum + (track.likes_count || 0), 0);
+      totalReposts = allTracks.reduce((sum: number, track: any) => sum + (track.reposts_count || 0), 0);
+    }
+
+    // Calculate top tracks by ranking score (plays + likes * 2)
+    const tracksWithScore = allTracks.map((track: any) => ({
+      id: track.id,
+      title: track.title || 'Untitled',
+      permalink_url: track.permalink_url || '',
+      artwork_url: track.artwork_url || '',
+      playback_count: track.playback_count || 0,
+      likes_count: track.likes_count || 0,
+      reposts_count: track.reposts_count || 0,
+      duration: track.duration || 0,
+      // Ranking score: plays count heavily, likes count more
+      score: (track.playback_count || 0) + (track.likes_count || 0) * 2,
+    }));
+
+    // Sort by score and get top 10
+    const topTracks = tracksWithScore
+      .sort((a: any, b: any) => b.score - a.score)
+      .slice(0, 10);
+
+    const stats = {
+      followers: user.followers_count || 0,
+      tracks: user.track_count || 0,
+      playlists: user.playlist_count || 0,
+      likes: totalLikes,
+      reposts: totalReposts,
+      totalPlays: totalPlays,
+      topTracks: topTracks,
+    };
+
+    return NextResponse.json(stats);
 
   } catch (error) {
-    console.error('Error fetching SoundCloud stats:', error);
-    return NextResponse.json(getMockStats());
+    return NextResponse.json({ error: 'Internal server error', details: String(error) }, { status: 500 });
   }
-}
-
-function getMockStats() {
-  // Realistic stats for apesonape SoundCloud account
-  // Based on typical Web3 music community engagement
-  return {
-    followers: 487,
-    tracks: 15,
-    playlists: 3,
-    likes: 1240,
-    reposts: 234,
-    totalPlays: 28500,
-  };
 }

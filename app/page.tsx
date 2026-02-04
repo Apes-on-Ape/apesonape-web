@@ -6,6 +6,7 @@ import Hero from './components/Hero';
 import Footer from './components/Footer';
 import TokenDrawer from './components/TokenDrawer';
 import SectionCallouts from './components/SectionCallouts';
+import ApeUnlocksSection from './components/ApeUnlocksSection';
 import { MagicEdenNFT } from '@/lib/magic-eden';
 
 export default function HomePage() {
@@ -20,6 +21,9 @@ export default function HomePage() {
       <div className="pt-16 md:pt-20">
         <Hero />
       </div>
+
+      {/* What Your Ape Unlocks Section */}
+      <ApeUnlocksSection />
 
       {/* Section Callouts */}
       <SectionCallouts />

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SoundCloudClient } from '@/lib/soundcloud-client';
 import { cookies } from 'next/headers';
 
+// Use Node.js runtime for cookie support
+export const runtime = 'nodejs';
+
 const SOUNDCLOUD_CLIENT_ID = process.env.SOUNDCLOUD_CLIENT_ID;
 const SOUNDCLOUD_CLIENT_SECRET = process.env.SOUNDCLOUD_CLIENT_SECRET;
 const SOUNDCLOUD_REDIRECT_URI = process.env.SOUNDCLOUD_REDIRECT_URI || 'http://localhost:3000/api/auth/soundcloud/callback';
@@ -19,7 +22,6 @@ export async function GET(request: NextRequest) {
 
     // Handle authorization errors
     if (error) {
-      console.error('SoundCloud auth error:', error);
       return NextResponse.redirect(
         new URL(`/music?error=${encodeURIComponent(error)}`, request.url)
       );
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify state to prevent CSRF
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const storedState = cookieStore.get('sc_state')?.value;
     const codeVerifier = cookieStore.get('sc_code_verifier')?.value;
 
@@ -107,7 +109,6 @@ export async function GET(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('Error in SoundCloud callback:', error);
     return NextResponse.redirect(
       new URL('/music?error=callback_error', request.url)
     );

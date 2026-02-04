@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SoundCloudClient } from '@/lib/soundcloud-client';
 import { cookies } from 'next/headers';
 
+// Use Node.js runtime for cookie support
+export const runtime = 'nodejs';
+
 const SOUNDCLOUD_CLIENT_ID = process.env.SOUNDCLOUD_CLIENT_ID;
 const SOUNDCLOUD_REDIRECT_URI = process.env.SOUNDCLOUD_REDIRECT_URI || 'http://localhost:3000/api/auth/soundcloud/callback';
 
@@ -12,9 +15,8 @@ const SOUNDCLOUD_REDIRECT_URI = process.env.SOUNDCLOUD_REDIRECT_URI || 'http://l
 export async function GET(request: NextRequest) {
   try {
     if (!SOUNDCLOUD_CLIENT_ID) {
-      return NextResponse.json(
-        { error: 'SoundCloud Client ID not configured' },
-        { status: 500 }
+      return NextResponse.redirect(
+        new URL('/music?auth=error&reason=missing_client_id', request.url)
       );
     }
 
@@ -26,7 +28,7 @@ export async function GET(request: NextRequest) {
     const state = generateRandomString(32);
 
     // Store code verifier and state in httpOnly cookies
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.set('sc_code_verifier', codeVerifier, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -40,6 +42,13 @@ export async function GET(request: NextRequest) {
       maxAge: 600,
     });
 
+    // Verify credentials look valid (basic check)
+    if (SOUNDCLOUD_CLIENT_ID.length < 20) {
+      return NextResponse.redirect(
+        new URL('/music?auth=error&reason=invalid_credentials', request.url)
+      );
+    }
+
     // Generate authorization URL
     const authUrl = SoundCloudClient.generateAuthUrl(
       SOUNDCLOUD_CLIENT_ID,
@@ -52,10 +61,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(authUrl);
 
   } catch (error) {
-    console.error('Error initiating SoundCloud auth:', error);
-    return NextResponse.json(
-      { error: 'Failed to initiate authentication' },
-      { status: 500 }
+    return NextResponse.redirect(
+      new URL('/music?auth=error&reason=server_error', request.url)
     );
   }
 }
