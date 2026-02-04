@@ -3,48 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Play, Pause, SkipForward } from 'lucide-react';
 
-type SoundCloudTrack = { title?: string };
-
-interface SoundCloudWidgetOptions {
-  auto_play?: boolean;
-  visual?: boolean;
-  show_comments?: boolean;
-  hide_related?: boolean;
-  show_reposts?: boolean;
-  show_user?: boolean;
-  show_teaser?: boolean;
-  start_track?: number;
-}
-
-interface SoundCloudWidget {
-  bind(event: string, listener: () => void): void;
-  play(): void;
-  pause(): void;
-  next(): void;
-  isPaused(callback: (paused: boolean) => void): void;
-  setVolume(volumePercent: number): void;
-  getCurrentSound(callback: (sound: SoundCloudTrack | null) => void): void;
-  getSounds(callback: (sounds: SoundCloudTrack[]) => void): void;
-  load(url: string, options?: SoundCloudWidgetOptions): void;
-}
-
-interface SoundCloud {
-  Widget: {
-    (iframe: HTMLIFrameElement): SoundCloudWidget;
-    Events: {
-      READY: string;
-      PLAY: string;
-      PAUSE: string;
-      FINISH: string;
-    };
-  };
-}
-
-declare global {
-  interface Window {
-    SC?: SoundCloud;
-  }
-}
+import type { SoundCloudTrack, SoundCloudWidget, SoundCloudWidgetOptions, SoundCloud } from '@/types/soundcloud';
 
 const PLAYLIST_URL = 'https://soundcloud.com/apesonape/sets/fubar-by-smokethatdank';
 

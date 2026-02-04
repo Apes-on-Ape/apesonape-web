@@ -247,9 +247,9 @@ export class SoundCloudClient {
 /**
  * Helper to generate PKCE code verifier and challenge
  */
-export function generatePKCE() {
+export async function generatePKCE() {
   const codeVerifier = generateRandomString(128);
-  const codeChallenge = base64URLEncode(sha256(codeVerifier));
+  const codeChallenge = base64URLEncode(await sha256(codeVerifier));
   
   return { codeVerifier, codeChallenge };
 }
@@ -263,10 +263,10 @@ function generateRandomString(length: number): string {
   return text;
 }
 
-function sha256(plain: string): ArrayBuffer {
+async function sha256(plain: string): Promise<ArrayBuffer> {
   const encoder = new TextEncoder();
   const data = encoder.encode(plain);
-  return crypto.subtle.digest('SHA-256', data);
+  return await crypto.subtle.digest('SHA-256', data);
 }
 
 function base64URLEncode(buffer: ArrayBuffer): string {
