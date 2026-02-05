@@ -17,7 +17,7 @@ export default function Footer() {
     },
     {
       name: 'X (Twitter)',
-      href: 'https://x.com/apechainapes',
+      href: 'https://x.com/apesonape',
       icon: '/x-white.png',
     },
   ];

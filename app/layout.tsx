@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     title: "Apes On Ape | NFT Collection on Apechain",
     description: "A playground for musicians, artists, game devs, and builders.",
     images: ["/AoA-placeholder-apecoinblue.jpg"],
-    creator: "@apechainapes",
+    creator: "@apesonape",
   },
   robots: {
     index: true,

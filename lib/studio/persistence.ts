@@ -20,6 +20,12 @@ type ListResult = {
 	nextCursor?: string | null;
 };
 
+type ApeUseRecord = {
+	apeId: number;
+	usedBy: string;
+	creationId?: string | null;
+};
+
 type CacheEntry = {
 	key: string;
 	data: ListResult;
@@ -165,6 +171,29 @@ async function dbDelete(id: string): Promise<boolean> {
 	return data && data.length > 0;
 }
 
+async function dbReserveApeUse(record: ApeUseRecord): Promise<void> {
+	const svc = supabaseClient();
+	const payload = {
+		ape_id: record.apeId,
+		used_by: record.usedBy,
+		creation_id: record.creationId || null,
+	};
+	const { error } = await svc.from('studio_ape_uses').insert(payload);
+	if (error) {
+		if ((error as { code?: string }).code === '23505') {
+			throw new Error('Ape already used');
+		}
+		throw new Error(error.message);
+	}
+}
+
+async function dbReleaseApeUse(apeId: number, usedBy?: string) {
+	const svc = supabaseClient();
+	let query = svc.from('studio_ape_uses').delete().eq('ape_id', apeId);
+	if (usedBy) query = query.eq('used_by', usedBy);
+	await query;
+}
+
 // -------- Public API with fallback --------
 export async function createCreation(record: CreationRecord): Promise<CreationRecord> {
 	return dbCreate(record);
@@ -180,5 +209,13 @@ export async function deleteCreation(id: string): Promise<boolean> {
 
 export async function listCreations(options: ListOptions = {}): Promise<ListResult> {
 	return dbList(options);
+}
+
+export async function reserveApeUse(apeId: number, usedBy: string, creationId?: string) {
+	return dbReserveApeUse({ apeId, usedBy, creationId });
+}
+
+export async function releaseApeUse(apeId: number, usedBy?: string) {
+	return dbReleaseApeUse(apeId, usedBy);
 }
 

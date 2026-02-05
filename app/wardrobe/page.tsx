@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { motion } from 'framer-motion';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
-import { Download, Shirt } from 'lucide-react';
+import { Download, Shirt, Crown, ShirtIcon, Hand, Sparkles, User } from 'lucide-react';
 import { useToolTracking } from '@/app/hooks/useToolTracking';
 import { magicEdenAPI } from '@/lib/magic-eden';
 import { baycAPI } from '@/lib/bayc-api';
@@ -377,6 +377,7 @@ export default function WardrobePage() {
   type FurColor = typeof furColors[number];
   const [furColor, setFurColor] = useState<FurColor>('Brown');
   const [maycMutantType, setMaycMutantType] = useState<'m1' | 'm2'>('m1');
+  const [backgroundColor, setBackgroundColor] = useState<string>(''); // Empty = use original background
   const furAccessories = useMemo<ClothingItem[]>(() => {
     const slug = furToAccessorySlug(furColor);
     const build = (
@@ -405,6 +406,7 @@ export default function WardrobePage() {
       build('shotgun', 'Shotgun', 'shotgun', undefined, { strength: 12, agility: 6 }),
       build('samurai', 'Samurai', 'samurai', undefined, { strength: 14, agility: 8 }),
       build('dinner', 'Dinner', 'dinner', undefined, { vitality: 8, charisma: 4 }),
+      build('twin-glocks', 'Twin Glocks', 'twin-glocks', undefined, { strength: 16, agility: 10 }),
       {
         id: 'prophecy',
         name: 'Prophecy',
@@ -623,13 +625,14 @@ export default function WardrobePage() {
   // Build a base image from on-chain traits, optionally excluding hat
   const composeBaseFromTraits = useCallback(async (
     traits: { name: string; value: string }[],
-    opts: { includeHat?: boolean; includeClothes?: boolean; includeEyes?: boolean; includeMouth?: boolean } = {}
+    opts: { includeHat?: boolean; includeClothes?: boolean; includeEyes?: boolean; includeMouth?: boolean; bgColor?: string } = {}
   ) => {
     const {
       includeHat = true,
       includeClothes = true,
       includeEyes = true,
       includeMouth = true,
+      bgColor = '',
     } = opts;
     const canvas = document.createElement('canvas');
     canvas.width = OUTPUT_SIZE;
@@ -646,7 +649,15 @@ export default function WardrobePage() {
         img.src = url;
       });
 
+    // If custom background color is set, fill it first
+    if (bgColor) {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+    }
+
     const layers = TRAIT_LAYERS.filter((l) => {
+      // Skip background layer if custom color is set
+      if (l.name === 'Background' && bgColor) return false;
       if (!includeHat && l.name === 'Hat') return false;
       if (!includeClothes && l.name === 'Clothes') return false;
       if (!includeEyes && l.name === 'Eyes') return false;
@@ -701,21 +712,37 @@ export default function WardrobePage() {
         setNote('Token not found. Check the ID and try again.');
         return;
       }
-      const furTrait = nft.traits.find((t) => t.name.toLowerCase() === 'fur');
-      if (furTrait && furColors.includes(furTrait.value as FurColor)) {
-        setFurColor(furTrait.value as FurColor);
+      
+      // For MAYC, extract mutant type from trait prefixes (most reliable method)
+      let detectedMutantType: 'm1' | 'm2' = 'm1';
+      if (collection === 'mayc') {
+        // MAYC traits include M1/M2 prefix in values (e.g., "M1 Dark Brown", "M2 Blue")
+        // Check any trait for M1/M2 prefix
+        const anyTraitWithPrefix = nft.traits.find(t => 
+          t.value.startsWith('M1 ') || t.value.startsWith('M2 ')
+        );
+        if (anyTraitWithPrefix) {
+          detectedMutantType = anyTraitWithPrefix.value.startsWith('M1 ') ? 'm1' : 'm2';
+          console.log(`Detected MAYC mutant type from trait prefix: ${detectedMutantType}`);
+        }
+        setMaycMutantType(detectedMutantType);
       }
       
-      // Extract mutant type for MAYC (M1 or M2)
-      if (collection === 'mayc') {
-        const typeTrait = nft.traits.find((t) => t.name.toLowerCase() === 'type');
-        if (typeTrait) {
-          const typeValue = typeTrait.value.toLowerCase();
-          if (typeValue.includes('m1')) {
-            setMaycMutantType('m1');
-          } else if (typeValue.includes('m2')) {
-            setMaycMutantType('m2');
-          }
+      // Extract fur color, handling MAYC's "M1 " or "M2 " prefix
+      const furTrait = nft.traits.find((t) => t.name.toLowerCase() === 'fur');
+      if (furTrait) {
+        let furValue = furTrait.value;
+        
+        // For MAYC, strip "M1 " or "M2 " prefix from fur value
+        if (collection === 'mayc') {
+          furValue = furValue.replace(/^M[12]\s+/, '');
+          console.log(`Token ${tokenId} - Original fur: ${furTrait.value}, Cleaned: ${furValue}`);
+        }
+        
+        if (furColors.includes(furValue as FurColor)) {
+          setFurColor(furValue as FurColor);
+        } else {
+          console.log(`Token ${tokenId} - Fur color not recognized:`, furValue);
         }
       }
       
@@ -733,6 +760,7 @@ export default function WardrobePage() {
           includeClothes: keepClothes,
           includeEyes: keepEyes,
           includeMouth: keepMouth,
+          bgColor: backgroundColor,
         });
         if (composed) {
           setBaseSrc(composed);
@@ -746,6 +774,7 @@ export default function WardrobePage() {
           includeClothes: keepClothes,
           includeEyes: keepEyes,
           includeMouth: keepMouth,
+          bgColor: backgroundColor,
         });
         if (composed) {
           setBaseSrc(composed);
@@ -791,7 +820,9 @@ export default function WardrobePage() {
     } else if (collectionType === 'mayc') {
       // MAYC mugs use format: "MAYC MUG m1/m2 [color] fur.png" (uppercase MUG)
       const furName = fur.toLowerCase();
-      return `/wardrobe/hands/mayc-mugs/MAYC MUG ${maycMutantType} ${furName} fur.png`;
+      const path = `/wardrobe/hands/mayc-mugs/MAYC MUG ${maycMutantType} ${furName} fur.png`;
+      console.log(`getMugPath for MAYC: mutantType=${maycMutantType}, fur=${fur}, path=${path}`);
+      return path;
     } else {
       // AoA uses regular GM mugs
       return `/wardrobe/hands/mugs/${furToMugSlug(fur)}-fur-mug.png`;
@@ -808,12 +839,16 @@ export default function WardrobePage() {
       return;
     }
     
+    console.log(`Loading mug: ${url}`);
+    
     const img = new window.Image();
     img.onload = () => {
+      console.log(`✅ Mug loaded successfully: ${url}`);
       setGmMugPreviewOk(true);
       setActualMugPath(url);
     };
     img.onerror = () => {
+      console.error(`❌ Mug failed to load: ${url}`);
       setGmMugPreviewOk(false);
       setActualMugPath('');
     };
@@ -911,6 +946,7 @@ export default function WardrobePage() {
         includeClothes: keepClothes,
         includeEyes: keepEyes,
         includeMouth: keepMouth,
+        bgColor: backgroundColor,
       });
       if (rebuilt) {
         base = await load(rebuilt);
@@ -981,6 +1017,7 @@ export default function WardrobePage() {
         includeClothes: keepClothes,
         includeEyes: keepEyes,
         includeMouth: keepMouth,
+        bgColor: backgroundColor,
       });
       if (rebuilt && !cancelled) {
         setBaseSrc(rebuilt);
@@ -988,12 +1025,13 @@ export default function WardrobePage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [loadedTraits, keepHat, keepClothes, keepEyes, keepMouth, composeBaseFromTraits]);
+  }, [loadedTraits, keepHat, keepClothes, keepEyes, keepMouth, backgroundColor, composeBaseFromTraits]);
 
   // When collection changes, reset state and clear preview
   useEffect(() => {
     if (collection === 'bayc' || collection === 'mayc') {
       setActiveCategory('Hands');
+      setBackgroundColor(''); // Clear background color for BAYC/MAYC (not supported)
     }
     // Clear selection, preview, base image, loaded traits, and stats when switching collections
     setSelectedIds(new Set());
@@ -1006,6 +1044,15 @@ export default function WardrobePage() {
     setMaycMutantType('m1'); // Reset to M1 by default
     setActualMugPath(''); // Clear mug path
   }, [collection]);
+
+  // When background color is changed from original to custom, uncheck hat and clothes
+  useEffect(() => {
+    if (backgroundColor && collection === 'aoa') {
+      // Custom background color is set, uncheck hat and clothes to show clean background
+      setKeepHat(false);
+      setKeepClothes(false);
+    }
+  }, [backgroundColor, collection]);
 
   return (
     <div className="min-h-screen relative">
@@ -1029,32 +1076,43 @@ export default function WardrobePage() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="mb-8"
+          className="mb-10"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-hero-blue/10 border border-hero-blue/30 mb-3">
-            <Shirt className="w-4 h-4 text-hero-blue" />
-            <span className="text-xs text-hero-blue">Wardrobe</span>
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-900/20 to-amber-800/20 border-2 border-amber-600/40 mb-4 shadow-lg shadow-amber-900/30">
+              <Shirt className="w-5 h-5 text-amber-400" />
+              <span className="text-sm font-bold text-amber-300 uppercase tracking-widest">Wardrobe</span>
+            </div>
+            <h1 className="text-4xl md:text-6xl font-black mb-4 relative">
+              <span className="bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200 bg-clip-text text-transparent" style={{
+                filter: 'drop-shadow(0 0 30px rgba(212,175,55,0.6)) drop-shadow(0 0 15px rgba(212,175,55,0.4))',
+                animation: 'titleGlow 3s ease-in-out infinite',
+              }}>
+                APE WARDROBE
+              </span>
+              <div className="absolute -inset-4 bg-gradient-to-r from-transparent via-amber-400/10 to-transparent blur-2xl -z-10"></div>
+            </h1>
+            <p className="text-amber-100/70 text-lg max-w-3xl leading-relaxed">
+              Customize your Apes On Ape, Bored Ape, or Mutant Ape with exclusive items and accessories
+            </p>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold" style={{ color: 'var(--foreground)' }}>
-            Ape Wardrobe
-          </h1>
-          <p className="text-off-white/80 mt-2 max-w-2xl">
-            Step into the wardrobe. Load your Apes On Ape, Bored Ape Yacht Club, or Mutant Ape Yacht Club NFT, select overlays, then generate with a flash of chaotic genius.
-          </p>
         </motion.div>
 
-        {/* RPG-Style Character Dressing UI */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:items-start">
-          
-          {/* Left Side - Character Info & Equipment Slots */}
-          <div className="lg:col-span-3 flex flex-col gap-4">
-            {/* Character Selection Card */}
-            <div className="rpg-card">
-              <div className="rpg-card-header">
-                <h3 className="text-sm font-bold uppercase tracking-wider">Character</h3>
-              </div>
-              <div className="p-4 space-y-3">
-                <div className="grid grid-cols-1 gap-2">
+        {/* Character Selection - Top Row */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mb-6"
+        >
+          <div className="rpg-card">
+            <div className="rpg-card-header">
+              <h3 className="text-sm font-bold uppercase tracking-wider">Select Character</h3>
+            </div>
+            <div className="p-4">
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6">
+                {/* Collection Buttons */}
+                <div className="flex gap-2">
                   <button
                     className={`rpg-button ${collection === 'aoa' ? 'rpg-button-active' : ''}`}
                     onClick={() => setCollection('aoa')}
@@ -1075,32 +1133,47 @@ export default function WardrobePage() {
                   </button>
                 </div>
                 
-                <div className="pt-2 border-t border-amber-900/30">
-                  <label className="block text-xs font-medium text-amber-200/70 mb-2 uppercase tracking-wide">
-                    {collection === 'bayc' ? 'BAYC Token' : collection === 'mayc' ? 'MAYC Token' : 'Token ID'}
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      value={tokenId}
-                      onChange={(e) => setTokenId(e.target.value)}
-                      placeholder="e.g. 1234"
-                      className="flex-1 rounded bg-black/50 border border-amber-900/50 px-3 py-2 text-sm text-amber-100 placeholder:text-amber-900/50 outline-none focus:border-amber-600/70 focus:ring-1 focus:ring-amber-600/50"
-                    />
-                    <button 
-                      className="rpg-button-small" 
-                      onClick={handleLoadById} 
-                      disabled={!tokenId.trim() || loadingNft}
-                    >
-                      {loadingNft ? '...' : 'Load'}
-                    </button>
+                {/* Token ID Input */}
+                <div className="flex-1 flex items-center gap-4">
+                  <div className="hidden md:block w-px h-10 bg-amber-900/30"></div>
+                  <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+                    <label className="text-xs font-medium text-amber-200/70 uppercase tracking-wide whitespace-nowrap">
+                      {collection === 'bayc' ? 'BAYC Token' : collection === 'mayc' ? 'MAYC Token' : 'Token ID'}
+                    </label>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <input
+                        value={tokenId}
+                        onChange={(e) => setTokenId(e.target.value)}
+                        placeholder="e.g. 1234"
+                        className="flex-1 sm:w-32 rounded-lg bg-black/70 border-2 border-amber-900/60 px-4 py-2.5 text-sm text-amber-100 placeholder:text-amber-900/50 outline-none focus:border-amber-500/80 focus:ring-2 focus:ring-amber-600/40 transition-all shadow-inner"
+                      />
+                      <button 
+                        className="rpg-button-small" 
+                        onClick={handleLoadById} 
+                        disabled={!tokenId.trim() || loadingNft}
+                      >
+                        {loadingNft ? '...' : 'Load'}
+                      </button>
+                    </div>
                   </div>
-                  {note && <div className="text-xs text-red-400 mt-2">{note}</div>}
                 </div>
               </div>
+              {note && (
+                <div className="mt-3 p-2 rounded-lg bg-red-900/20 border border-red-500/30">
+                  <div className="text-xs text-red-400 font-semibold">{note}</div>
+                </div>
+              )}
             </div>
+          </div>
+        </motion.div>
 
+        {/* RPG-Style Character Dressing UI */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:items-stretch">
+          
+          {/* Left Side - Equipment Slots */}
+          <div className="lg:col-span-3 flex flex-col gap-4">
             {/* Equipped Items Card */}
-            <div className="rpg-card">
+            <div className="rpg-card flex-shrink-0">
               <div className="rpg-card-header">
                 <h3 className="text-sm font-bold uppercase tracking-wider">Equipped</h3>
               </div>
@@ -1145,7 +1218,7 @@ export default function WardrobePage() {
 
             {/* Trait Toggles - AoA Only */}
             {collection === 'aoa' && (
-              <div className="rpg-card">
+              <div className="rpg-card flex-shrink-0">
                 <div className="rpg-card-header">
                   <h3 className="text-sm font-bold uppercase tracking-wider">Keep Traits</h3>
                 </div>
@@ -1169,9 +1242,6 @@ export default function WardrobePage() {
                 </div>
               </div>
             )}
-
-            {/* Spacer to align bottom with other columns */}
-            <div className="flex-grow"></div>
           </div>
 
           {/* Center - Character Preview */}
@@ -1210,15 +1280,25 @@ export default function WardrobePage() {
                       )}
                     </>
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-amber-900/50 text-sm p-4 text-center">
-                      Load a character to begin customization
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
+                      <div className="mb-4 relative">
+                        <Shirt className="w-20 h-20 text-amber-600/30" />
+                        <div className="absolute inset-0 w-20 h-20 rounded-full blur-xl bg-amber-600/10 animate-pulse"></div>
+                      </div>
+                      <div className="text-amber-300/70 text-base font-semibold mb-2">
+                        No Character Loaded
+                      </div>
+                      <div className="text-amber-900/60 text-sm max-w-xs">
+                        Enter a token ID and click Load to begin customization
+                      </div>
                     </div>
                   )}
 
                   {isGenerating && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                      <div className="rpg-loading">
-                        <div className="text-amber-200 font-bold">Forging...</div>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-md">
+                      <div className="rpg-loading flex flex-col items-center gap-3">
+                        <Shirt className="w-12 h-12 text-amber-400 animate-pulse" />
+                        <div className="text-amber-200 font-black text-lg uppercase tracking-widest">Forging...</div>
                       </div>
                     </div>
                   )}
@@ -1227,44 +1307,6 @@ export default function WardrobePage() {
                     <div className="absolute inset-0 pointer-events-none bg-amber-200/90" style={{ animation: 'flashPop 300ms ease-out forwards' }} />
                   )}
                 </div>
-
-                {/* Character Stats */}
-                {baseSrc && (
-                  <div className="mt-4 rpg-card">
-                    <div className="rpg-card-header">
-                      <h3 className="text-xs font-bold uppercase tracking-wider">Character Stats</h3>
-                    </div>
-                    <div className="p-3 grid grid-cols-2 gap-2">
-                      {(Object.entries(totalStats) as [keyof Stats, number][]).map(([stat, value]) => {
-                        const baseStat = baseStats[stat];
-                        const bonus = value - baseStat;
-                        return (
-                          <div key={stat} className="stat-row">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-semibold text-amber-200/90 uppercase tracking-wide">
-                                {stat}
-                              </span>
-                              <span className="text-sm font-bold text-amber-100">
-                                {value}
-                                {bonus !== 0 && (
-                                  <span className={`text-xs ml-1 ${bonus > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {bonus > 0 ? '+' : ''}{bonus}
-                                  </span>
-                                )}
-                              </span>
-                            </div>
-                            <div className="stat-bar">
-                              <div 
-                                className="stat-bar-fill" 
-                                style={{ width: `${Math.min(100, (value / 100) * 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
 
                 {/* Download Button */}
                 {baseSrc && (
@@ -1279,43 +1321,138 @@ export default function WardrobePage() {
                     </button>
                   </div>
                 )}
+
+                {/* Background Color Picker Card - AoA Only */}
+                {collection === 'aoa' && baseSrc && (
+                  <div className="mt-4 rpg-card">
+                    <div className="rpg-card-header">
+                      <h3 className="text-xs font-bold uppercase tracking-wider">Background</h3>
+                    </div>
+                    <div className="p-3 space-y-3">
+                      <div className="grid grid-cols-5 gap-2.5">
+                        {/* Original Background Option */}
+                        <button
+                          onClick={() => setBackgroundColor('')}
+                          className={`w-full aspect-square rounded-lg border-2 transition-all transform hover:scale-105 ${
+                            backgroundColor === '' 
+                              ? 'border-amber-400 shadow-lg shadow-amber-400/50 scale-105' 
+                              : 'border-amber-900/50 hover:border-amber-600/70'
+                          }`}
+                          style={{
+                            background: 'linear-gradient(135deg, #a0522d 0%, #8b4513 50%, #654321 100%)',
+                            position: 'relative',
+                          }}
+                          title="Original"
+                        >
+                          {backgroundColor === '' && (
+                            <div className="absolute inset-0 flex items-center justify-center text-white text-sm font-black drop-shadow-lg">✓</div>
+                          )}
+                          <div className="absolute inset-0 rounded-lg bg-gradient-to-t from-black/20 to-transparent"></div>
+                        </button>
+                        
+                        {/* Preset Colors */}
+                        {['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DFE6E9', '#2D3436', '#6C5CE7', '#FD79A8'].map((color) => (
+                          <button
+                            key={color}
+                            onClick={() => setBackgroundColor(color)}
+                            className={`w-full aspect-square rounded-lg border-2 transition-all transform hover:scale-105 ${
+                              backgroundColor === color 
+                                ? 'border-amber-400 shadow-lg shadow-amber-400/50 scale-105' 
+                                : 'border-amber-900/50 hover:border-amber-600/70'
+                            }`}
+                            style={{ backgroundColor: color, position: 'relative' }}
+                            title={color}
+                          >
+                            {backgroundColor === color && (
+                              <div className="absolute inset-0 flex items-center justify-center text-white text-sm font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">✓</div>
+                            )}
+                            <div className="absolute inset-0 rounded-lg bg-gradient-to-t from-black/10 to-transparent"></div>
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* Custom Color Input */}
+                      <div className="pt-2 border-t border-amber-900/30">
+                        <label className="block text-xs font-medium text-amber-200/70 mb-2 uppercase tracking-wide">
+                          Custom Color
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="color"
+                            value={backgroundColor || '#8B4513'}
+                            onChange={(e) => setBackgroundColor(e.target.value)}
+                            className="w-14 h-12 rounded-lg border-2 border-amber-900/60 bg-black/70 cursor-pointer hover:border-amber-600/70 transition-all shadow-inner"
+                          />
+                          <input
+                            type="text"
+                            value={backgroundColor}
+                            onChange={(e) => setBackgroundColor(e.target.value)}
+                            placeholder="#8B4513"
+                            className="flex-1 rounded-lg bg-black/70 border-2 border-amber-900/60 px-4 py-2.5 text-xs font-semibold text-amber-100 placeholder:text-amber-900/50 outline-none focus:border-amber-500/80 focus:ring-2 focus:ring-amber-600/40 transition-all shadow-inner uppercase tracking-wider"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Right Side - Inventory */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3 h-full">
             <div className="rpg-card h-full flex flex-col">
               <div className="rpg-card-header">
                 <h3 className="text-sm font-bold uppercase tracking-wider">Inventory</h3>
               </div>
               
               {/* Category Tabs */}
-              <div className="px-4 pt-4">
-                <div className="flex flex-wrap gap-1">
+              <div className="px-4 pt-4 pb-2 flex-shrink-0">
+                <div className="flex flex-row flex-wrap items-center gap-2.5">
                   {collection === 'aoa' ? (
-                    CATEGORIES.map((cat) => (
-                      <button
-                        key={cat}
-                        className={`rpg-tab ${activeCategory === cat ? 'rpg-tab-active' : ''}`}
-                        onClick={() => setActiveCategory(cat)}
-                      >
-                        {cat}
-                      </button>
-                    ))
+                    CATEGORIES.map((cat) => {
+                      const getIcon = () => {
+                        switch(cat) {
+                          case 'Hats': return <Crown />;
+                          case 'Clothes': return <ShirtIcon />;
+                          case 'Hands': return <Hand />;
+                          case 'Accessories': return <Sparkles />;
+                          case 'Suits': return <User />;
+                          default: return null;
+                        }
+                      };
+                      return (
+                        <button
+                          key={cat}
+                          className={`rpg-tab ${activeCategory === cat ? 'rpg-tab-active' : ''}`}
+                          onClick={() => setActiveCategory(cat)}
+                        >
+                          <span className="flex items-center gap-2">
+                            {getIcon()}
+                            {cat}
+                          </span>
+                        </button>
+                      );
+                    })
                   ) : (
                     <>
                       <button
                         className={`rpg-tab ${activeCategory === 'Hands' ? 'rpg-tab-active' : ''}`}
                         onClick={() => setActiveCategory('Hands')}
                       >
-                        Hands
+                        <span className="flex items-center gap-2">
+                          <Hand />
+                          Hands
+                        </span>
                       </button>
                       <button
                         className={`rpg-tab ${activeCategory === 'Accessories' ? 'rpg-tab-active' : ''}`}
                         onClick={() => setActiveCategory('Accessories')}
                       >
-                        Accessories
+                        <span className="flex items-center gap-2">
+                          <Sparkles />
+                          Accessories
+                        </span>
                       </button>
                     </>
                   )}
@@ -1323,8 +1460,8 @@ export default function WardrobePage() {
               </div>
 
               {/* Items Grid */}
-              <div className="p-4 overflow-y-auto custom-scrollbar" style={{ maxHeight: '850px' }}>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="p-4 overflow-y-auto custom-scrollbar" style={{ maxHeight: '450px' }}>
+                <div className="grid grid-cols-2 gap-2.5">
                   {filtered.length === 0 && (
                     <div className="text-xs text-amber-900/50 col-span-2 text-center py-8 italic">No items in this category</div>
                   )}
@@ -1354,6 +1491,9 @@ export default function WardrobePage() {
                   })}
                 </div>
               </div>
+              
+              {/* Spacer to push content up if inventory is shorter */}
+              <div className="flex-1"></div>
             </div>
           </div>
         </div>
@@ -1404,59 +1544,121 @@ export default function WardrobePage() {
         }
         
         :global(.rpg-card-header) {
-          background: linear-gradient(180deg, rgba(212, 175, 55, 0.2), rgba(139, 105, 20, 0.1));
-          border-bottom: 1px solid rgba(212, 175, 55, 0.3);
-          padding: 12px 16px;
+          background: linear-gradient(180deg, rgba(212, 175, 55, 0.28), rgba(139, 105, 20, 0.18));
+          padding: 16px 20px;
+          border-bottom: 2px solid rgba(212, 175, 55, 0.5);
+          position: relative;
+        }
+        
+        :global(.rpg-card-header):before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        }
+        
+        :global(.rpg-card-header):after {
+          content: '';
+          position: absolute;
+          bottom: -2px;
+          left: 0;
+          right: 0;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 1), transparent);
+          box-shadow: 0 0 10px rgba(212, 175, 55, 0.8);
+        }
+        
+        :global(.rpg-card-header h3) {
           color: #f5deb3;
-          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+          text-shadow: 
+            0 2px 4px rgba(0, 0, 0, 0.8),
+            0 0 20px rgba(212, 175, 55, 0.3);
         }
         
         /* RPG Buttons */
         :global(.rpg-button) {
-          padding: 10px 16px;
-          background: linear-gradient(180deg, rgba(60, 45, 30, 0.8), rgba(40, 30, 20, 0.9));
-          border: 1px solid rgba(139, 105, 20, 0.5);
-          border-radius: 4px;
+          padding: 12px 18px;
+          background: linear-gradient(135deg, rgba(30, 25, 20, 0.9), rgba(20, 15, 10, 0.95));
+          border: 2px solid rgba(139, 105, 20, 0.5);
+          border-radius: 8px;
           color: #d4af37;
           font-size: 13px;
-          font-weight: 600;
+          font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 1px;
           cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 
+            0 4px 12px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+          position: relative;
+          overflow: hidden;
+        }
+        
+        :global(.rpg-button):before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.2), transparent);
+          transition: left 0.5s ease;
+        }
+        
+        :global(.rpg-button):hover:not(:disabled):before {
+          left: 100%;
         }
         
         :global(.rpg-button):hover:not(:disabled) {
-          background: linear-gradient(180deg, rgba(80, 60, 40, 0.9), rgba(50, 40, 25, 0.9));
-          border-color: rgba(212, 175, 55, 0.7);
-          box-shadow: 0 2px 12px rgba(212, 175, 55, 0.3);
-          transform: translateY(-1px);
+          background: linear-gradient(135deg, rgba(40, 35, 30, 0.95), rgba(30, 25, 20, 1));
+          border-color: rgba(212, 175, 55, 0.8);
+          box-shadow: 
+            0 6px 16px rgba(212, 175, 55, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          transform: translateY(-2px);
+          color: #f5deb3;
         }
         
         :global(.rpg-button-active) {
-          background: linear-gradient(180deg, rgba(212, 175, 55, 0.3), rgba(139, 105, 20, 0.4));
+          background: linear-gradient(135deg, rgba(212, 175, 55, 0.35), rgba(139, 105, 20, 0.4));
           border-color: #d4af37;
+          color: #fff;
           box-shadow: 
-            0 0 20px rgba(212, 175, 55, 0.4),
-            inset 0 2px 8px rgba(212, 175, 55, 0.2);
+            0 0 25px rgba(212, 175, 55, 0.5),
+            0 4px 12px rgba(212, 175, 55, 0.3),
+            inset 0 2px 0 rgba(255, 255, 255, 0.2),
+            inset 0 -2px 8px rgba(212, 175, 55, 0.3);
+          transform: translateY(-1px);
         }
         
         :global(.rpg-button):disabled {
-          opacity: 0.5;
+          opacity: 0.4;
           cursor: not-allowed;
+          filter: grayscale(0.5);
         }
         
         :global(.rpg-button-small) {
-          padding: 8px 12px;
-          background: linear-gradient(180deg, rgba(60, 45, 30, 0.8), rgba(40, 30, 20, 0.9));
-          border: 1px solid rgba(139, 105, 20, 0.5);
-          border-radius: 4px;
+          padding: 10px 16px;
+          background: linear-gradient(135deg, rgba(30, 25, 20, 0.9), rgba(20, 15, 10, 0.95));
+          border: 2px solid rgba(139, 105, 20, 0.5);
+          border-radius: 6px;
           color: #d4af37;
           font-size: 12px;
-          font-weight: 600;
+          font-weight: 700;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.3s ease;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+        
+        :global(.rpg-button-small):hover:not(:disabled) {
+          background: linear-gradient(135deg, rgba(40, 35, 30, 0.95), rgba(30, 25, 20, 1));
+          border-color: rgba(212, 175, 55, 0.7);
+          box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+          transform: translateY(-1px);
         }
         
         :global(.rpg-button-small):hover:not(:disabled) {
@@ -1465,28 +1667,53 @@ export default function WardrobePage() {
         }
         
         :global(.rpg-button-primary) {
-          padding: 12px 24px;
-          background: linear-gradient(180deg, rgba(139, 105, 20, 0.9), rgba(101, 77, 15, 0.9));
+          padding: 14px 28px;
+          background: linear-gradient(135deg, rgba(212, 175, 55, 0.9), rgba(139, 105, 20, 0.95));
           border: 2px solid #d4af37;
-          border-radius: 6px;
+          border-radius: 10px;
           color: #fff;
           font-size: 14px;
-          font-weight: 700;
+          font-weight: 800;
           text-transform: uppercase;
-          letter-spacing: 1px;
+          letter-spacing: 1.5px;
           cursor: pointer;
           transition: all 0.3s ease;
           box-shadow: 
-            0 4px 15px rgba(212, 175, 55, 0.4),
-            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            0 6px 20px rgba(212, 175, 55, 0.5),
+            0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+            inset 0 1px 0 rgba(255, 255, 255, 0.3);
+          position: relative;
+          overflow: hidden;
+        }
+        
+        :global(.rpg-button-primary):before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+          transition: left 0.5s ease;
+        }
+        
+        :global(.rpg-button-primary):hover:not(:disabled):before {
+          left: 100%;
         }
         
         :global(.rpg-button-primary):hover:not(:disabled) {
-          background: linear-gradient(180deg, rgba(160, 120, 25, 0.9), rgba(120, 90, 18, 0.9));
+          background: linear-gradient(135deg, rgba(212, 175, 55, 1), rgba(160, 120, 25, 1));
           box-shadow: 
-            0 6px 25px rgba(212, 175, 55, 0.6),
-            inset 0 1px 0 rgba(255, 255, 255, 0.3);
-          transform: translateY(-2px);
+            0 8px 30px rgba(212, 175, 55, 0.7),
+            0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+            inset 0 1px 0 rgba(255, 255, 255, 0.4),
+            0 0 40px rgba(212, 175, 55, 0.4);
+          transform: translateY(-3px);
+          border-color: #f5deb3;
+        }
+        
+        :global(.rpg-button-primary):active:not(:disabled) {
+          transform: translateY(-1px);
         }
         
         :global(.rpg-button-secondary) {
@@ -1509,20 +1736,30 @@ export default function WardrobePage() {
         
         /* Equipment Slots */
         :global(.equipment-slot) {
-          background: rgba(0, 0, 0, 0.5);
-          border: 2px solid rgba(139, 105, 20, 0.3);
-          border-radius: 6px;
-          padding: 8px;
-          min-height: 48px;
+          background: linear-gradient(135deg, rgba(20, 15, 10, 0.6), rgba(10, 5, 0, 0.8));
+          border: 2px solid rgba(139, 105, 20, 0.4);
+          border-radius: 8px;
+          padding: 10px;
+          min-height: 52px;
           display: flex;
           align-items: center;
-          transition: all 0.2s ease;
+          transition: all 0.3s ease;
+          box-shadow: 
+            inset 0 2px 4px rgba(0, 0, 0, 0.4),
+            0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        :global(.equipment-slot):hover {
+          border-color: rgba(139, 105, 20, 0.6);
         }
         
         :global(.equipment-slot-filled) {
-          background: rgba(212, 175, 55, 0.1);
-          border-color: rgba(212, 175, 55, 0.5);
-          box-shadow: inset 0 0 10px rgba(212, 175, 55, 0.1);
+          background: linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(139, 105, 20, 0.15));
+          border-color: rgba(212, 175, 55, 0.6);
+          box-shadow: 
+            inset 0 0 15px rgba(212, 175, 55, 0.15),
+            0 0 15px rgba(212, 175, 55, 0.2),
+            0 2px 8px rgba(0, 0, 0, 0.4);
         }
         
         /* Character Preview Frame */
@@ -1530,167 +1767,415 @@ export default function WardrobePage() {
           position: relative;
           width: 100%;
           aspect-ratio: 1;
-          background: radial-gradient(ellipse at center, rgba(30, 20, 10, 0.6), rgba(10, 5, 0, 0.9));
-          border: 3px solid;
-          border-image: linear-gradient(135deg, #d4af37 0%, #8b6914 25%, #d4af37 50%, #8b6914 75%, #d4af37 100%) 1;
-          border-radius: 8px;
+          background: 
+            radial-gradient(ellipse at 30% 30%, rgba(212, 175, 55, 0.08), transparent 50%),
+            radial-gradient(ellipse at center, rgba(30, 20, 10, 0.7), rgba(10, 5, 0, 0.95));
+          border: 4px solid transparent;
+          background-clip: padding-box;
+          border-radius: 12px;
           overflow: hidden;
           box-shadow: 
-            0 8px 32px rgba(0, 0, 0, 0.6),
-            inset 0 0 60px rgba(0, 0, 0, 0.4);
+            0 12px 48px rgba(0, 0, 0, 0.8),
+            0 0 0 2px rgba(212, 175, 55, 0.6),
+            0 0 40px rgba(212, 175, 55, 0.3),
+            inset 0 0 80px rgba(0, 0, 0, 0.5),
+            inset 0 4px 20px rgba(212, 175, 55, 0.1);
+          position: relative;
+        }
+        
+        :global(.character-preview-frame):before {
+          content: '';
+          position: absolute;
+          inset: -2px;
+          background: linear-gradient(135deg, #d4af37 0%, #8b6914 25%, #d4af37 50%, #8b6914 75%, #d4af37 100%);
+          border-radius: 12px;
+          z-index: -1;
+          animation: borderRotate 8s linear infinite;
+        }
+        
+        @keyframes borderRotate {
+          0% {
+            filter: hue-rotate(0deg) brightness(1);
+          }
+          50% {
+            filter: hue-rotate(15deg) brightness(1.2);
+          }
+          100% {
+            filter: hue-rotate(0deg) brightness(1);
+          }
         }
         
         :global(.character-preview-corner) {
           position: absolute;
-          width: 24px;
-          height: 24px;
+          width: 32px;
+          height: 32px;
           border-color: #d4af37;
           border-style: solid;
+          z-index: 10;
+          filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.8));
         }
         
         :global(.character-preview-corner-tl) {
-          top: -3px;
-          left: -3px;
-          border-width: 3px 0 0 3px;
+          top: 4px;
+          left: 4px;
+          border-width: 4px 0 0 4px;
           border-top-left-radius: 8px;
+          animation: cornerPulse 2s ease-in-out infinite;
         }
         
         :global(.character-preview-corner-tr) {
-          top: -3px;
-          right: -3px;
-          border-width: 3px 3px 0 0;
+          top: 4px;
+          right: 4px;
+          border-width: 4px 4px 0 0;
           border-top-right-radius: 8px;
+          animation: cornerPulse 2s ease-in-out infinite 0.5s;
         }
         
         :global(.character-preview-corner-bl) {
-          bottom: -3px;
-          left: -3px;
-          border-width: 0 0 3px 3px;
+          bottom: 4px;
+          left: 4px;
+          border-width: 0 0 4px 4px;
           border-bottom-left-radius: 8px;
+          animation: cornerPulse 2s ease-in-out infinite 1s;
         }
         
         :global(.character-preview-corner-br) {
-          bottom: -3px;
-          right: -3px;
-          border-width: 0 3px 3px 0;
+          bottom: 4px;
+          right: 4px;
+          border-width: 0 4px 4px 0;
           border-bottom-right-radius: 8px;
+          animation: cornerPulse 2s ease-in-out infinite 1.5s;
+        }
+        
+        @keyframes cornerPulse {
+          0%, 100% {
+            opacity: 0.6;
+            filter: drop-shadow(0 0 4px rgba(212, 175, 55, 0.6));
+          }
+          50% {
+            opacity: 1;
+            filter: drop-shadow(0 0 12px rgba(212, 175, 55, 1));
+          }
+        }
+        
+        @keyframes titleGlow {
+          0%, 100% {
+            filter: drop-shadow(0 0 30px rgba(212,175,55,0.6)) drop-shadow(0 0 15px rgba(212,175,55,0.4));
+          }
+          50% {
+            filter: drop-shadow(0 0 40px rgba(212,175,55,0.8)) drop-shadow(0 0 20px rgba(212,175,55,0.6));
+          }
         }
         
         /* Inventory Items */
         :global(.inventory-item) {
           position: relative;
-          background: rgba(0, 0, 0, 0.5);
-          border: 2px solid rgba(139, 105, 20, 0.3);
-          border-radius: 6px;
-          padding: 8px;
+          background: linear-gradient(135deg, rgba(30, 20, 10, 0.8), rgba(20, 15, 10, 0.9));
+          border: 2px solid rgba(139, 105, 20, 0.4);
+          border-radius: 10px;
+          padding: 10px;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 6px;
+          overflow: hidden;
+        }
+        
+        :global(.inventory-item):before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.3), transparent);
         }
         
         :global(.inventory-item):hover {
-          background: rgba(212, 175, 55, 0.1);
-          border-color: rgba(212, 175, 55, 0.6);
-          transform: scale(1.05);
-          box-shadow: 0 4px 16px rgba(212, 175, 55, 0.3);
+          background: linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(139, 105, 20, 0.2));
+          border-color: rgba(212, 175, 55, 0.7);
+          transform: translateY(-4px) scale(1.05);
+          box-shadow: 
+            0 8px 24px rgba(212, 175, 55, 0.4),
+            0 0 0 1px rgba(212, 175, 55, 0.3) inset;
         }
         
         :global(.inventory-item-selected) {
-          background: rgba(212, 175, 55, 0.2);
+          background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(139, 105, 20, 0.3));
           border-color: #d4af37;
+          transform: translateY(-2px);
           box-shadow: 
-            0 0 20px rgba(212, 175, 55, 0.5),
-            inset 0 0 15px rgba(212, 175, 55, 0.2);
+            0 0 30px rgba(212, 175, 55, 0.6),
+            0 8px 20px rgba(212, 175, 55, 0.4),
+            0 0 0 2px rgba(212, 175, 55, 0.4) inset,
+            inset 0 2px 0 rgba(255, 255, 255, 0.2);
+          animation: selectedGlow 2s ease-in-out infinite;
+        }
+        
+        @keyframes selectedGlow {
+          0%, 100% {
+            box-shadow: 
+              0 0 30px rgba(212, 175, 55, 0.6),
+              0 8px 20px rgba(212, 175, 55, 0.4),
+              0 0 0 2px rgba(212, 175, 55, 0.4) inset,
+              inset 0 2px 0 rgba(255, 255, 255, 0.2);
+          }
+          50% {
+            box-shadow: 
+              0 0 40px rgba(212, 175, 55, 0.8),
+              0 8px 20px rgba(212, 175, 55, 0.5),
+              0 0 0 2px rgba(212, 175, 55, 0.6) inset,
+              inset 0 2px 0 rgba(255, 255, 255, 0.3);
+          }
         }
         
         :global(.inventory-item-name) {
-          font-size: 10px;
+          font-size: 11px;
           color: #f5deb3;
           text-align: center;
-          line-height: 1.2;
+          line-height: 1.3;
           overflow: hidden;
           text-overflow: ellipsis;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
+          font-weight: 600;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
         }
         
         :global(.inventory-item-badge) {
           position: absolute;
-          top: 4px;
-          right: 4px;
-          width: 20px;
-          height: 20px;
+          top: 6px;
+          right: 6px;
+          width: 24px;
+          height: 24px;
           background: linear-gradient(135deg, #d4af37, #b8941f);
-          border: 1px solid #fff;
+          border: 2px solid #fff;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 11px;
-          font-weight: bold;
+          font-weight: 800;
           color: #000;
-          box-shadow: 0 2px 8px rgba(212, 175, 55, 0.6);
+          box-shadow: 
+            0 4px 12px rgba(212, 175, 55, 0.7),
+            inset 0 1px 0 rgba(255, 255, 255, 0.5);
+          z-index: 10;
         }
         
-        /* RPG Tabs */
+        /* Category Tab Styles */
         :global(.rpg-tab) {
-          padding: 6px 12px;
-          background: rgba(40, 30, 20, 0.6);
-          border: 1px solid rgba(139, 105, 20, 0.3);
-          border-radius: 4px 4px 0 0;
-          color: #b8941f;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px 14px;
+          background: linear-gradient(135deg, rgba(30, 25, 20, 0.9), rgba(20, 15, 10, 0.95));
+          border: 2px solid rgba(139, 105, 20, 0.5);
+          border-radius: 8px;
+          color: #d4af37;
           font-size: 11px;
-          font-weight: 600;
+          font-weight: 700;
           text-transform: uppercase;
+          letter-spacing: 0.8px;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 
+            0 4px 12px rgba(0, 0, 0, 0.5),
+            0 0 0 1px rgba(212, 175, 55, 0.1) inset,
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+          position: relative;
+          overflow: hidden;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         
-        :global(.rpg-tab):hover {
-          background: rgba(60, 45, 30, 0.7);
-          border-color: rgba(212, 175, 55, 0.5);
+        :global(.rpg-tab > span) {
+          position: relative;
+          z-index: 1;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        
+        :global(.rpg-tab svg) {
+          width: 14px;
+          height: 14px;
+        }
+        
+        :global(.rpg-tab):before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.2), transparent);
+          transition: left 0.5s ease;
+          z-index: 0;
+        }
+        
+        :global(.rpg-tab-active):before {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 80%;
+          height: 80%;
+          transform: translate(-50%, -50%);
+          background: radial-gradient(circle, rgba(212, 175, 55, 0.2), transparent 70%);
+          animation: radialPulse 3s ease-in-out infinite;
+          z-index: 0;
+        }
+        
+        @keyframes radialPulse {
+          0%, 100% {
+            opacity: 0.5;
+            transform: translate(-50%, -50%) scale(0.9);
+          }
+          50% {
+            opacity: 0.8;
+            transform: translate(-50%, -50%) scale(1.1);
+          }
+        }
+        
+        :global(.rpg-tab):hover:not(.rpg-tab-active):before {
+          left: 100%;
+        }
+        
+        :global(.rpg-tab):hover:not(.rpg-tab-active) {
+          background: linear-gradient(135deg, rgba(40, 35, 30, 0.95), rgba(30, 25, 20, 1));
+          border-color: rgba(212, 175, 55, 0.7);
+          color: #f5deb3;
+          box-shadow: 
+            0 6px 16px rgba(212, 175, 55, 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          transform: translateY(-2px);
+        }
+        
+        :global(.rpg-tab):hover:not(.rpg-tab-active) svg {
+          animation: iconBounce 0.6s ease-in-out;
+        }
+        
+        @keyframes iconBounce {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-3px);
+          }
         }
         
         :global(.rpg-tab-active) {
-          background: linear-gradient(180deg, rgba(212, 175, 55, 0.3), rgba(139, 105, 20, 0.2));
+          background: linear-gradient(135deg, rgba(212, 175, 55, 0.45), rgba(139, 105, 20, 0.5));
           border-color: #d4af37;
-          color: #f5deb3;
-          box-shadow: 0 -2px 10px rgba(212, 175, 55, 0.3);
+          color: #fff;
+          box-shadow: 
+            0 0 30px rgba(212, 175, 55, 0.7),
+            0 6px 20px rgba(212, 175, 55, 0.5),
+            0 0 0 1px rgba(212, 175, 55, 0.3) inset,
+            inset 0 2px 0 rgba(255, 255, 255, 0.25),
+            inset 0 -2px 12px rgba(212, 175, 55, 0.4);
+          transform: translateY(-2px) scale(1.02);
+          text-shadow: 
+            0 2px 4px rgba(0, 0, 0, 0.8),
+            0 0 20px rgba(212, 175, 55, 0.6);
+          font-weight: 800;
+        }
+        
+        :global(.rpg-tab-active):before {
+          display: none;
+        }
+        
+        :global(.rpg-tab-active):after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 10%;
+          right: 10%;
+          height: 2px;
+          background: linear-gradient(90deg, transparent, #f5deb3, transparent);
+          box-shadow: 0 0 10px rgba(245, 222, 179, 0.8);
+          animation: activeGlow 2s ease-in-out infinite;
+        }
+        
+        @keyframes activeGlow {
+          0%, 100% {
+            opacity: 0.7;
+            box-shadow: 0 0 10px rgba(245, 222, 179, 0.8);
+          }
+          50% {
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(245, 222, 179, 1);
+          }
+        }
+        
+        :global(.rpg-tab-active svg) {
+          animation: iconPulse 2s ease-in-out infinite;
+          filter: drop-shadow(0 0 4px rgba(245, 222, 179, 0.8));
+        }
+        
+        @keyframes iconPulse {
+          0%, 100% {
+            transform: scale(1);
+            filter: drop-shadow(0 0 4px rgba(245, 222, 179, 0.8));
+          }
+          50% {
+            transform: scale(1.15);
+            filter: drop-shadow(0 0 8px rgba(245, 222, 179, 1));
+          }
         }
         
         /* Checkbox Styles */
         :global(.rpg-checkbox-label) {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
           color: #d4af37;
-          font-size: 12px;
+          font-size: 13px;
+          font-weight: 600;
           cursor: pointer;
-          transition: color 0.2s ease;
+          transition: all 0.3s ease;
+          padding: 6px 8px;
+          border-radius: 6px;
         }
         
         :global(.rpg-checkbox-label):hover {
           color: #f5deb3;
+          background: rgba(212, 175, 55, 0.05);
         }
         
         :global(.rpg-checkbox) {
           appearance: none;
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(139, 105, 20, 0.5);
-          border-radius: 3px;
-          background: rgba(0, 0, 0, 0.5);
+          width: 20px;
+          height: 20px;
+          border: 2px solid rgba(139, 105, 20, 0.6);
+          border-radius: 5px;
+          background: linear-gradient(135deg, rgba(20, 15, 10, 0.9), rgba(10, 5, 0, 0.95));
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           position: relative;
+          box-shadow: 
+            0 2px 6px rgba(0, 0, 0, 0.4),
+            inset 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+        
+        :global(.rpg-checkbox):hover {
+          border-color: rgba(212, 175, 55, 0.8);
+          box-shadow: 
+            0 2px 8px rgba(212, 175, 55, 0.2),
+            inset 0 1px 2px rgba(0, 0, 0, 0.5);
         }
         
         :global(.rpg-checkbox):checked {
           background: linear-gradient(135deg, #d4af37, #b8941f);
           border-color: #d4af37;
+          box-shadow: 
+            0 0 15px rgba(212, 175, 55, 0.6),
+            0 4px 10px rgba(212, 175, 55, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.3);
+          transform: scale(1.05);
         }
         
         :global(.rpg-checkbox):checked::after {
@@ -1700,8 +2185,9 @@ export default function WardrobePage() {
           left: 50%;
           transform: translate(-50%, -50%);
           color: #000;
-          font-size: 12px;
-          font-weight: bold;
+          font-size: 14px;
+          font-weight: 900;
+          text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
         }
         
         /* Stat Display */
@@ -1756,6 +2242,34 @@ export default function WardrobePage() {
         @keyframes pulse {
           0%, 100% { transform: scale(1); opacity: 1; }
           50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        
+        @keyframes shimmer {
+          0% {
+            background-position: -200% center;
+          }
+          100% {
+            background-position: 200% center;
+          }
+        }
+        
+        :global(.inventory-item):after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(90deg, transparent 0%, rgba(212, 175, 55, 0.15) 50%, transparent 100%);
+          background-size: 200% 100%;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+          border-radius: 10px;
+        }
+        
+        :global(.inventory-item):hover:after {
+          opacity: 1;
+          animation: shimmer 1.5s ease-in-out infinite;
         }
       `}</style>
     </div>

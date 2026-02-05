@@ -158,21 +158,29 @@ body::before {
 
 /* Custom scrollbar for wardrobe items */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(20, 15, 10, 0.8), rgba(30, 20, 10, 0.8));
+  border-radius: 6px;
+  border: 1px solid rgba(139, 105, 20, 0.3);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--hero-blue);
-  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.6), rgba(139, 105, 20, 0.7));
+  border-radius: 6px;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  box-shadow: 
+    0 0 10px rgba(212, 175, 55, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--ape-gold);
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.9), rgba(160, 120, 25, 0.9));
+  box-shadow: 
+    0 0 15px rgba(212, 175, 55, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 /* Utility classes */
@@ -469,4 +477,102 @@ body::before {
 
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
+}
+
+/* Jukebox / Music Player Animations */
+@keyframes spin-vinyl {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes disc-insert {
+  0% {
+    transform: translateX(-100%) rotate(-45deg) scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: translateX(0%) rotate(0deg) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0%) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3),
+                0 0 40px rgba(255, 215, 0, 0.2),
+                inset 0 0 20px rgba(255, 215, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.5),
+                0 0 60px rgba(255, 215, 0, 0.3),
+                inset 0 0 30px rgba(255, 215, 0, 0.2);
+  }
+}
+
+@keyframes neon-flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.vinyl-spin {
+  animation: spin-vinyl 3s linear infinite;
+}
+
+.disc-insert {
+  animation: disc-insert 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.neon-border {
+  border: 2px solid var(--ape-gold);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.5),
+              0 0 20px rgba(255, 215, 0, 0.3),
+              0 0 30px rgba(255, 215, 0, 0.2),
+              inset 0 0 10px rgba(255, 215, 0, 0.1);
+}
+
+.neon-text {
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.8),
+               0 0 20px rgba(255, 215, 0, 0.6),
+               0 0 30px rgba(255, 215, 0, 0.4);
+}
+
+.jukebox-bg {
+  background: 
+    radial-gradient(ellipse at top, rgba(255, 215, 0, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom, rgba(0, 84, 249, 0.1) 0%, transparent 50%),
+    var(--background);
+}
+
+.vinyl-groove {
+  background: 
+    repeating-radial-gradient(
+      circle at center,
+      transparent 0px,
+      transparent 2px,
+      rgba(255, 255, 255, 0.03) 2px,
+      rgba(255, 255, 255, 0.03) 4px
+    );
+}
+
+/* Ensure no horizontal scrollbar on custom scrollbar containers */
+.custom-scrollbar {
+  overflow-x: hidden !important;
+  max-width: 100%;
 }

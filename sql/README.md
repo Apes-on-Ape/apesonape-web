@@ -84,7 +84,7 @@ Make sure the `avatars` storage bucket exists:
 - Sharer - First share (3🍌)
 - AOA Ambassador - Use #AOA (5🍌)
 - Apes Advocate - Use #ApesOnApe (5🍌)
-- Ape Ally - Tag @apechainapes (5🍌)
+- Ape Ally - Tag @apesonape (5🍌)
 
 **Milestones:**
 - Banana Collector - 100 bananas (10🍌)
@@ -117,7 +117,7 @@ Make sure the `avatars` storage bucket exists:
 **Social Quests:**
 - AOA Hashtag Hero - Share with #AOA (5🍌)
 - ApesOnApe Promoter - Share with #ApesOnApe (5🍌)
-- Official Mention - Tag @apechainapes (5🍌)
+- Official Mention - Tag @apesonape (5🍌)
 - Social Butterfly - Share 3 times (10🍌)
 
 **Community Quests:**

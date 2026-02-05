@@ -25,6 +25,7 @@ interface SoundCloudWidget {
   setVolume(volumePercent: number): void;
   getCurrentSound(callback: (sound: SoundCloudTrack | null) => void): void;
   getSounds(callback: (sounds: SoundCloudTrack[]) => void): void;
+  getCurrentSoundIndex(callback: (index: number) => void): void;
   load(url: string, options?: SoundCloudWidgetOptions): void;
 }
 
@@ -46,7 +47,7 @@ declare global {
   }
 }
 
-const PLAYLIST_URL = 'https://soundcloud.com/apesonape/sets/saint-dank-by-smokethatdank';
+const PLAYLIST_URL = 'https://soundcloud.com/apesonape/sets/fubar-by-smokethatdank';
 
 export default function SoundCloudPlayer() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);

@@ -62,8 +62,6 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Error fetching SoundCloud tracks:', error);
-    
     // Return mock data as fallback
     return NextResponse.json({
       tracks: getMockTracks(),

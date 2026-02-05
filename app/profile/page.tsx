@@ -57,7 +57,7 @@ export default function ProfilePage() {
 			try {
 				setLoadingCreations(true);
 				setCreationsError(null);
-				const res = await fetch(`/api/studio/creations?creator=${encodeURIComponent(walletAddress)}&limit=50`, {
+			const res = await fetch(`/api/studio/creations?creator=${encodeURIComponent(walletAddress)}&limit=50&type=visual`, {
 					cache: 'no-store',
 				});
 				const json = await res.json();
@@ -237,7 +237,7 @@ export default function ProfilePage() {
 			ctx.fillText('Skill Levels', 70, 210);
 
 			ctx.font = '18px Raleway, sans-serif';
-			const skillsText = `Visual: L${skills.visual.level}   •   Sound: L${skills.sound.level}   •   Interactive: L${skills.interactive.level}   •   Code: L${skills.code.level}`;
+			const skillsText = `AI Image: L${skills.visual.level}`;
 			ctx.fillText(skillsText, 70, 250);
 
 			// Recent creation section (bottom)
@@ -246,9 +246,9 @@ export default function ProfilePage() {
 				ctx.font = 'bold 22px Raleway, sans-serif';
 				ctx.fillText('Latest Creation', 60, 320);
 
-				ctx.fillStyle = '#ffffff';
-				ctx.font = 'bold 24px Raleway, sans-serif';
-				ctx.fillText(`${top.type.charAt(0).toUpperCase() + top.type.slice(1)}`, 60, 350);
+			ctx.fillStyle = '#ffffff';
+			ctx.font = 'bold 24px Raleway, sans-serif';
+			ctx.fillText('AI Image', 60, 350);
 
 				// Creation preview box
 				const boxX = 60;
@@ -281,49 +281,7 @@ export default function ProfilePage() {
 				} else {
 					ctx.fillStyle = '#7bb0ff';
 					ctx.font = '18px Raleway, sans-serif';
-					if (top.type === 'sound') {
-						const url = top.artifact?.externalUrl || top.artifactUrl || '';
-						const isAlbum = url.includes('/set') || url.includes('playlist') || url.includes('/album') || url.includes('/sets/');
-						const label = isAlbum ? 'Album' : 'Track';
-
-						ctx.fillText(`${label}: ${top.title || 'Unknown'}`, boxX + 12, boxY + 35);
-
-						// Try to extract name from URL if no title
-						let displayName = top.title;
-						if (!displayName) {
-							try {
-								const urlObj = new URL(url);
-								const pathParts = urlObj.pathname.split('/').filter(Boolean);
-								displayName = decodeURIComponent(pathParts[pathParts.length - 1] || 'Unknown');
-							} catch {
-								displayName = 'Unknown';
-							}
-						}
-
-						ctx.fillStyle = '#9ad5ff';
-						ctx.font = '14px Raleway, sans-serif';
-						ctx.fillText(displayName.slice(0, 50) + (displayName.length > 50 ? '…' : ''), boxX + 12, boxY + 65);
-
-						// Add platform indicator
-						const isSoundCloud = url.includes('soundcloud.com');
-						const isSpotify = url.includes('spotify.com');
-						if (isSoundCloud) {
-							ctx.fillText('via SoundCloud', boxX + 12, boxY + 95);
-						} else if (isSpotify) {
-							ctx.fillText('via Spotify', boxX + 12, boxY + 95);
-						}
-					} else if (top.type === 'interactive') {
-						ctx.fillText('Interactive Experience', boxX + 12, boxY + 35);
-						ctx.fillStyle = '#9ad5ff';
-						ctx.font = '14px Raleway, sans-serif';
-						ctx.fillText('Click to open sandbox', boxX + 12, boxY + 65);
-					} else if (top.type === 'code') {
-						ctx.fillText('Code Snippet', boxX + 12, boxY + 35);
-						ctx.fillStyle = '#9ad5ff';
-						ctx.font = '14px Raleway, sans-serif';
-						const snippet = top.codePreview || top.description || '// code';
-						ctx.fillText(snippet.slice(0, 60) + (snippet.length > 60 ? '…' : ''), boxX + 12, boxY + 65);
-					}
+					ctx.fillText('Preview unavailable', boxX + 12, boxY + 35);
 				}
 			}
 
@@ -489,13 +447,13 @@ export default function ProfilePage() {
 					{!walletAddress && <p className="text-off-white/70 text-sm">Connect your wallet to track experience.</p>}
 					{walletAddress && skills && (
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-							{(['visual', 'sound', 'interactive', 'code'] as Array<keyof CreatorSkills>).map((skill) => {
+							{(['visual'] as Array<keyof CreatorSkills>).map((skill) => {
 								const data = skills[skill];
 								const badges = getSkillBadges(skill, data.level);
 								return (
 									<div key={skill} className="border border-white/10 rounded-xl p-4 bg-gradient-to-br from-white/5 via-black/20 to-black/40 shadow-md shadow-black/30">
 										<div className="flex items-center justify-between text-sm mb-2">
-											<span className="font-semibold capitalize">{skill}</span>
+											<span className="font-semibold">AI Image</span>
 											<span className="text-off-white/60">Level {data.level}</span>
 										</div>
 										<div className="w-full h-3 rounded-full bg-white/10 overflow-hidden border border-white/10">
@@ -565,26 +523,12 @@ export default function ProfilePage() {
 									className="group rounded-xl border border-white/10 bg-gradient-to-br from-white/5 via-black/30 to-black/50 hover:border-hero-blue/40 transition-colors overflow-hidden flex flex-col shadow-md shadow-black/30"
 								>
 									<div className="relative aspect-[4/3] w-full overflow-hidden bg-black/30">
-										{c.type === 'visual' && (
+										{c.type === 'visual' ? (
 											<SafeImage src={toGatewayUri(c.artifactUrl)} alt={c.title} className="w-full h-full object-cover" fill />
-										)}
-										{c.type === 'sound' && (
-											<div className="flex flex-col items-center justify-center h-full w-full gap-2 text-off-white/80 p-3">
-												<div className="text-sm">Sound</div>
-												<audio controls className="w-full">
-													<source src={toGatewayUri(c.artifactUrl)} />
-												</audio>
+										) : (
+											<div className="flex items-center justify-center h-full w-full text-off-white/70 text-sm">
+												Preview unavailable
 											</div>
-										)}
-										{c.type === 'interactive' && (
-											<div className="flex flex-col items-center justify-center h-full w-full gap-2 text-off-white/80 p-3">
-												<div className="text-sm">Interactive</div>
-											</div>
-										)}
-										{c.type === 'code' && (
-											<pre className="text-xs font-mono p-3 text-left whitespace-pre-wrap text-off-white/80">
-												{c.codePreview || c.description || '// Code snippet'}
-											</pre>
 										)}
 									</div>
 									<div className="p-3 space-y-1">
