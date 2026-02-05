@@ -63,6 +63,10 @@ export default function ApeUnlocksSection() {
       description: 'with opportunities to be featured and showcased'
     },
     {
+      title: 'Access to AI Creator Studio',
+      description: ''
+    },
+    {
       title: 'Exclusive AOA 3D Avatar',
       description: 'compatible with Otherside'
     },

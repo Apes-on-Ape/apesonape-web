@@ -29,10 +29,12 @@ export default function SafeImage({
 }: Props) {
 	const safeSrc = (() => {
 		if (!src) return '/placeholder.png';
-		if (src.includes('/ipfs/')) {
+		// Use full gateway URLs as-is so production can load directly (avoids proxy timeouts / same-image issues)
+		if (src.startsWith('http://') || src.startsWith('https://')) return src;
+		if (src.startsWith('ipfs://')) {
 			return `/api/studio/ipfs?url=${encodeURIComponent(src)}`;
 		}
-		if (src.startsWith('ipfs://')) {
+		if (src.includes('/ipfs/')) {
 			return `/api/studio/ipfs?url=${encodeURIComponent(src)}`;
 		}
 		return src;

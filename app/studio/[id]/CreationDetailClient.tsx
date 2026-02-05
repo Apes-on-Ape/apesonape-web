@@ -97,7 +97,7 @@ export default function CreationDetailClient({ creation }: Props) {
 	);
 	const artifactUri = artifactGateways[0];
 	const metaArtifact = (metadata?.artifact as Record<string, unknown>) || {};
-	const prompt = (metaArtifact?.prompt as string | undefined) || creation.artifact.prompt;
+	const prompt = creation.artifact?.prompt ?? (metaArtifact?.prompt as string | undefined);
 	const parentId = (metaArtifact?.generator as { sourceCreationId?: string } | undefined)?.sourceCreationId
 		|| (creation.artifact?.generator as { sourceCreationId?: string } | undefined)?.sourceCreationId
 		|| '';
@@ -396,7 +396,7 @@ export default function CreationDetailClient({ creation }: Props) {
 										value={characterDescription}
 										onChange={(e) => setCharacterDescription(e.target.value.slice(0, 280))}
 										className="w-full rounded-md bg-black/40 border border-white/10 p-2 text-sm"
-										placeholder="e.g. a golden retriever, a robot, my BAYC #123"
+										placeholder="e.g. a golden retriever, a robot, AOA #123"
 										disabled={!canGenerate || remixBusy}
 									/>
 								</div>
