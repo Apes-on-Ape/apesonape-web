@@ -25,6 +25,7 @@ interface SoundCloudWidget {
   setVolume(volumePercent: number): void;
   getCurrentSound(callback: (sound: SoundCloudTrack | null) => void): void;
   getSounds(callback: (sounds: SoundCloudTrack[]) => void): void;
+  getCurrentSoundIndex(callback: (index: number) => void): void;
   load(url: string, options?: SoundCloudWidgetOptions): void;
 }
 

@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
 				mime: artifactResult.mime,
 				size: artifactResult.size,
 				externalUrl: artifactResult.externalUrl,
-				provider: 'upload',
+				provider: 'upload' as const,
 				prompt,
 			},
 			createdAt,

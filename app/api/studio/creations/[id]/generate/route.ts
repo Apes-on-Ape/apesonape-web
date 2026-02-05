@@ -77,6 +77,7 @@ async function generateImageFromPrompt(
 	sourceImage: Blob,
 	filename: string,
 	styleHint?: string,
+	options?: { useTransparentMask?: boolean },
 ) {
 	const apiKey = process.env.OPENAI_API_KEY;
 	if (!apiKey) {
@@ -95,26 +96,35 @@ async function generateImageFromPrompt(
 	if (normalized.byteLength > DALL_E_MAX_BYTES) {
 		throw new Error('Converted image exceeds 4MB limit for DALL·E');
 	}
-	const maskSize = 880;
-	const maskOffset = Math.floor((1024 - maskSize) / 2);
-	const centerMask = await sharp({
-		create: { width: maskSize, height: maskSize, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 255 } },
-	})
-		.png()
-		.toBuffer();
-	const mask = await sharp({
-		create: { width: 1024, height: 1024, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
-	})
-		.composite([{ input: centerMask, left: maskOffset, top: maskOffset }])
-		.png()
-		.toBuffer();
+	let mask: Buffer;
+	if (options?.useTransparentMask) {
+		mask = await sharp({
+			create: { width: 1024, height: 1024, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+		})
+			.png()
+			.toBuffer();
+	} else {
+		const maskSize = 880;
+		const maskOffset = Math.floor((1024 - maskSize) / 2);
+		const centerMask = await sharp({
+			create: { width: maskSize, height: maskSize, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 255 } },
+		})
+			.png()
+			.toBuffer();
+		mask = await sharp({
+			create: { width: 1024, height: 1024, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+		})
+			.composite([{ input: centerMask, left: maskOffset, top: maskOffset }])
+			.png()
+			.toBuffer();
+	}
 
 	const form = new FormData();
 	form.append('model', 'gpt-image-1');
 	form.append('prompt', effectivePrompt);
 	form.append('size', '1024x1024');
-	form.append('image', new Blob([normalized], { type: 'image/png' }), filename || 'source.png');
-	form.append('mask', new Blob([mask], { type: 'image/png' }), 'mask.png');
+	form.append('image', new Blob([new Uint8Array(normalized)], { type: 'image/png' }), filename || 'source.png');
+	form.append('mask', new Blob([new Uint8Array(mask)], { type: 'image/png' }), 'mask.png');
 
 	const res = await fetch('https://api.openai.com/v1/images/edits', {
 		method: 'POST',
@@ -143,7 +153,7 @@ async function generateImageFromPrompt(
 	if (!buffer) {
 		throw new Error('Image generation failed');
 	}
-	const blob = new Blob([buffer], { type: 'image/png' });
+	const blob = new Blob([new Uint8Array(buffer)], { type: 'image/png' });
 	return {
 		blob,
 		filename: `aoa-studio-remix-${Date.now()}.png`,
@@ -173,21 +183,26 @@ async function generateImageFromPrompt(
 		const apeIdRaw = cleanText(String(form.get('apeId') || ''), 20);
 		const titleOverride = cleanText(String(form.get('title') || ''), TITLE_LIMIT);
 		const linkedWallets = parseLinkedWallets(form.get('linkedWallets'));
- 		const artifact = form.get('artifact') as File | null;
- 
- 		if (!creatorAddress) return validationError('Creator address is required');
+		const artifact = form.get('artifact') as File | null;
+		const matchOriginalRaw = form.get('matchOriginal');
+		const matchOriginal = matchOriginalRaw === 'true' || matchOriginalRaw === '1';
+		const characterDescription = cleanText(String(form.get('characterDescription') || ''), 280);
+
+		if (!creatorAddress) return validationError('Creator address is required');
 		const apeId = Number.parseInt(apeIdRaw, 10);
 		if (!Number.isFinite(apeId) || apeId < 1) return validationError('Ape ID is required');
 		const apeTokenId = apeId - 1;
- 		if (!artifact) return validationError('Artifact file is required');
- 		if (artifact.size > MAX_FILE_BYTES) {
- 			return validationError(`File too large. Max ${MAX_FILE_MB}MB`);
- 		}
-		if (artifact.size > DALL_E_MAX_BYTES) {
-			return validationError('Source image must be <= 4MB for DALL·E');
-		}
-		if (!artifact.type.startsWith('image/')) {
-			return validationError('Only image uploads are supported');
+		if (!matchOriginal && !artifact) return validationError('Artifact file is required when not matching original');
+		if (artifact) {
+			if (artifact.size > MAX_FILE_BYTES) {
+				return validationError(`File too large. Max ${MAX_FILE_MB}MB`);
+			}
+			if (artifact.size > DALL_E_MAX_BYTES) {
+				return validationError('Source image must be <= 4MB for DALL·E');
+			}
+			if (!artifact.type.startsWith('image/')) {
+				return validationError('Only image uploads are supported');
+			}
 		}
  
 		const addresses = Array.from(new Set([creatorAddress, ...linkedWallets].map((a) => a.toLowerCase()).filter(Boolean)));
@@ -209,42 +224,72 @@ async function generateImageFromPrompt(
 		}
 
 		try {
-			const sourceUpload = await uploadArtifact({
-				file: artifact,
-				filename: (artifact as File | null)?.name,
-				mime: (artifact as File | null)?.type,
-			});
-			const sourceImageUrl = toGatewayUri(sourceUpload.uri);
 			const originalUrl = original.artifactUrl ? toGatewayUri(original.artifactUrl) : '';
+			let sourceImageUrl: string;
+			let editedPrompt: string;
+			let inputForModel: Blob;
+			let inputFilename: string;
+			let useTransparentMask = false;
+
 			const styleHint = originalUrl ? await buildStyleHint(originalUrl) : null;
-			const originalMean = originalUrl ? await getMeanColor(originalUrl) : null;
-			let inputForModel: Blob = artifact;
-			let inputFilename = artifact.name || 'reference.png';
-			if (originalMean) {
-				const inputBuffer = Buffer.from(await artifact.arrayBuffer());
-				const stats = await sharp(inputBuffer).stats();
-				const src = {
-					r: stats.channels[0]?.mean || 1,
-					g: stats.channels[1]?.mean || 1,
-					b: stats.channels[2]?.mean || 1,
-				};
-				const clamp = (v: number) => Math.min(1.5, Math.max(0.6, v));
-				const rMul = clamp(originalMean.r / src.r);
-				const gMul = clamp(originalMean.g / src.g);
-				const bMul = clamp(originalMean.b / src.b);
-				const adjusted = await sharp(inputBuffer)
-					.linear([rMul, gMul, bMul], [0, 0, 0])
+
+			if (matchOriginal) {
+				if (!originalUrl) return validationError('Original creation has no artifact to match');
+				const res = await fetch(originalUrl);
+				if (!res.ok) return validationError('Could not fetch original image');
+				const origBuffer = Buffer.from(await res.arrayBuffer());
+				const normalized = await sharp(origBuffer)
+					.resize(1024, 1024, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
 					.png()
 					.toBuffer();
-				inputForModel = new Blob([adjusted], { type: 'image/png' });
-				inputFilename = artifact.name || 'reference.png';
+				if (normalized.byteLength > DALL_E_MAX_BYTES) {
+					return validationError('Original image too large for DALL·E after resize');
+				}
+				sourceImageUrl = originalUrl;
+				editedPrompt = characterDescription
+					? `Keep the exact same pose, composition, lighting, and color palette. Only replace the character with: ${characterDescription}. ${prompt}`
+					: `Keep the exact same pose, composition, lighting, and color palette. ${prompt}`;
+				inputForModel = new Blob([new Uint8Array(normalized)], { type: 'image/png' });
+				inputFilename = 'original.png';
+				useTransparentMask = true;
+			} else {
+				const sourceUpload = await uploadArtifact({
+					file: artifact!,
+					filename: (artifact as File)?.name,
+					mime: (artifact as File)?.type,
+				});
+				sourceImageUrl = toGatewayUri(sourceUpload.uri);
+				const originalMean = originalUrl ? await getMeanColor(originalUrl) : null;
+				inputForModel = artifact!;
+				inputFilename = artifact!.name || 'reference.png';
+				editedPrompt = prompt;
+				if (originalMean) {
+					const inputBuffer = Buffer.from(await artifact!.arrayBuffer());
+					const stats = await sharp(inputBuffer).stats();
+					const src = {
+						r: stats.channels[0]?.mean || 1,
+						g: stats.channels[1]?.mean || 1,
+						b: stats.channels[2]?.mean || 1,
+					};
+					const clamp = (v: number) => Math.min(1.5, Math.max(0.6, v));
+					const rMul = clamp(originalMean.r / src.r);
+					const gMul = clamp(originalMean.g / src.g);
+					const bMul = clamp(originalMean.b / src.b);
+					const adjusted = await sharp(inputBuffer)
+						.linear([rMul, gMul, bMul], [0, 0, 0])
+						.png()
+						.toBuffer();
+					inputForModel = new Blob([new Uint8Array(adjusted)], { type: 'image/png' });
+					inputFilename = artifact!.name || 'reference.png';
+				}
 			}
 
 			const generated = await generateImageFromPrompt(
-				prompt,
+				editedPrompt,
 				inputForModel,
 				inputFilename,
-				styleHint || undefined,
+				matchOriginal ? undefined : styleHint || undefined,
+				{ useTransparentMask },
 			);
 			if (generated.size > MAX_FILE_BYTES) {
 				return validationError(`Generated file too large. Max ${MAX_FILE_MB}MB`);

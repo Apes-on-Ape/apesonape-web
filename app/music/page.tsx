@@ -87,12 +87,6 @@ interface SoundCloud {
   };
 }
 
-declare global {
-  interface Window {
-    SC?: SoundCloud;
-  }
-}
-
 // Featured albums from apesonape SoundCloud
 const AVAILABLE_PLAYLISTS: Playlist[] = [
   {
@@ -315,7 +309,7 @@ export default function RadioPage() {
 
     function initWidget() {
       if (!iframeRef.current || !window.SC || !window.SC.Widget) return;
-      const widget = window.SC.Widget(iframeRef.current);
+      const widget = window.SC.Widget(iframeRef.current) as SoundCloudWidget;
       widgetRef.current = widget;
 
       widget.bind(window.SC.Widget.Events.READY, () => {

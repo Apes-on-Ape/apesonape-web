@@ -27,6 +27,8 @@ export default function CreationDetailClient({ creation }: Props) {
 	const [remixPreview, setRemixPreview] = useState<string | null>(null);
 	const [remixApeId, setRemixApeId] = useState('');
 	const [remixTitle, setRemixTitle] = useState('');
+	const [matchOriginal, setMatchOriginal] = useState(true);
+	const [characterDescription, setCharacterDescription] = useState('');
 	const [remixBusy, setRemixBusy] = useState(false);
 	const [remixError, setRemixError] = useState<string | null>(null);
 	const [remixStatus, setRemixStatus] = useState<string | null>(null);
@@ -183,15 +185,15 @@ export default function CreationDetailClient({ creation }: Props) {
 			setRemixError('Connect your wallet with Glyph to generate.');
 			return;
 		}
-		if (!remixImage) {
-			setRemixError('Upload an image to remix with this prompt.');
+		if (!matchOriginal && !remixImage) {
+			setRemixError('Upload an image to remix, or check "Match original pose & colors" to use the original image.');
 			return;
 		}
 		if (!remixApeId.trim()) {
 			setRemixError('Ape ID is required.');
 			return;
 		}
-		if (!remixImage.type.startsWith('image/')) {
+		if (remixImage && !remixImage.type.startsWith('image/')) {
 			setRemixError('Only image uploads are supported.');
 			return;
 		}
@@ -202,13 +204,19 @@ export default function CreationDetailClient({ creation }: Props) {
 			form.append('linkedWallets', JSON.stringify(linkedWallets));
 		}
 		form.append('apeId', remixApeId.trim());
+		form.append('matchOriginal', matchOriginal ? 'true' : 'false');
+		if (characterDescription.trim()) {
+			form.append('characterDescription', characterDescription.trim());
+		}
 		if (remixTitle.trim()) {
 			form.append('title', remixTitle.trim());
 		}
 		if (glyphId) form.append('glyphId', glyphId);
 		if (xHandle) form.append('xHandle', xHandle);
 		form.append('glyphVerified', glyphVerified ? 'true' : 'false');
-		form.append('artifact', remixImage);
+		if (remixImage) {
+			form.append('artifact', remixImage);
+		}
 
 		try {
 			setRemixBusy(true);
@@ -345,6 +353,21 @@ export default function CreationDetailClient({ creation }: Props) {
 					{!parentId && (
 						<div className="rounded-lg border border-white/10 bg-black/30 p-3 space-y-3">
 							<div className="text-sm font-semibold text-off-white/90">Generate a new image from this prompt</div>
+							<label className="flex items-center gap-2 cursor-pointer">
+								<input
+									type="checkbox"
+									checked={matchOriginal}
+									onChange={(e) => setMatchOriginal(e.target.checked)}
+									disabled={!canGenerate || remixBusy}
+									className="rounded border-white/20 bg-black/40"
+								/>
+								<span className="text-xs text-off-white/80">Match original pose & colors</span>
+							</label>
+							<p className="text-xs text-off-white/50">
+								{matchOriginal
+									? 'Uses the original image as base; only the character will change per your description.'
+									: 'Uses your uploaded image as base for the remix.'}
+							</p>
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 								<label className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-black/40 hover:bg-black/30 transition-colors p-4 cursor-pointer">
 									<input
@@ -354,7 +377,9 @@ export default function CreationDetailClient({ creation }: Props) {
 										onChange={(e) => onRemixFileChange(e.target.files?.[0] || null)}
 										disabled={!canGenerate || remixBusy}
 									/>
-									<div className="text-xs text-off-white/70">Upload an image (max 20MB)</div>
+									<div className="text-xs text-off-white/70">
+										{matchOriginal ? 'Upload optional reference (ignored when matching original)' : 'Upload an image (max 20MB)'}
+									</div>
 								</label>
 								<div className="rounded-lg border border-white/15 bg-black/40 h-32 flex items-center justify-center overflow-hidden">
 									{remixPreview ? (
@@ -364,6 +389,18 @@ export default function CreationDetailClient({ creation }: Props) {
 									)}
 								</div>
 							</div>
+							{matchOriginal && (
+								<div>
+									<label className="block text-xs mb-1 text-off-white/70">Character description (who to put in the same pose)</label>
+									<input
+										value={characterDescription}
+										onChange={(e) => setCharacterDescription(e.target.value.slice(0, 280))}
+										className="w-full rounded-md bg-black/40 border border-white/10 p-2 text-sm"
+										placeholder="e.g. a golden retriever, a robot, my BAYC #123"
+										disabled={!canGenerate || remixBusy}
+									/>
+								</div>
+							)}
 							<div>
 								<label className="block text-xs mb-1 text-off-white/70">Ape ID</label>
 								<input

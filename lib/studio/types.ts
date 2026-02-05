@@ -15,7 +15,7 @@ export type ArtifactInfo = {
 	prompt?: string;
 	apeId?: number;
 	generator?: {
-		provider?: 'pollinations';
+		provider?: 'pollinations' | 'openai';
 		seed?: number;
 		sourceUrl?: string;
 		sourceImageUrl?: string;
