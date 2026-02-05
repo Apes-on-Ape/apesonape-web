@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Nav from '@/app/components/Nav';
 import Footer from '@/app/components/Footer';
 import SafeImage from '@/app/components/SafeImage';
+import { ProfileBadges } from '@/app/components/ProfileBadges';
 import { usePrivy } from '@privy-io/react-auth';
 import { useGlyph } from '@use-glyph/sdk-react';
 import { CreationRecord } from '@/lib/studio/types';
@@ -330,6 +331,11 @@ export default function ProfileByUsernamePage({ params }: { params: Promise<{ us
 							)}
 						</div>
 					</div>
+					{creatorAddress && (
+						<div className="mt-4">
+							<ProfileBadges address={creatorAddress} showRefresh={walletAddress === creatorAddress?.toLowerCase()} />
+						</div>
+					)}
 					{skills && (
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
 						{(['visual'] as Array<keyof CreatorSkills>).map((skill) => {

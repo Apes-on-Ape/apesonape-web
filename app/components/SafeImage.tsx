@@ -30,7 +30,10 @@ export default function SafeImage({
 	const safeSrc = (() => {
 		if (!src) return '/placeholder.png';
 		// Use full gateway URLs as-is so production can load directly (avoids proxy timeouts / same-image issues)
-		if (src.startsWith('http://') || src.startsWith('https://')) return src;
+		if (src.startsWith('http://') || src.startsWith('https://')) {
+			// Ensure Supabase URLs work correctly
+			return src;
+		}
 		if (src.startsWith('ipfs://')) {
 			return `/api/studio/ipfs?url=${encodeURIComponent(src)}`;
 		}
@@ -50,6 +53,13 @@ export default function SafeImage({
 				unoptimized={unoptimized}
 				className={className}
 				priority={priority}
+				onError={(e) => {
+					// Fallback to placeholder on error
+					const target = e.target as HTMLImageElement;
+					if (target.src !== '/placeholder.png') {
+						target.src = '/placeholder.png';
+					}
+				}}
 			/>
 		);
 	}
@@ -64,6 +74,13 @@ export default function SafeImage({
 			unoptimized={unoptimized}
 			className={className}
 			priority={priority}
+			onError={(e) => {
+				// Fallback to placeholder on error
+				const target = e.target as HTMLImageElement;
+				if (target.src !== '/placeholder.png') {
+					target.src = '/placeholder.png';
+				}
+			}}
 		/>
 	);
 }
