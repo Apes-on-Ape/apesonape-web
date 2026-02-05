@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 const typeLabels: Record<CreationType, string> = {
 	sound: 'Sound',
-	visual: 'Visual',
+	visual: 'AI Image',
 	interactive: 'Interactive',
 	code: 'Code',
 };
@@ -21,7 +21,7 @@ function shortAddress(addr: string) {
 }
 
 async function fetchCreations(slug: string): Promise<CreationRecord[]> {
-	const qs = new URLSearchParams({ creator: slug, limit: '100' });
+	const qs = new URLSearchParams({ creator: slug, limit: '100', type: 'visual' });
 	const res = await fetch(`/api/studio/creations?${qs.toString()}`, {
 		cache: 'no-store',
 	});
@@ -75,23 +75,10 @@ export default async function CreatorPage({ params }: { params: Promise<{ slug: 
 									{creation.type === 'visual' && (
 										<SafeImage src={artifact} alt={creation.title} className="w-full h-full object-cover" fill />
 									)}
-									{creation.type === 'sound' && (
-										<div className="flex flex-col items-center justify-center h-full w-full gap-2 text-off-white/80 p-4">
-											<div className="text-sm">Sound</div>
-											<audio controls className="w-full">
-												<source src={artifact} />
-											</audio>
+									{creation.type !== 'visual' && (
+										<div className="flex items-center justify-center h-full w-full text-off-white/70 text-sm">
+											Preview unavailable
 										</div>
-									)}
-									{creation.type === 'interactive' && (
-										<div className="flex flex-col items-center justify-center h-full w-full gap-2 text-off-white/80">
-											<div className="text-sm">Interactive</div>
-										</div>
-									)}
-									{creation.type === 'code' && (
-										<pre className="text-xs font-mono p-3 text-left whitespace-pre-wrap text-off-white/80">
-											{creation.codePreview || creation.description || '// Code snippet'}
-										</pre>
 									)}
 									<div className="absolute top-3 left-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs bg-black/60 border border-white/10">
 										<span>{typeLabels[creation.type]}</span>

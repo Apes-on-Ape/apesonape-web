@@ -27,7 +27,16 @@ export default function SafeImage({
 	unoptimized = true,
 	priority = false,
 }: Props) {
-	const safeSrc = src || '/placeholder.png';
+	const safeSrc = (() => {
+		if (!src) return '/placeholder.png';
+		if (src.includes('/ipfs/')) {
+			return `/api/studio/ipfs?url=${encodeURIComponent(src)}`;
+		}
+		if (src.startsWith('ipfs://')) {
+			return `/api/studio/ipfs?url=${encodeURIComponent(src)}`;
+		}
+		return src;
+	})();
 
 	if (fill) {
 		return (

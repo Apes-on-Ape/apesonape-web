@@ -3,12 +3,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { keccak256, stringToBytes } from 'viem';
-import { BadgeCheck, Copy, ExternalLink, ShieldAlert, AlertTriangle, Trash2 } from 'lucide-react';
+import { BadgeCheck, ExternalLink, ShieldAlert, Trash2 } from 'lucide-react';
 import SafeImage from '@/app/components/SafeImage';
 import { CreationRecord } from '@/lib/studio/types';
-import { toGatewayUri, gatewayCandidates } from '@/lib/studio/urls';
+import { gatewayCandidates } from '@/lib/studio/urls';
 import { useGlyph } from '@use-glyph/sdk-react';
+import { usePrivy } from '@privy-io/react-auth';
 
 function shortAddress(addr: string) {
 	if (!addr) return '';
@@ -20,18 +20,36 @@ type Props = {
 };
 
 export default function CreationDetailClient({ creation }: Props) {
-	const [metadataJson, setMetadataJson] = useState<string | null>(null);
 	const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
-	const [integrityOk, setIntegrityOk] = useState<boolean | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [copied, setCopied] = useState(false);
 	const [deleting, setDeleting] = useState(false);
+	const [remixImage, setRemixImage] = useState<File | null>(null);
+	const [remixPreview, setRemixPreview] = useState<string | null>(null);
+	const [remixApeId, setRemixApeId] = useState('');
+	const [remixTitle, setRemixTitle] = useState('');
+	const [remixBusy, setRemixBusy] = useState(false);
+	const [remixError, setRemixError] = useState<string | null>(null);
+	const [remixStatus, setRemixStatus] = useState<string | null>(null);
+	const [remixes, setRemixes] = useState<CreationRecord[]>([]);
 	const glyph = (useGlyph() as unknown) as {
-		user?: { id?: string; evmWallet?: string; smartWallet?: string };
+		user?: {
+			id?: string;
+			evmWallet?: string;
+			smartWallet?: string;
+			hasTwitter?: boolean;
+			hasProfile?: boolean;
+			linkedWallets?: Array<{ address?: string; walletClientType?: string }>;
+		};
+		authenticated?: boolean;
+		login?: () => Promise<void>;
 	};
+	const privy = (usePrivy() as unknown) as { user?: { twitter?: { username?: string } } | null };
 	const router = useRouter();
 
-	const metadataGateways = gatewayCandidates(creation.metadataUrl);
+	const metadataGateways = useMemo(
+		() => gatewayCandidates(creation.metadataUrl),
+		[creation.metadataUrl],
+	);
 	const metadataUri = metadataGateways[0];
 	const walletAddr = useMemo(
 		() => (glyph?.user?.evmWallet || glyph?.user?.smartWallet || '').toLowerCase(),
@@ -44,12 +62,11 @@ export default function CreationDetailClient({ creation }: Props) {
 		let cancelled = false;
 		(async () => {
 			try {
-				setError(null);
-				setIntegrityOk(null);
 				let text: string | null = null;
 				for (const url of metadataGateways) {
 					try {
-						const res = await fetch(url, { cache: 'no-store' });
+						const proxyUrl = `/api/studio/ipfs?url=${encodeURIComponent(url)}`;
+						const res = await fetch(proxyUrl, { cache: 'no-store' });
 						if (!res.ok) continue;
 						text = await res.text();
 						break;
@@ -57,44 +74,60 @@ export default function CreationDetailClient({ creation }: Props) {
 						continue;
 					}
 				}
-				if (!text) throw new Error('Failed to fetch metadata from IPFS gateways');
-				if (cancelled) return;
-				setMetadataJson(text);
+				if (!text || cancelled) return;
 				try {
 					setMetadata(JSON.parse(text));
 				} catch {
 					setMetadata(null);
 				}
-				const hash = keccak256(stringToBytes(text));
-				setIntegrityOk(hash === creation.contentHash);
-			} catch (err: unknown) {
-				if (!cancelled) {
-					setError(err instanceof Error ? err.message : 'Failed to load metadata');
-					setIntegrityOk(false);
-				}
+			} catch {
+				// Ignore metadata fetch failures; core view works without it.
 			}
 		})();
 		return () => {
 			cancelled = true;
 		};
-	}, [creation.contentHash, metadataGateways]);
+	}, [metadataGateways]);
 
-	const artifactGateways = gatewayCandidates(creation.artifactUrl);
+	const artifactGateways = useMemo(
+		() => gatewayCandidates(creation.artifactUrl),
+		[creation.artifactUrl],
+	);
 	const artifactUri = artifactGateways[0];
 	const metaArtifact = (metadata?.artifact as Record<string, unknown>) || {};
-	const codeText = (metaArtifact?.text as string | undefined) || creation.codePreview || '';
-	const externalUrl = metaArtifact?.externalUrl as string | undefined;
-	const soundUrl = externalUrl || creation.artifact.externalUrl || artifactUri;
+	const prompt = (metaArtifact?.prompt as string | undefined) || creation.artifact.prompt;
+	const parentId = (metaArtifact?.generator as { sourceCreationId?: string } | undefined)?.sourceCreationId
+		|| (creation.artifact?.generator as { sourceCreationId?: string } | undefined)?.sourceCreationId
+		|| '';
+	const address = glyph?.user?.evmWallet || glyph?.user?.smartWallet || '';
+	const xHandle = privy?.user?.twitter?.username || '';
+	const glyphVerified = !!glyph?.user?.hasTwitter || !!glyph?.user?.hasProfile;
+	const glyphId = glyph?.user?.id || '';
+	const canGenerate = !!(glyph?.user || glyph?.authenticated) && !!address;
+	const linkedWallets = glyph?.user?.linkedWallets || [];
 
-	const copyHash = async () => {
-		try {
-			await navigator.clipboard.writeText(creation.contentHash);
-			setCopied(true);
-			setTimeout(() => setCopied(false), 1500);
-		} catch {
-			setCopied(false);
-		}
-	};
+	useEffect(() => {
+		let active = true;
+		(async () => {
+			try {
+				const qs = new URLSearchParams({ type: 'visual', limit: '30' });
+				const res = await fetch(`/api/studio/creations?${qs.toString()}`, { cache: 'no-store' });
+				const json = await res.json().catch(() => ({}));
+				if (!res.ok || !active) return;
+				const items = (json.items || []) as CreationRecord[];
+				const filtered = items.filter((item) => {
+					const sourceId = (item.artifact?.generator as { sourceCreationId?: string } | undefined)?.sourceCreationId;
+					return sourceId === creation.id;
+				});
+				if (active) setRemixes(filtered.slice(0, 12));
+			} catch {
+				if (active) setRemixes([]);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [creation.id]);
 
 	const handleDelete = async () => {
 		if (!isOwner || deleting) return;
@@ -122,13 +155,99 @@ export default function CreationDetailClient({ creation }: Props) {
 		}
 	};
 
+	const onRemixFileChange = (file: File | null) => {
+		setRemixImage(file);
+		setRemixError(null);
+		if (remixPreview) URL.revokeObjectURL(remixPreview);
+		if (file) {
+			setRemixPreview(URL.createObjectURL(file));
+		} else {
+			setRemixPreview(null);
+		}
+	};
+
+	useEffect(() => {
+		return () => {
+			if (remixPreview) URL.revokeObjectURL(remixPreview);
+		};
+	}, [remixPreview]);
+
+	const handleRemix = async () => {
+		setRemixError(null);
+		setRemixStatus(null);
+		if (!prompt) {
+			setRemixError('Prompt missing for this creation.');
+			return;
+		}
+		if (!canGenerate) {
+			setRemixError('Connect your wallet with Glyph to generate.');
+			return;
+		}
+		if (!remixImage) {
+			setRemixError('Upload an image to remix with this prompt.');
+			return;
+		}
+		if (!remixApeId.trim()) {
+			setRemixError('Ape ID is required.');
+			return;
+		}
+		if (!remixImage.type.startsWith('image/')) {
+			setRemixError('Only image uploads are supported.');
+			return;
+		}
+
+		const form = new FormData();
+		form.append('creatorAddress', address);
+		if (linkedWallets.length > 0) {
+			form.append('linkedWallets', JSON.stringify(linkedWallets));
+		}
+		form.append('apeId', remixApeId.trim());
+		if (remixTitle.trim()) {
+			form.append('title', remixTitle.trim());
+		}
+		if (glyphId) form.append('glyphId', glyphId);
+		if (xHandle) form.append('xHandle', xHandle);
+		form.append('glyphVerified', glyphVerified ? 'true' : 'false');
+		form.append('artifact', remixImage);
+
+		try {
+			setRemixBusy(true);
+			setRemixStatus('Generating remix...');
+			const res = await fetch(`/api/studio/creations/${creation.id}/generate`, {
+				method: 'POST',
+				body: form,
+			});
+			const json = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(json?.error || 'Remix failed');
+			const newId = json?.creation?.id as string | undefined;
+			if (newId) {
+				router.push(`/studio/${newId}`);
+			} else {
+				setRemixStatus('Remix saved.');
+			}
+		} catch (err: unknown) {
+			setRemixError(err instanceof Error ? err.message : 'Remix failed');
+		} finally {
+			setRemixBusy(false);
+			setRemixStatus(null);
+		}
+	};
+
 	return (
 		<div className="glass-dark border border-white/10 rounded-2xl p-6 shadow-2xl shadow-black/40">
 			<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
 				<div>
 					<div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-hero-blue/40 text-hero-blue text-sm font-semibold">
-						{creation.type.toUpperCase()} experiment
+						AI IMAGE experiment
 					</div>
+					{parentId && (
+						<div className="mt-2 text-xs text-off-white/70">
+							Remix of{' '}
+							<Link href={`/studio/${parentId}`} className="underline underline-offset-2">
+								original prompt
+							</Link>
+						</div>
+					)}
 					<h1 className="text-3xl font-bold mt-2">{creation.title}</h1>
 					<p className="text-off-white/70 mt-1">{creation.description}</p>
 					<div className="flex items-center gap-3 text-xs text-off-white/60 mt-2 flex-wrap">
@@ -208,80 +327,89 @@ export default function CreationDetailClient({ creation }: Props) {
 
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				<div className="rounded-xl border border-white/10 bg-black/40 overflow-hidden min-h-[320px] relative">
-					{creation.type === 'visual' && (
+					{creation.type === 'visual' ? (
 						<SafeImage src={artifactUri} alt={creation.title} className="w-full h-full object-contain" fill />
-					)}
-					{creation.type === 'sound' && (
-						<div className="p-3 flex flex-col gap-3 h-full">
-							<div className="text-off-white/80 text-sm">Listen</div>
-							{soundUrl.includes('soundcloud.com') ? (
-								<iframe
-									title="SoundCloud player"
-									width="100%"
-									height="320"
-									allow="autoplay"
-									src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(soundUrl)}&auto_play=false&show_comments=true&show_user=true&visual=true`}
-								/>
-							) : soundUrl.includes('spotify.com') ? (
-								<iframe
-									title="Spotify player"
-									width="100%"
-									height="320"
-									allow="encrypted-media"
-									src={soundUrl.replace('open.spotify.com/', 'open.spotify.com/embed/')}
-								/>
-							) : (
-								<audio controls className="w-full">
-									<source src={artifactUri} />
-								</audio>
-							)}
-						</div>
-					)}
-					{creation.type === 'interactive' && (
-						<iframe
-							src={artifactUri}
-							className="w-full h-[420px] border-0"
-							sandbox="allow-scripts allow-forms"
-							title="Interactive experiment"
-						/>
-					)}
-					{creation.type === 'code' && (
-						<div className="p-4">
-							<div className="text-sm text-off-white/70 mb-2">Code</div>
-							<pre className="bg-black/60 border border-white/10 rounded-lg p-3 text-xs font-mono whitespace-pre-wrap max-h-[420px] overflow-auto">
-								{codeText || '// No code snippet found in metadata'}
-							</pre>
+					) : (
+						<div className="flex items-center justify-center h-full w-full text-off-white/70 text-sm">
+							Preview unavailable
 						</div>
 					)}
 				</div>
 				<div className="rounded-xl border border-white/10 bg-black/40 p-4 space-y-4">
-					<div>
-						<div className="flex items-center justify-between text-sm">
-							<div className="font-semibold">Content hash</div>
-							<button
-								type="button"
-								onClick={copyHash}
-								className="inline-flex items-center gap-1 text-hero-blue text-xs"
-							>
-								<Copy className="w-4 h-4" /> {copied ? 'Copied' : 'Copy'}
-							</button>
+					{prompt && (
+						<div className="text-sm text-off-white/80">
+							<div className="font-semibold mb-1">Prompt</div>
+							<p className="text-xs text-off-white/70 whitespace-pre-wrap">{prompt}</p>
 						</div>
-						<p className="text-xs break-all mt-1 text-off-white/80">{creation.contentHash}</p>
-						{integrityOk === true && (
-							<div className="text-green-400 text-xs mt-2 inline-flex items-center gap-1">
-								<BadgeCheck className="w-4 h-4" /> Metadata integrity verified
+					)}
+					{!parentId && (
+						<div className="rounded-lg border border-white/10 bg-black/30 p-3 space-y-3">
+							<div className="text-sm font-semibold text-off-white/90">Generate a new image from this prompt</div>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								<label className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-black/40 hover:bg-black/30 transition-colors p-4 cursor-pointer">
+									<input
+										type="file"
+										accept="image/*"
+										className="hidden"
+										onChange={(e) => onRemixFileChange(e.target.files?.[0] || null)}
+										disabled={!canGenerate || remixBusy}
+									/>
+									<div className="text-xs text-off-white/70">Upload an image (max 20MB)</div>
+								</label>
+								<div className="rounded-lg border border-white/15 bg-black/40 h-32 flex items-center justify-center overflow-hidden">
+									{remixPreview ? (
+										<img src={remixPreview} alt="Remix preview" className="object-contain w-full h-full" />
+									) : (
+										<div className="text-xs text-off-white/50">No image selected</div>
+									)}
+								</div>
 							</div>
-						)}
-						{integrityOk === false && (
-							<div className="text-amber-300 text-xs mt-2 inline-flex items-center gap-1">
-								<AlertTriangle className="w-4 h-4" /> Hash mismatch — metadata may be tampered
+							<div>
+								<label className="block text-xs mb-1 text-off-white/70">Ape ID</label>
+								<input
+									value={remixApeId}
+									onChange={(e) => setRemixApeId(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+									className="w-full rounded-md bg-black/40 border border-white/10 p-2 text-sm"
+									placeholder="Your Ape #"
+									disabled={!canGenerate || remixBusy}
+								/>
+								<div className="text-xs text-off-white/50 mt-1">Use the Ape ID shown in collection. Each Ape can be used once.</div>
 							</div>
-						)}
-						{integrityOk === null && (
-							<div className="text-off-white/60 text-xs mt-2">Checking integrity…</div>
-						)}
-						{error && <div className="text-red-300 text-xs mt-1">{error}</div>}
-					</div>
+							<div>
+								<label className="block text-xs mb-1 text-off-white/70">Remix title (optional)</label>
+								<input
+									value={remixTitle}
+									onChange={(e) => setRemixTitle(e.target.value.slice(0, 80))}
+									className="w-full rounded-md bg-black/40 border border-white/10 p-2 text-sm"
+									placeholder={`${creation.title} Remix`}
+									disabled={!canGenerate || remixBusy}
+								/>
+							</div>
+							<div className="flex items-center gap-2">
+								{!canGenerate ? (
+									<button
+										type="button"
+										onClick={() => { void glyph?.login?.(); }}
+										className="btn-secondary px-3 py-1.5 text-xs"
+									>
+										Connect with Glyph
+									</button>
+								) : (
+									<button
+										type="button"
+										onClick={handleRemix}
+										disabled={remixBusy}
+										className="btn-primary px-3 py-1.5 text-xs"
+									>
+										{remixBusy ? 'Generating…' : 'Generate'}
+									</button>
+								)}
+								{remixStatus && <div className="text-xs text-off-white/60">{remixStatus}</div>}
+							</div>
+							{remixError && <div className="text-xs text-red-300">{remixError}</div>}
+						</div>
+					)}
+					{error && <div className="text-red-300 text-xs mt-1">{error}</div>}
 					<div className="text-sm text-off-white/80">
 						<div className="font-semibold mb-1">Artifact</div>
 						<ul className="space-y-1 text-off-white/70 text-xs">
@@ -298,16 +426,36 @@ export default function CreationDetailClient({ creation }: Props) {
 							})()}
 						</ul>
 					</div>
-					{metadataJson && (
-						<div>
-							<div className="font-semibold text-sm mb-1">Metadata JSON</div>
-							<pre className="bg-black/60 border border-white/10 rounded-lg p-3 text-xs whitespace-pre-wrap max-h-[220px] overflow-auto text-off-white/80">
-								{metadataJson}
-							</pre>
-						</div>
-					)}
 				</div>
 			</div>
+
+			{remixes.length > 0 && (
+				<div className="mt-8">
+					<div className="text-lg font-semibold mb-3">Remixes</div>
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+						{remixes.map((item) => {
+							const preview = gatewayCandidates(item.artifactUrl)[0];
+							return (
+								<Link
+									key={item.id}
+									href={`/studio/${item.id}`}
+									className="group rounded-xl border border-white/10 bg-black/40 hover:border-hero-blue/40 transition-colors overflow-hidden flex flex-col"
+								>
+									<div className="relative aspect-[4/3] w-full overflow-hidden bg-black/30">
+										<SafeImage src={preview} alt={item.title} className="w-full h-full object-cover" fill />
+									</div>
+									<div className="p-3 space-y-1">
+										<div className="text-sm font-semibold line-clamp-1">{item.title}</div>
+										{item.creatorAddress && (
+											<div className="text-xs text-off-white/60">{shortAddress(item.creatorAddress)}</div>
+										)}
+									</div>
+								</Link>
+							);
+						})}
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { Play, Code2, Image as ImageIcon, MousePointerClick, Loader2, BadgeCheck, Search } from 'lucide-react';
+import { Image as ImageIcon, Loader2, BadgeCheck, Search } from 'lucide-react';
 import Nav from '@/app/components/Nav';
 import Footer from '@/app/components/Footer';
 import SafeImage from '@/app/components/SafeImage';
@@ -28,31 +27,23 @@ function formatTimeAgo(dateIso: string) {
 
 const typeLabels: Record<CreationType, string> = {
 	sound: 'Sound',
-	visual: 'Visual',
+	visual: 'AI Image',
 	interactive: 'Interactive',
 	code: 'Code',
 };
 
 export default function StudioExplorePage() {
-	const searchParams = useSearchParams();
-	const defaultType = (searchParams.get('type') as CreationType | 'all') || 'all';
 	const [creations, setCreations] = useState<CreationRecord[]>([]);
-	const [typeFilter, setTypeFilter] = useState<CreationType | 'all'>(defaultType);
 	const [search, setSearch] = useState('');
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-
-	const filteredSubtitle = useMemo(() => {
-		if (typeFilter === 'all') return 'All creations';
-		return `${typeLabels[typeFilter]} creations`;
-	}, [typeFilter]);
 
 	const loadFeed = async () => {
 		try {
 			setLoading(true);
 			setError(null);
 			const qs = new URLSearchParams();
-			if (typeFilter !== 'all') qs.set('type', typeFilter);
+			qs.set('type', 'visual');
 			if (search) qs.set('search', search);
 			qs.set('limit', '50');
 			const res = await fetch(`/api/studio/creations?${qs.toString()}`, { cache: 'no-store' });
@@ -69,7 +60,7 @@ export default function StudioExplorePage() {
 	useEffect(() => {
 		void loadFeed();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [typeFilter]);
+	}, []);
 
 	const onSearch = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -87,53 +78,10 @@ export default function StudioExplorePage() {
 				/>
 			);
 		}
-		if (creation.type === 'sound') {
-			const url = creation.artifact.externalUrl || creation.artifactUrl;
-			if (url.includes('soundcloud.com')) {
-				return (
-					<iframe
-						title="Sound preview"
-						width="100%"
-						height="100%"
-						allow="autoplay"
-						src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&auto_play=false&hide_related=false&show_comments=false&show_user=true&show_reposts=false&visual=true`}
-					/>
-				);
-			}
-			if (url.includes('spotify.com')) {
-				const embed = url.replace('open.spotify.com/', 'open.spotify.com/embed/');
-				return (
-					<iframe
-						title="Spotify preview"
-						width="100%"
-						height="100%"
-						allow="encrypted-media"
-						src={embed}
-					/>
-				);
-			}
-			return (
-				<div className="flex items-center justify-center h-full w-full bg-black/40">
-					<Play className="w-10 h-10 text-off-white/80" />
-					<audio controls className="absolute bottom-2 left-2 right-2">
-						<source src={toGatewayUri(creation.artifactUrl)} />
-					</audio>
-				</div>
-			);
-		}
-		if (creation.type === 'interactive') {
-			return (
-				<div className="flex flex-col items-center justify-center h-full w-full gap-2 text-off-white/80">
-					<MousePointerClick className="w-8 h-8" />
-					<div className="text-sm">Open preview</div>
-				</div>
-			);
-		}
-		// code
 		return (
-			<pre className="text-xs font-mono p-3 text-left whitespace-pre-wrap text-off-white/80">
-				{creation.codePreview || creation.description || '// Code snippet'}
-			</pre>
+			<div className="flex items-center justify-center h-full w-full bg-black/40 text-off-white/70 text-sm">
+				Preview unavailable
+			</div>
 		);
 	};
 
@@ -153,12 +101,12 @@ export default function StudioExplorePage() {
 									AOA Studio
 								</div>
 								<h1 className="section-heading text-4xl md:text-5xl lg:text-6xl">
-									Sound. Art. Code. Vision.
+									AI Image Studio.
 								</h1>
 								<p className="section-description max-w-2xl">
-									Raw creations—published by creators. Every drop is attributed to the wallet that shipped it.
+									Prompted creations—generated from text and attributed to the wallet that shipped them.
 								</p>
-								<div className="text-muted text-sm">{filteredSubtitle}</div>
+								<div className="text-muted text-sm">AI image creations</div>
 							</div>
 							<div className="flex items-center gap-3">
 								<Link href="/studio/new" className="btn-primary btn-lg">
@@ -179,24 +127,7 @@ export default function StudioExplorePage() {
 									placeholder="Search title, creator address, or handle"
 								/>
 							</div>
-							<div className="flex items-center gap-2 lg:justify-end overflow-x-auto scrollbar-hide whitespace-nowrap pr-2">
-								{(['all', 'sound', 'visual', 'interactive', 'code'] as (CreationType | 'all')[]).map((t) => (
-									<button
-										key={t}
-										type="button"
-										onClick={() => setTypeFilter(t)}
-										className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-300 flex-shrink-0 ${
-											typeFilter === t
-												? 'border-hero-blue bg-hero-blue/20 text-hero-blue shadow-md shadow-hero-blue/20'
-												: 'text-muted hover:border-hero-blue/30'
-										}
-										style={typeFilter === t ? undefined : { borderColor: 'rgba(0, 84, 249, 0.3)', color: 'var(--foreground)' }}
-										`}
-									>
-										{t === 'all' ? 'All' : typeLabels[t as CreationType]}
-									</button>
-								))}
-							</div>
+							<div className="hidden lg:block" />
 							<div className="flex items-center lg:justify-end gap-3">
 								<button type="submit" className="btn-secondary">Search</button>
 							</div>
@@ -242,10 +173,7 @@ export default function StudioExplorePage() {
 							<div className="relative aspect-[4/3] w-full overflow-hidden bg-background-surface rounded-xl mb-4">
 								{renderPreview(creation)}
 								<div className="absolute top-3 left-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs glass font-medium" style={{ borderColor: 'rgba(0, 84, 249, 0.3)' }}>
-									{creation.type === 'sound' && <Play className="w-3.5 h-3.5" />}
-									{creation.type === 'visual' && <ImageIcon className="w-3.5 h-3.5" />}
-									{creation.type === 'interactive' && <MousePointerClick className="w-3.5 h-3.5" />}
-									{creation.type === 'code' && <Code2 className="w-3.5 h-3.5" />}
+									<ImageIcon className="w-3.5 h-3.5" />
 									<span>{typeLabels[creation.type]}</span>
 								</div>
 							</div>

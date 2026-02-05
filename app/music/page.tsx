@@ -7,7 +7,6 @@ import { SiSoundcloud } from 'react-icons/si';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import Image from 'next/image';
-import type { SoundCloudTrack, SoundCloudWidget, SoundCloud } from '@/types/soundcloud';
 
 interface Track {
   id: string;
@@ -49,6 +48,49 @@ interface Playlist {
   url: string;
   trackCount: number;
   artwork?: string;
+}
+
+
+type SoundCloudTrack = {
+  id: number;
+  title?: string;
+  user?: { username?: string };
+  artwork_url?: string;
+  duration?: number;
+  permalink_url?: string;
+  description?: string;
+  stream_url?: string;
+};
+
+interface SoundCloudWidget {
+  bind(event: string, listener: () => void): void;
+  play(): void;
+  pause(): void;
+  next(): void;
+  isPaused(callback: (paused: boolean) => void): void;
+  setVolume(volumePercent: number): void;
+  getCurrentSound(callback: (sound: SoundCloudTrack | null) => void): void;
+  getSounds(callback: (sounds: SoundCloudTrack[]) => void): void;
+  getCurrentSoundIndex(callback: (index: number) => void): void;
+  load(url: string, options?: Record<string, unknown>): void;
+}
+
+interface SoundCloud {
+  Widget: {
+    (iframe: HTMLIFrameElement): SoundCloudWidget;
+    Events: {
+      READY: string;
+      PLAY: string;
+      PAUSE: string;
+      FINISH: string;
+    };
+  };
+}
+
+declare global {
+  interface Window {
+    SC?: SoundCloud;
+  }
 }
 
 // Featured albums from apesonape SoundCloud

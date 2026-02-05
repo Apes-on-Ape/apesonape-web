@@ -12,7 +12,16 @@ export type ArtifactInfo = {
 	size?: number;
 	text?: string;
 	externalUrl?: string;
-	provider?: 'upload' | 'soundcloud' | 'spotify';
+	prompt?: string;
+	apeId?: number;
+	generator?: {
+		provider?: 'pollinations';
+		seed?: number;
+		sourceUrl?: string;
+		sourceImageUrl?: string;
+		sourceCreationId?: string;
+	};
+	provider?: 'upload' | 'soundcloud' | 'spotify' | 'pollinations' | 'openai';
 };
 
 export type CreationMetadata = {

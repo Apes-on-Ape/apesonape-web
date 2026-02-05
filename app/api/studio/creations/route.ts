@@ -7,12 +7,12 @@ import { CreationRecord, CreationType, GlyphProfile } from '@/lib/studio/types';
 import { addExperience } from '@/lib/studio/xp';
 
 const TITLE_LIMIT = 80;
-const DESCRIPTION_LIMIT = 280;
 const TAG_LIMIT = 5;
+const PROMPT_LIMIT = 1000;
 const MAX_FILE_MB = Number(process.env.STUDIO_MAX_FILE_MB || '20');
 const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
 
-const ALLOWED_TYPES: CreationType[] = ['sound', 'visual', 'interactive', 'code'];
+const ALLOWED_TYPES: CreationType[] = ['visual'];
 
 function cleanText(value: string, max: number) {
 	return value.replace(/\s+/g, ' ').replace(/[<>]/g, '').trim().slice(0, max);
@@ -48,6 +48,19 @@ function validationError(message: string, status = 400) {
 	return NextResponse.json({ error: message }, { status });
 }
 
+function parseLinkedWallets(raw: unknown): string[] {
+	if (!raw) return [];
+	try {
+		const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+		if (!Array.isArray(parsed)) return [];
+		return parsed
+			.map((item) => String((item as { address?: string })?.address || '').toLowerCase())
+			.filter(Boolean);
+	} catch {
+		return [];
+	}
+}
+
 export async function GET(req: NextRequest) {
 	try {
 		const { searchParams } = new URL(req.url);
@@ -74,61 +87,45 @@ export async function POST(req: NextRequest) {
 		const form = await req.formData();
 		const type = (form.get('type') as CreationType | null) || null;
 		const title = cleanText(String(form.get('title') || ''), TITLE_LIMIT);
-		const description = cleanText(String(form.get('description') || ''), DESCRIPTION_LIMIT);
+		const prompt = cleanText(String(form.get('prompt') || ''), PROMPT_LIMIT);
 		const creatorAddress = cleanText(String(form.get('creatorAddress') || ''), 200);
 		const glyphId = cleanText(String(form.get('glyphId') || ''), 120) || undefined;
 		const xHandle = cleanText(String(form.get('xHandle') || ''), 50) || undefined;
 		const glyphVerifiedRaw = form.get('glyphVerified');
 		const glyphVerified = glyphVerifiedRaw === 'true' || glyphVerifiedRaw === '1';
-		const tags = parseTags(form.get('tags'));
-		const codeText = form.get('code') as string | null;
+		const tags = parseTags(null);
 		const artifact = form.get('artifact') as File | null;
-	const soundUrl = form.get('soundUrl') as string | null;
-	const soundProvider = form.get('soundProvider') as ('soundcloud' | 'spotify' | null);
 
 		if (!type || !ALLOWED_TYPES.includes(type)) {
 			return validationError('Invalid creation type');
 		}
 		if (!title) return validationError('Title is required');
 		if (title.length > TITLE_LIMIT) return validationError('Title too long');
-		if (description.length > DESCRIPTION_LIMIT) return validationError('Description too long');
+		if (!prompt) return validationError('Prompt is required');
 		if (!creatorAddress) return validationError('Creator address is required');
 		if (tags.length > TAG_LIMIT) return validationError('Too many tags');
-
-		if (type === 'code') {
-			if (!codeText || !codeText.trim()) return validationError('Code is required for code type');
-		} else if (type === 'sound' && soundUrl) {
-			const allowed =
-				soundUrl.includes('soundcloud.com') ||
-				soundUrl.includes('open.spotify.com') ||
-				soundUrl.includes('spotify.com');
-			if (!allowed) return validationError('Sound URL must be SoundCloud or Spotify');
-		} else {
-			if (!artifact) return validationError('Artifact file is required');
-			if (artifact.size > MAX_FILE_BYTES) {
-				return validationError(`File too large. Max ${MAX_FILE_MB}MB`);
-			}
-		}
 
 		const id = crypto.randomUUID();
 		const createdAt = new Date().toISOString();
 
-		const artifactResult = soundUrl
-			? {
-					uri: soundUrl,
-					mime: 'text/uri-list',
-					size: 0,
-					text: undefined,
-					externalUrl: soundUrl,
-					provider: soundProvider || (soundUrl.includes('soundcloud') ? 'soundcloud' : 'spotify'),
-					providerLabel: 'external',
-			  }
-			: await uploadArtifact({
-					file: type === 'code' ? undefined : artifact || undefined,
-					text: type === 'code' ? codeText || undefined : undefined,
-					filename: type === 'code' ? 'code.txt' : (artifact as File | null)?.name,
-					mime: type === 'code' ? 'text/plain' : (artifact as File | null)?.type,
-			  });
+		if (!artifact) return validationError('Artifact file is required');
+		if (artifact.size > MAX_FILE_BYTES) {
+			return validationError(`File too large. Max ${MAX_FILE_MB}MB`);
+		}
+		if (!artifact.type.startsWith('image/')) {
+			return validationError('Only image uploads are supported');
+		}
+
+		let artifactResult;
+		try {
+			artifactResult = await uploadArtifact({
+				file: artifact,
+				filename: (artifact as File | null)?.name,
+				mime: (artifact as File | null)?.type,
+			});
+		} catch (err) {
+			throw err;
+		}
 
 		const glyphProfile: GlyphProfile | undefined = glyphId || xHandle || glyphVerified
 			? { glyphId, xHandle, verified: glyphVerified }
@@ -140,15 +137,15 @@ export async function POST(req: NextRequest) {
 			glyphProfile,
 			type,
 			title,
-			description,
+			description: '',
 			tags,
 			artifact: {
 				uri: artifactResult.uri,
 				mime: artifactResult.mime,
 				size: artifactResult.size,
 				externalUrl: artifactResult.externalUrl,
-				provider: soundUrl ? (soundProvider || (soundUrl.includes('soundcloud') ? 'soundcloud' as const : 'spotify' as const)) : 'upload' as const,
-				text: type === 'code' ? codeText || undefined : undefined,
+				provider: 'upload',
+				prompt,
 			},
 			createdAt,
 		};
@@ -157,7 +154,6 @@ export async function POST(req: NextRequest) {
 
 		const record: CreationRecord = {
 			...metadata,
-			codePreview: type === 'code' ? (codeText || '').slice(0, 200) : undefined,
 			artifactUrl: artifactResult.uri,
 			metadataUrl: metadataUpload.uri,
 			contentHash: metadataUpload.contentHash,
