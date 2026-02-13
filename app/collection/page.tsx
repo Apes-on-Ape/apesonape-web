@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { ExternalLink, ShoppingBag, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ExternalLink, ShoppingBag, X, Tag, Activity, Search, Filter, Sparkles } from 'lucide-react';
 import Nav from '../components/Nav';
 import Image from 'next/image';
+import SafeImage from '../components/SafeImage';
 import Footer from '../components/Footer';
 // Magic Eden fetching removed in CID mode
 
@@ -34,6 +35,7 @@ export default function CollectionPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const observerTarget = useRef<HTMLDivElement>(null);
+  const filtersRef = useRef<HTMLDivElement>(null);
 
   // State
   // Drive-backed gallery items
@@ -66,7 +68,7 @@ export default function CollectionPage() {
   type SelectedByType = Record<string, Set<string>>;
   const [selectedByType, setSelectedByType] = useState<SelectedByType>({});
   const [valueFilterByType, setValueFilterByType] = useState<Record<string, string>>({});
-  const showTraitFilters = false;
+  const showTraitFilters = true;
   // Filter for trait types list
   const [typeFilterTerm, setTypeFilterTerm] = useState('');
   // Friendlier search UX: controls removed per request
@@ -77,6 +79,15 @@ export default function CollectionPage() {
 
   // Local search input for token ID
   const [idQuery, setIdQuery] = useState<string>('');
+
+  // Live listings from Magic Eden (getAsks) - normalized: tokenId, price, image, name, link
+  type ListingItem = { tokenId: string; price: number; image: string; name: string; link: string };
+  const [listings, setListings] = useState<ListingItem[]>([]);
+  const [listingsLoading, setListingsLoading] = useState(true);
+
+  // Recent activity from Magic Eden (NFT Activity)
+  type ActivityItem = { type?: string; price?: number; tokenId?: string; from?: string; to?: string; createdAt?: string };
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
 
   // Dynamic trait types discovered from metadata
   const [traitTypes, setTraitTypes] = useState<string[]>([]);
@@ -128,6 +139,45 @@ export default function CollectionPage() {
         // ignore; fallback to IPFS metadata
       }
     })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch live listings from Magic Eden (getAsks) - API returns { items, total }
+  useEffect(() => {
+    let cancelled = false;
+    setListingsLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    fetch('/api/me/asks/?limit=10&sortBy=price&sortDir=asc', { signal: controller.signal })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (!cancelled) {
+          if (data?.items) {
+            const items = data.items.filter((i: { tokenId?: string; price?: number }) => i.tokenId && typeof i.price === 'number' && i.price >= 0);
+            setListings(items.slice(0, 10));
+          }
+          setListingsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setListingsLoading(false);
+      })
+      .finally(() => clearTimeout(timeoutId));
+    return () => { cancelled = true; controller.abort(); };
+  }, []);
+
+  // Fetch recent activity from Magic Eden
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/me/activity/?limit=8')
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (!cancelled && data) {
+          const items = data.activities ?? data.items ?? (Array.isArray(data) ? data : []);
+          setActivity(Array.isArray(items) ? items.slice(0, 8) : []);
+        }
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
@@ -664,9 +714,17 @@ export default function CollectionPage() {
 
   const clearFilters = () => {
     setSearchTerm('');
+    setIdQuery('');
     setSortBy('token-asc');
     setSelectedByType({});
     setValueFilterByType({});
+  };
+
+  const handleSurpriseMe = () => {
+    const randomId = String(Math.floor(Math.random() * 10000));
+    setIdQuery(randomId);
+    setSearchTerm(randomId);
+    setPage(1);
   };
 
   const clearTypeSelection = (type: string) => {
@@ -698,43 +756,54 @@ export default function CollectionPage() {
     <div className="min-h-screen" style={{ color: 'var(--foreground)', background: 'var(--background)' }}>
       <Nav />
 
-      <div className="pt-24 pb-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header with Stats */}
-        <motion.div 
-            className="mb-12"
-            initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-            <h1 className="section-heading mb-6 text-center" style={{ color: 'var(--foreground)' }}>
-            Collection
-          </h1>
+      <div className="pt-24 pb-20 relative">
+        {/* Subtle gradient backdrop */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-hero-blue/5 rounded-full blur-3xl" />
+          <div className="absolute top-40 right-0 w-[400px] h-[300px] bg-ape-gold/5 rounded-full blur-3xl" />
+        </div>
 
-            {/* Stats removed by request */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+          {/* Hero header */}
+          <motion.div
+            className="mb-16 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          >
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-hero-blue via-ape-gold to-accent-cyan">
+              Apes on Apechain
+            </h1>
+            <p className="text-lg text-ape-gray max-w-2xl mx-auto">
+              10,000 unique collectible Apes living on Apechain. Explore, filter, and find your perfect Ape.
+            </p>
+          </motion.div>
 
-            {/* Marketplace Links */}
-            <motion.div
-              className="mb-8"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15, duration: 0.6 }}
-            >
-              <div className="flex items-center justify-center gap-2 mb-4">
+          {/* Marketplace Links */}
+          <motion.section
+            className="mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <div className="h-px flex-1 max-w-[120px] bg-gradient-to-r from-transparent to-hero-blue/50" />
+              <h2 className="text-xl font-semibold flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
                 <ShoppingBag className="w-5 h-5 text-hero-blue" />
-                <h2 className="text-xl font-semibold" style={{ color: 'var(--foreground)' }}>
-                  Marketplaces
-                </h2>
-              </div>
+                Trade on Marketplaces
+              </h2>
+              <div className="h-px flex-1 max-w-[120px] bg-gradient-to-l from-transparent to-hero-blue/50" />
+            </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Magic Eden */}
                 <a
                   href="https://magiceden.io/collections/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="glass-dark rounded-xl p-6 flex items-center justify-between group hover:border-hero-blue/70 transition-all duration-300 hover:shadow-lg hover:shadow-hero-blue/20"
+                  className="glass-dark rounded-2xl p-6 flex items-center justify-between group border border-white/10 hover:border-hero-blue/50 transition-all duration-300 hover:shadow-xl hover:shadow-hero-blue/20 hover:scale-[1.02] relative overflow-hidden"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="absolute inset-0 bg-gradient-to-br from-hero-blue/0 to-hero-blue/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-center gap-4 relative z-10">
                     <div className="w-12 h-12 rounded-xl bg-hero-blue/10 flex items-center justify-center group-hover:bg-hero-blue/20 transition-colors">
                       <Image 
                         src="/magiceden_icon.jpeg" 
@@ -750,7 +819,7 @@ export default function CollectionPage() {
                       </h3>
                     </div>
                   </div>
-                  <ExternalLink className="w-5 h-5 text-hero-blue opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ExternalLink className="w-5 h-5 text-hero-blue opacity-0 group-hover:opacity-100 transition-opacity relative z-10" />
                 </a>
 
                 {/* Mintify */}
@@ -758,9 +827,10 @@ export default function CollectionPage() {
                   href="https://app.mintify.com/nft/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="glass-dark rounded-xl p-6 flex items-center justify-between group hover:border-hero-blue/70 transition-all duration-300 hover:shadow-lg hover:shadow-hero-blue/20"
+                  className="glass-dark rounded-2xl p-6 flex items-center justify-between group border border-white/10 hover:border-ape-gold/50 transition-all duration-300 hover:shadow-xl hover:shadow-ape-gold/20 hover:scale-[1.02] relative overflow-hidden"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="absolute inset-0 bg-gradient-to-br from-ape-gold/0 to-ape-gold/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-center gap-4 relative z-10">
                     <div className="w-12 h-12 rounded-xl bg-ape-gold/10 flex items-center justify-center group-hover:bg-ape-gold/20 transition-colors">
                       <Image 
                         src="/mintify_icon.jpeg" 
@@ -776,7 +846,7 @@ export default function CollectionPage() {
                       </h3>
                     </div>
                   </div>
-                  <ExternalLink className="w-5 h-5 text-ape-gold opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ExternalLink className="w-5 h-5 text-ape-gold opacity-0 group-hover:opacity-100 transition-opacity relative z-10" />
                 </a>
 
                 {/* OpenSea */}
@@ -784,9 +854,10 @@ export default function CollectionPage() {
                   href="https://opensea.io/collection/apes-on-apechain"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="glass-dark rounded-xl p-6 flex items-center justify-between group hover:border-hero-blue/70 transition-all duration-300 hover:shadow-lg hover:shadow-hero-blue/20"
+                  className="glass-dark rounded-2xl p-6 flex items-center justify-between group border border-white/10 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 hover:scale-[1.02] relative overflow-hidden"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-center gap-4 relative z-10">
                     <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center overflow-hidden group-hover:bg-blue-500/20 transition-colors">
                       <Image
                         src="/opensea-logo.webp"
@@ -802,142 +873,342 @@ export default function CollectionPage() {
                       </h3>
                     </div>
                   </div>
-                  <ExternalLink className="w-5 h-5 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ExternalLink className="w-5 h-5 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity relative z-10" />
                 </a>
               </div>
-            </motion.div>
-        </motion.div>
+          </motion.section>
+
+          {/* Live Listings (Floor) */}
+          <motion.section
+            className="mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.15 }}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-ape-gold/10 border border-ape-gold/20">
+                  <Tag className="w-5 h-5 text-ape-gold" />
+                </div>
+                <h2 className="text-xl font-semibold" style={{ color: 'var(--foreground)' }}>
+                  Listings
+                </h2>
+              </div>
+                  <a
+                    href="https://magiceden.io/collections/apechain/apes-on-apechain"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-hero-blue hover:underline"
+                  >
+                    View all on Magic Eden →
+                  </a>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-10 gap-4">
+                  {(listingsLoading || listings.length === 0) ? (
+                    <div className="col-span-full rounded-xl glass-dark border border-white/10 overflow-hidden">
+                      <div className="h-1.5 w-full bg-white/5 overflow-hidden">
+                        <div className="h-full w-1/4 min-w-[100px] bg-ape-gold/80 rounded-full animate-loading-bar" />
+                      </div>
+                    </div>
+                  ) : listings.map((item, i) => {
+                    const img = item.image?.trim() ? item.image : `${THUMBS_BASE}/${item.tokenId}.webp`;
+                    return (
+                      <motion.a
+                        key={item.tokenId || i}
+                        href={item.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="glass-dark rounded-xl overflow-hidden group border border-white/10 hover:border-ape-gold/50 transition-all duration-300 block"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: i * 0.03 }}
+                        whileHover={{ scale: 1.03, y: -4 }}
+                      >
+                        <div className="relative aspect-square overflow-hidden">
+                          <SafeImage
+                            src={img}
+                            alt={item.name || `#${item.tokenId}`}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-500"
+                            sizes="120px"
+                          />
+                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-black/70 text-xs border border-white/20 font-medium backdrop-blur-sm">
+                            #{item.tokenId}
+                          </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                        <div className="p-3 text-center bg-white/[0.02] border-t border-white/5">
+                          <p className="text-sm font-bold text-ape-gold">
+                            {item.price.toFixed(2)} APE
+                          </p>
+                        </div>
+                      </motion.a>
+                    );
+                  })}
+                </div>
+          </motion.section>
+
+          {/* Recent Activity */}
+          {activity.length > 0 && (
+            <motion.section
+              className="mb-16"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+            >
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
+                    <Activity className="w-5 h-5 text-accent-green" />
+                    Recent Activity
+                  </h2>
+                  <a
+                    href="https://magiceden.io/collections/apechain/apes-on-apechain"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-hero-blue hover:underline"
+                  >
+                    View all →
+                  </a>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {activity.map((item, i) => {
+                    const type = item.type ?? (item as Record<string, unknown>).activityType ?? 'sale';
+                    const price = item.price ?? (item as Record<string, unknown>).price ?? (item as Record<string, unknown>).amount;
+                    const tokenId = item.tokenId ?? (item as Record<string, unknown>).tokenId ?? (item as Record<string, unknown>).token?.tokenId;
+                    const createdAt = item.createdAt ?? (item as Record<string, unknown>).createdAt;
+                    return (
+                      <motion.div
+                        key={i}
+                        className="glass-dark rounded-xl p-4 flex items-center gap-3 border border-white/10 hover:border-accent-green/30 transition-colors"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-accent-green/20 flex items-center justify-center">
+                          <Activity className="w-5 h-5 text-accent-green" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium capitalize" style={{ color: 'var(--foreground)' }}>
+                            {String(type)}
+                          </p>
+                          <p className="text-xs text-ape-gray truncate">
+                            {typeof price === 'number' ? `${price.toFixed(2)} APE` : '—'}
+                            {tokenId != null ? ` · #${tokenId}` : ''}
+                          </p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+            </motion.section>
+          )}
+
+          {/* Divider */}
+          <div className="flex items-center gap-4 mb-8">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+            <span className="text-sm text-ape-gray uppercase tracking-widest">Explore the Collection</span>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+          </div>
+
+          {/* Search bar - full width above the grid */}
+          <motion.div
+            className="mb-8"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+          >
+            {/* Gradient border wrapper */}
+            <div className="relative rounded-2xl p-[1px] bg-gradient-to-r from-hero-blue/50 via-ape-gold/40 to-hero-blue/50 shadow-[0_0_30px_-10px_rgba(0,84,249,0.3)]">
+              <div className="glass-dark rounded-2xl p-4 sm:p-5 border border-white/10 shadow-xl shadow-black/30 overflow-hidden relative">
+                {/* Gradient accent overlay */}
+                <div className="absolute inset-0 bg-gradient-to-r from-hero-blue/[0.07] via-transparent to-ape-gold/[0.07] pointer-events-none" />
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+
+                <div className="flex flex-col gap-4 relative">
+                  {/* Row 1: Search + actions + result count */}
+                  <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                    <div className="relative flex-1 min-w-0 group/input">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-ape-gray group-focus-within/input:text-hero-blue transition-colors pointer-events-none" />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Jump to token ID (0–9999)"
+                        value={idQuery}
+                        onChange={(e) => setIdQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const q = (idQuery || '').trim();
+                            setSearchTerm(q);
+                            setPage(1);
+                          }
+                        }}
+                        className="w-full pl-11 pr-4 py-3 rounded-xl border border-white/10 bg-white/5 text-sm placeholder-ape-gray focus:border-hero-blue focus:outline-none focus:ring-2 focus:ring-hero-blue/25 focus:bg-white/[0.07] transition-all duration-200"
+                        style={{ color: 'var(--foreground)' }}
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
+                      <button
+                        className="btn-primary px-5 py-3 text-sm rounded-xl font-medium shadow-lg shadow-hero-blue/20 hover:shadow-hero-blue/30 transition-shadow"
+                        onClick={() => {
+                          const q = (idQuery || '').trim();
+                          setSearchTerm(q);
+                          setPage(1);
+                        }}
+                      >
+                        Go
+                      </button>
+                      <button
+                        onClick={handleSurpriseMe}
+                        className="inline-flex items-center gap-2 px-4 py-3 rounded-xl border border-ape-gold/40 bg-ape-gold/10 text-ape-gold hover:bg-ape-gold/20 hover:border-ape-gold/60 transition-all text-sm font-medium"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Surprise me
+                      </button>
+                      <button
+                        className="px-4 py-3 rounded-xl border border-white/10 text-sm hover:border-hero-blue/50 hover:bg-white/5 transition-all"
+                        style={{ color: 'var(--foreground)' }}
+                        onClick={clearFilters}
+                      >
+                        Clear
+                      </button>
+                      {!loading && (
+                        <div className="hidden lg:flex items-center px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-ape-gray">
+                          {filteredItems.length === 0
+                            ? 'No results'
+                            : `${filteredItems.length.toLocaleString()} Ape${filteredItems.length !== 1 ? 's' : ''}`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 2: Active filter chips */}
+                  <AnimatePresence mode="popLayout">
+                    {selectedChips.length > 0 && (
+                      <motion.div
+                        key="filter-chips"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10 overflow-hidden"
+                      >
+                        <span className="text-xs text-ape-gray font-medium w-full sm:w-auto">Active filters:</span>
+                        {selectedChips.map((c, idx) => (
+                          <motion.button
+                            key={`${c.type}-${c.value}-${idx}`}
+                            onClick={() => toggleTraitValue(c.type, c.value)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-hero-blue/15 border border-hero-blue/40 hover:border-hero-blue/60 hover:bg-hero-blue/25 transition-all group"
+                            title="Remove filter"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <span>{c.type}: {c.value}</span>
+                            <X className="w-3 h-3 opacity-70 group-hover:opacity-100" />
+                          </motion.button>
+                        ))}
+                        <button
+                          className="text-xs text-hero-blue hover:underline font-medium"
+                          onClick={clearFilters}
+                        >
+                          Clear all
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
+
+            {/* Scroll to filters on mobile */}
+            {showTraitFilters && (
+              <button
+                onClick={() => filtersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="mt-3 flex items-center gap-2 text-sm text-ape-gray hover:text-hero-blue transition-colors lg:hidden"
+              >
+                <Filter className="w-4 h-4" />
+                Filter by traits
+              </button>
+            )}
+          </motion.div>
 
           {/* Sidebar filters (left) + Grid (right) */}
           <div className="grid lg:grid-cols-5 gap-6">
-            {/* Left: Filters */}
-            <aside className="lg:col-span-1 space-y-4">
-              {/* Search by ID – positioned above traits */}
-              <div className="glass-dark rounded-xl p-3 border border-white/10">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="Search by token ID…"
-                    value={idQuery}
-                    onChange={(e) => setIdQuery(e.target.value)}
-                    className="w-full px-2 py-1 glass border border-white/10 rounded text-xs placeholder-gray-400 focus:border-hero-blue focus:outline-none"
-                    style={{ color: 'var(--foreground)' }}
-                  />
-                  <button
-                    className="btn-primary px-3 py-1 text-xs"
-                    onClick={() => {
-                      const q = (idQuery || '').trim();
-                      setSearchTerm(q);
-                      setPage(1);
-                    }}
-                  >
-                    Search
-                  </button>
-                  <button
-                    className="btn-secondary px-3 py-1 text-xs"
-                    onClick={() => {
-                      setIdQuery('');
-                      clearFilters();
-                    }}
-                  >
-                    Reset
-                  </button>
-                </div>
-              </div>
-              {/* Selected chips */}
-              {selectedChips.length > 0 && (
-                <div className="glass-dark rounded-xl p-3 border border-white/10">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {selectedChips.map((c, idx) => (
-                      <button
-                        key={`${c.type}-${c.value}-${idx}`}
-                        onClick={() => toggleTraitValue(c.type, c.value)}
-                        className="px-2 py-1 rounded-full text-xs glass border border-white/10 hover:border-hero-blue/60"
-                        title="Remove filter"
-                      >
-                        {c.type}: {c.value} ×
-                      </button>
-                    ))}
-                    <button className="text-xs text-hero-blue hover:underline" onClick={clearFilters}>
-                      Clear all
-                    </button>
-                  </div>
-                </div>
-              )}
-
+            {/* Left: Trait Filters */}
+            <aside ref={filtersRef} className="lg:col-span-1 space-y-4">
               {/* Trait Filters */}
-              <div className="glass-dark rounded-xl p-4 border border-white/10 sticky top-24">
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Traits</span>
-                  </div>
-                  {/* Filter input for trait types */}
-              <input
-                type="text"
-                    value={typeFilterTerm}
-                    onChange={(e) => setTypeFilterTerm(e.target.value)}
-                    placeholder="Filter trait types…"
-                    className="w-full px-2 py-1 glass border border-white/10 rounded text-xs placeholder-gray-400 focus:border-hero-blue focus:outline-none mb-2"
-                    style={{ color: 'var(--foreground)' }}
-              />
-                  {/* Vertical scrollable list of trait types */}
-                  <div className="flex flex-col gap-2 overflow-y-auto max-h-60 pr-1">
-                    {traitTypes
-                      .filter((t) => !EXCLUDED_TRAIT_TYPES.has(t))
-                      .filter((t) => t.toLowerCase().includes(typeFilterTerm.toLowerCase()))
-                      .map((type) => {
-                        const count = (selectedByType[type]?.size ?? 0);
-                        const hasValues = (availableValuesByType[type]?.size ?? 0) > 0;
-                        const isActive = activeTraitType === type;
-                        return (
-                          <button
-                            key={type}
-                            disabled={!hasValues}
-                            onClick={() => {
-                              if (isActive) {
-                                // Clicking the active type again closes the traits section
-                                setActiveTraitType('');
-                              } else {
-                                setActiveTraitType(type);
-                              }
-                            }}
-                            className={`w-full text-left px-3 py-1.5 rounded-md text-xs border transition-colors ${
-                              isActive
-                                ? 'border-hero-blue text-hero-blue bg-hero-blue/10'
-                                : 'border-white/10 hover:border-hero-blue/50'
-                            } ${!hasValues ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            title={hasValues ? `Select ${type}` : 'No values available'}
-                          >
-                            {type}{count ? ` (${count})` : ''}
-                          </button>
-                        );
-                      })}
+              <div className="glass-dark rounded-xl p-4 border border-white/10 sticky top-24 shadow-lg shadow-black/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <Filter className="w-4 h-4 text-ape-gray flex-shrink-0" />
+                  <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Filter by traits</span>
                 </div>
-            </div>
-
-                {/* Active type selector */}
-                {activeTraitType && (
-                  <div className="border border-white/10 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <input
-                        type="text"
-                        value={valueFilterByType[activeTraitType] || ''}
-                        onChange={(e) => setValueFilterByType(prev => ({ ...prev, [activeTraitType]: e.target.value }))}
-                        placeholder={`Filter ${activeTraitType} values…`}
-                        className="w-full px-2 py-1 glass border border-white/10 rounded text-xs placeholder-gray-400 focus:border-hero-blue focus:outline-none"
+                <input
+                  type="text"
+                  value={typeFilterTerm}
+                  onChange={(e) => setTypeFilterTerm(e.target.value)}
+                  placeholder="Search trait types…"
+                  className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm placeholder-ape-gray focus:border-hero-blue focus:outline-none focus:ring-1 focus:ring-hero-blue/30 mb-3"
                   style={{ color: 'var(--foreground)' }}
-                      />
+                />
+                {/* Trait type buttons */}
+                <div className="flex flex-col gap-2 overflow-y-auto max-h-60 pr-1 custom-scrollbar">
+                  {traitTypes
+                    .filter((t) => !EXCLUDED_TRAIT_TYPES.has(t))
+                    .filter((t) => t.toLowerCase().includes(typeFilterTerm.toLowerCase()))
+                    .map((type) => {
+                      const count = (selectedByType[type]?.size ?? 0);
+                      const hasValues = (availableValuesByType[type]?.size ?? 0) > 0;
+                      const isActive = activeTraitType === type;
+                      return (
+                        <button
+                          key={type}
+                          disabled={!hasValues}
+                          onClick={() => {
+                            if (isActive) setActiveTraitType('');
+                            else setActiveTraitType(type);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-sm border transition-all flex items-center justify-between ${
+                            isActive
+                              ? 'border-hero-blue text-hero-blue bg-hero-blue/15 shadow-sm'
+                              : 'border-white/10 hover:border-hero-blue/40 hover:bg-white/5'
+                          } ${!hasValues ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title={hasValues ? `Filter by ${type}` : 'Loading values…'}
+                        >
+                          <span>{type}</span>
+                          {count > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-hero-blue/20 text-hero-blue text-xs font-medium">
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
+
+                {/* Active trait type: value selector */}
+                {activeTraitType && (
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-ape-gray">{activeTraitType} values</span>
                       {(selectedByType[activeTraitType]?.size ?? 0) > 0 && (
-                <button
+                        <button
                           type="button"
-                          className="text-[11px] text-hero-blue hover:underline whitespace-nowrap"
+                          className="text-xs text-hero-blue hover:underline"
                           onClick={() => clearTypeSelection(activeTraitType)}
-                >
+                        >
                           Clear
-                </button>
-              )}
-            </div>
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={valueFilterByType[activeTraitType] || ''}
+                      onChange={(e) => setValueFilterByType(prev => ({ ...prev, [activeTraitType]: e.target.value }))}
+                      placeholder="Search values…"
+                      className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm placeholder-ape-gray focus:border-hero-blue focus:outline-none mb-2"
+                      style={{ color: 'var(--foreground)' }}
+                    />
                     {(() => {
                       let allValues = Array.from(availableValuesByType[activeTraitType] || []).sort((a, b) => a.localeCompare(b));
                       const q = (valueFilterByType[activeTraitType] || '').toLowerCase();
@@ -952,32 +1223,56 @@ export default function CollectionPage() {
                             </span>
                           </div>
                           {allValues.length === 0 ? (
-                            <div className="text-xs" style={{ color: 'var(--ape-gray)' }}>No values found</div>
+                            <div className="text-xs text-ape-gray py-2">No values found</div>
                           ) : (
-                            <div className="space-y-1.5 max-h-96 overflow-auto pr-1">
+                            <div className="space-y-1 max-h-72 overflow-auto pr-1 custom-scrollbar">
                               {visible.map((v) => (
-                                <label key={v} className="flex items-center gap-2 text-xs">
-                <input
+                                <label
+                                  key={v}
+                                  className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors"
+                                >
+                                  <input
                                     type="checkbox"
                                     checked={selected.has(v)}
                                     onChange={() => toggleTraitValue(activeTraitType, v)}
+                                    className="rounded border-white/20 text-hero-blue focus:ring-hero-blue/50"
                                   />
-                                  <span className="break-words whitespace-normal">{v}</span>
+                                  <span className="text-sm break-words whitespace-normal" style={{ color: 'var(--foreground)' }}>
+                                    {v}
+                                  </span>
                                 </label>
-              ))}
-            </div>
+                              ))}
+                            </div>
                           )}
                         </>
                       );
                     })()}
-          </div>
-        )}
+                  </div>
+                )}
               </div>
             </aside>
 
             {/* Right: Grid */}
             <section className="lg:col-span-4">
-          
+              {/* Results header */}
+              {!loading && (
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                  <p className="text-sm text-ape-gray">
+                    {filteredItems.length === 0
+                      ? 'No results'
+                      : `Showing ${displayedItems.length}${hasMore ? '+' : ''} of ${filteredItems.length.toLocaleString()} Apes`}
+                    {(searchTerm || selectedChips.length > 0) && ' (filtered)'}
+                  </p>
+                  {(searchTerm || selectedChips.length > 0) && (
+                    <button
+                      onClick={clearFilters}
+                      className="text-xs text-hero-blue hover:underline font-medium"
+                    >
+                      Reset filters
+                    </button>
+                  )}
+                </div>
+              )}
 
               {loading ? (
               <div className="flex items-center justify-center py-20">
@@ -990,13 +1285,17 @@ export default function CollectionPage() {
               <>
                   {/* 4 columns on desktop */}
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-                    {displayedItems.map((item) => (
-                      <div
+                    {displayedItems.map((item, idx) => (
+                      <motion.div
                         key={item.id}
-                        className="glass-dark rounded-xl overflow-hidden border border-white/10 cursor-pointer"
+                        className="glass-dark rounded-xl overflow-hidden border border-white/10 cursor-pointer group hover:border-ape-gold/30 transition-all duration-300"
                         onClick={() => openModal(item)}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: Math.min(idx * 0.02, 0.3) }}
+                        whileHover={{ scale: 1.02, y: -2 }}
                       >
-                        <div className="relative aspect-square">
+                        <div className="relative aspect-square overflow-hidden">
                       {item.tokenId ? (
                         <FallbackImage
                           srcs={[
@@ -1007,7 +1306,7 @@ export default function CollectionPage() {
                           ]}
                           alt={item.name}
                           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                          className="object-cover"
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : item.imageUrl ? (
                         <FallbackImage
@@ -1022,12 +1321,12 @@ export default function CollectionPage() {
                         </div>
                       )}
                           {item.tokenId && (
-                            <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-black/60 text-xs border border-white/10">
+                            <div className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-black/70 text-xs border border-white/20 font-medium backdrop-blur-sm">
                               #{item.tokenId}
                             </div>
                           )}
                         </div>
-                      </div>
+                      </motion.div>
                   ))}
                 </div>
 
@@ -1048,17 +1347,19 @@ export default function CollectionPage() {
                 )}
 
                   {filteredItems.length === 0 && (
-                  <motion.div 
-                    className="text-center py-20"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                  <motion.div
+                    className="text-center py-16 px-6 rounded-2xl glass-dark border border-white/10"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
                   >
-                      <p className="text-2xl mb-4" style={{ color: 'var(--foreground)' }}>No images found</p>
-                    <p className="mb-6" style={{ color: 'var(--ape-gray)' }}>
-                      Try adjusting your filters to see more results
+                    <p className="text-xl font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
+                      No Apes match your filters
                     </p>
-                    <button onClick={clearFilters} className="btn-primary">
-                      Clear All Filters
+                    <p className="text-sm mb-6 text-ape-gray">
+                      Try broadening your search or clearing some traits
+                    </p>
+                    <button onClick={clearFilters} className="btn-primary px-6 py-2">
+                      Clear all filters
                     </button>
                   </motion.div>
                 )}
