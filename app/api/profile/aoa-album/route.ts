@@ -1,14 +1,9 @@
-'use server';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createFolderAndUploadOAuth, refreshAccessToken } from '@/lib/drive-oauth';
 
-const encoder = new TextEncoder();
-
-function sse(data: object): Uint8Array {
-	return encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
-}
+// Netlify Lambda: ~6MB request limit (4.5MB for binary). Enforce 4MB total to stay safe.
+const MAX_TOTAL_MB = 4;
 
 const MAX_SONG_MB = 50;
 const MAX_COVER_MB = 10;
@@ -104,6 +99,18 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		// Netlify/serverless: total request body must stay under ~4MB
+		let totalBytes = cover.size;
+		for (const song of songs) {
+			if (song instanceof File && song.size > 0) totalBytes += song.size;
+		}
+		if (totalBytes > MAX_TOTAL_MB * 1024 * 1024) {
+			return NextResponse.json(
+				{ error: `Total album size exceeds ${MAX_TOTAL_MB}MB limit (Netlify). Use fewer or smaller files.` },
+				{ status: 400 }
+			);
+		}
+
 		// Get OAuth token from cookie
 		const cookieStore = await cookies();
 		const driveCookie = cookieStore.get('drive_oauth');
@@ -152,37 +159,18 @@ export async function POST(req: NextRequest) {
 
 		const parentFolderId = process.env.GOOGLE_DRIVE_ALBUM_FOLDER_ID?.trim() || undefined;
 
-		// Stream progress to client
-		const stream = new ReadableStream({
-			async start(controller) {
-				const onProgress = (uploaded: number, total: number, isCover: boolean) => {
-					controller.enqueue(sse({ uploaded, total, isCover }));
-				};
-				try {
-					const { folderId, uploadedCount } = await createFolderAndUploadOAuth(
-						accessToken,
-						safeFolderName,
-						files,
-						parentFolderId,
-						onProgress
-					);
-					controller.enqueue(sse({
-						done: true,
-						folderId,
-						uploadedCount,
-						message: `Album "${safeFolderName}" uploaded successfully (${uploadedCount} files)`,
-					}));
-				} catch (e: unknown) {
-					const msg = e instanceof Error ? e.message : 'Upload failed';
-					controller.enqueue(sse({ error: msg }));
-				} finally {
-					controller.close();
-				}
-			},
-		});
+		const { folderId, uploadedCount } = await createFolderAndUploadOAuth(
+			accessToken,
+			safeFolderName,
+			files,
+			parentFolderId
+		);
 
-		return new Response(stream, {
-			headers: { 'Content-Type': 'text/event-stream' },
+		return NextResponse.json({
+			ok: true,
+			folderId,
+			uploadedCount,
+			message: `Album "${safeFolderName}" uploaded successfully (${uploadedCount} files)`,
 		});
 	} catch (e: unknown) {
 		let msg = 'Upload failed';
@@ -193,6 +181,7 @@ export async function POST(req: NextRequest) {
 			if (gerr?.data?.error?.message) {
 				msg = gerr.data.error.message;
 			}
+			console.error('[aoa-album]', e.message, e);
 		}
 		return NextResponse.json({ error: msg }, { status: 500 });
 	}

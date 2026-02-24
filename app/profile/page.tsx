@@ -213,6 +213,12 @@ export default function ProfilePage() {
 			setAlbumError('Add an album cover image');
 			return;
 		}
+		// Netlify/serverless: ~4MB request limit
+		const totalBytes = albumCover.size + albumSongs.reduce((s, f) => s + f.size, 0);
+		if (totalBytes > 4 * 1024 * 1024) {
+			setAlbumError('Total size exceeds 4MB (server limit). Use fewer or smaller files.');
+			return;
+		}
 		setAlbumUploading(true);
 		setAlbumProgress(0);
 		setAlbumUploadedCount(0);
@@ -223,55 +229,34 @@ export default function ProfilePage() {
 		formData.append('cover', albumCover);
 		try {
 			const res = await fetch('/api/profile/aoa-album', { method: 'POST', body: formData });
-			const reader = res.body?.getReader();
-			const decoder = new TextDecoder();
-			let buffer = '';
-			if (!reader) throw new Error('No response body');
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-				buffer += decoder.decode(value, { stream: true });
-				const lines = buffer.split('\n\n');
-				buffer = lines.pop() || '';
-				for (const chunk of lines) {
-					const match = chunk.match(/^data:\s*(.+)$/m);
-					if (!match) continue;
-					try {
-						const data = JSON.parse(match[1]);
-						if (data.uploaded !== undefined) {
-							setAlbumUploadedCount(data.uploaded);
-							setAlbumTotalUpload(data.total);
-							setAlbumProgress(data.total > 0 ? Math.round(85 + (15 * data.uploaded) / data.total) : 85);
-						}
-						if (data.done) {
-							setAlbumProgress(100);
-							setAlbumSuccess(data.message || 'Album uploaded!');
-							setAlbumName('');
-							setAlbumSongs([]);
-							setAlbumCover(null);
-							if (albumSongsRef.current) albumSongsRef.current.value = '';
-							if (albumCoverRef.current) albumCoverRef.current.value = '';
-							setTimeout(() => {
-								setAlbumProgress(0);
-								setAlbumUploadedCount(0);
-								setAlbumTotalUpload(0);
-							}, 1500);
-						}
-						if (data.error) {
-							setAlbumError(data.error);
-						}
-					} catch {
-						// ignore parse errors for partial chunks
-					}
-				}
+			const text = await res.text();
+			let json: { ok?: boolean; error?: string; message?: string } = {};
+			try {
+				json = JSON.parse(text || '{}');
+			} catch {
+				// Response may be plain text (e.g. Netlify error)
+				setAlbumError(
+					text.includes('Internal Error') || text.includes('413') || text.includes('Payload')
+						? 'Upload too large or server error. Try fewer/smaller files (total under 4MB).'
+						: 'Upload failed'
+				);
+				return;
 			}
-			if (!res.ok) {
-				try {
-					const json = JSON.parse(buffer || '{}');
-					setAlbumError(json.error || 'Upload failed');
-				} catch {
-					setAlbumError('Upload failed');
-				}
+			if (res.ok && json.ok) {
+				setAlbumProgress(100);
+				setAlbumSuccess(json.message || 'Album uploaded!');
+				setAlbumName('');
+				setAlbumSongs([]);
+				setAlbumCover(null);
+				if (albumSongsRef.current) albumSongsRef.current.value = '';
+				if (albumCoverRef.current) albumCoverRef.current.value = '';
+				setTimeout(() => {
+					setAlbumProgress(0);
+					setAlbumUploadedCount(0);
+					setAlbumTotalUpload(0);
+				}, 1500);
+			} else {
+				setAlbumError(json.error || 'Upload failed');
 			}
 		} catch (err) {
 			setAlbumError(err instanceof Error ? err.message : 'Upload failed');
@@ -429,7 +414,7 @@ export default function ProfilePage() {
 								</h2>
 							</div>
 							<p className="text-off-white/70 text-sm mb-6">
-								Upload to your Google Drive. MP3/WAV + 1 image (cover). Max 25 songs, 50MB per song, 10MB cover.
+								Upload to your Google Drive. MP3/WAV + 1 image (cover). Max 25 songs, 50MB per song, 10MB cover. Total under 4MB for production.
 							</p>
 							{/* Connect Google Drive */}
 							<div className="mb-6 flex flex-wrap items-center gap-3">

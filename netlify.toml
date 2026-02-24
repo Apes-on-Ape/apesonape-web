@@ -9,6 +9,7 @@
   # This key is server-only and should not trigger secret scanning failures
   SECRETS_SCAN_OMIT_KEYS = "SERVICE_ROLE_KEY,SUPABASE_SERVICE_ROLE_KEY"
 
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
