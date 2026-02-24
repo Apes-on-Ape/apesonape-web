@@ -353,6 +353,169 @@ class MagicEdenAPI {
       }));
   }
 
+  /**
+   * Get token IDs owned by a wallet for the AoA collection (Apechain).
+   * Tries Apechain RPC enumeration first, then falls back to Magic Eden API.
+   */
+  async getWalletTokenIds(wallet: string): Promise<number[]> {
+    const contract = this.getEvmContractAddress();
+    const rpcUrl = this.getApechainRpcUrl();
+    const walletAddr = wallet.startsWith('0x') ? wallet.toLowerCase() : `0x${wallet.toLowerCase()}`;
+
+    // Try RPC enumeration first (if contract supports ERC721Enumerable)
+    try {
+      const tokenIds = await this.enumerateTokensViaRPC(contract, walletAddr, rpcUrl);
+      if (tokenIds.length > 0) {
+        return tokenIds;
+      }
+    } catch (e) {
+      console.warn('RPC enumeration failed, trying Magic Eden API:', e);
+    }
+
+    // Fallback: Try Magic Eden Apechain-specific endpoint
+    try {
+      const walletNorm = walletAddr.slice(2).toLowerCase();
+      const url = `${this.baseUrl}/apechain/wallets/${walletNorm}/tokens?limit=200&offset=0`;
+      const resp = await fetch(url, { headers: { accept: 'application/json' } });
+      if (resp.ok) {
+        const data = await resp.json();
+        const tokens = Array.isArray(data?.tokens) ? data.tokens : Array.isArray(data) ? data : [];
+        const contractLower = contract.toLowerCase();
+        const tokenIds: number[] = [];
+        for (const t of tokens) {
+          const raw = t as Record<string, unknown>;
+          const coll = (
+            raw.collectionAddress ??
+            raw.collection_address ??
+            raw.collection ??
+            raw.contractAddress ??
+            raw.contract ??
+            ''
+          );
+          const collStr = String(coll).toLowerCase();
+          if (collStr !== contractLower) continue;
+          const id = raw.tokenId ?? raw.token_id ?? raw.id;
+          if (id !== undefined && id !== null) {
+            const num = typeof id === 'string' ? parseInt(id, 10) : Number(id);
+            if (!Number.isNaN(num) && num >= 0) tokenIds.push(num);
+          }
+        }
+        if (tokenIds.length > 0) return [...new Set(tokenIds)];
+      }
+    } catch (e) {
+      console.warn('Magic Eden Apechain endpoint failed:', e);
+    }
+
+    // Fallback: Try generic Magic Eden wallet endpoint
+    const limit = 100;
+    const tokenIds: number[] = [];
+    const contractLower = contract.toLowerCase();
+    for (let offset = 0; offset < 1000; offset += limit) {
+      const walletNorm = walletAddr.slice(2).toLowerCase();
+      const url = `${this.baseUrl}/wallets/0x${walletNorm}/tokens?limit=${limit}&offset=${offset}`;
+      let data: { tokens?: Array<Record<string, unknown>> };
+      try {
+        const resp = await fetch(url, { headers: { accept: 'application/json' } });
+        if (!resp.ok) break;
+        data = await resp.json();
+      } catch {
+        break;
+      }
+      const tokens = Array.isArray(data?.tokens) ? data.tokens : [];
+      if (tokens.length === 0) break;
+      for (const t of tokens) {
+        const raw = t as Record<string, unknown>;
+        const coll = (
+          raw.collectionAddress ??
+          raw.collection_address ??
+          raw.collection ??
+          raw.contractAddress ??
+          raw.contract ??
+          ''
+        );
+        const collStr = String(coll).toLowerCase();
+        if (collStr !== contractLower) continue;
+        const id = raw.tokenId ?? raw.token_id ?? raw.id;
+        if (id !== undefined && id !== null) {
+          const num = typeof id === 'string' ? parseInt(id, 10) : Number(id);
+          if (!Number.isNaN(num) && num >= 0) tokenIds.push(num);
+        }
+      }
+      if (tokens.length < limit) break;
+    }
+    return [...new Set(tokenIds)];
+  }
+
+  /**
+   * Enumerate tokens via Apechain RPC using balanceOf + tokenOfOwnerByIndex (if contract supports it).
+   */
+  private async enumerateTokensViaRPC(
+    contract: string,
+    owner: string,
+    rpcUrl: string
+  ): Promise<number[]> {
+    // balanceOf(address) selector: 0x70a08231
+    const balanceOfSelector = '0x70a08231';
+    const ownerPadded = owner.slice(2).toLowerCase().padStart(64, '0');
+    const balanceOfData = balanceOfSelector + ownerPadded;
+
+    type RpcResponse = { jsonrpc: string; id: number; result?: string; error?: { code: number; message: string } };
+    const balanceCall: RpcResponse = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_call',
+        params: [{ to: contract, data: balanceOfData }, 'latest'],
+      }),
+    }).then((r) => r.json());
+
+    if (!balanceCall.result || balanceCall.result === '0x') return [];
+    const balance = parseInt(balanceCall.result, 16);
+    if (balance === 0 || balance > 10000) return []; // Sanity check
+
+    // tokenOfOwnerByIndex(address,uint256) selector: 0x2f745c59
+    const tokenOfOwnerByIndexSelector = '0x2f745c59';
+    const tokenIds: number[] = [];
+    const batchSize = 10;
+
+    for (let i = 0; i < balance; i += batchSize) {
+      const batch = Array.from({ length: Math.min(batchSize, balance - i) }, (_, j) => i + j);
+      const calls = batch.map((index) => {
+        const indexHex = BigInt(index).toString(16).padStart(64, '0');
+        const data = tokenOfOwnerByIndexSelector + ownerPadded + indexHex;
+        return {
+          jsonrpc: '2.0',
+          id: index + 2,
+          method: 'eth_call',
+          params: [{ to: contract, data }, 'latest'],
+        };
+      });
+
+      const responses = await Promise.all(
+        calls.map((call) =>
+          fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(call),
+          }).then((r) => r.json() as Promise<RpcResponse>)
+        )
+      );
+
+      for (const res of responses) {
+        if (res.result && res.result !== '0x') {
+          const tokenId = parseInt(res.result, 16);
+          if (!Number.isNaN(tokenId) && tokenId >= 0) {
+            tokenIds.push(tokenId);
+          }
+        }
+      }
+    }
+
+    return tokenIds;
+  }
+
   async searchNFTs(query: string, limit: number = 32): Promise<MagicEdenNFT[]> {
     try {
       const response = await fetch(
