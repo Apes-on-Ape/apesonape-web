@@ -47,8 +47,10 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit') || '10';
-    const sortBy = searchParams.get('sortBy') || 'price';
-    const sortDir = searchParams.get('sortDir') || 'asc';
+    const sortByRaw = searchParams.get('sortBy') || 'price';
+    const sortBy = sortByRaw === 'listedAt' ? 'listedAt' : 'price';
+    const sortDirRaw = searchParams.get('sortDir') || 'asc';
+    const sortDir = sortDirRaw === 'desc' ? 'desc' : 'asc';
 
     const apiKey = process.env.MAGIC_EDEN_API_KEY;
     if (!apiKey) {

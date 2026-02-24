@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import { usePrivy } from '@privy-io/react-auth';
@@ -10,14 +11,13 @@ import SafeImage from '../components/SafeImage';
 import { ProfileBadges } from '../components/ProfileBadges';
 import { CreationRecord } from '@/lib/studio/types';
 import { toGatewayUri } from '@/lib/studio/urls';
-import type { CreatorSkills } from '@/lib/studio/xp';
-import { getSkillBadges } from '@/lib/studio/xp-client';
 
 const CDN_BASE = 'https://bqcrbcpmimfojnjdhvrz.supabase.co/storage/v1/object/public/collection/collection-index/';
 
 type PrivyTwitter = { name?: string; username?: string; profilePictureUrl?: string };
 type PrivyUser = { id?: string; twitter?: PrivyTwitter };
 export default function ProfilePage() {
+	const searchParams = useSearchParams();
 	const { user, linkTwitter } = (usePrivy() as unknown) as { user?: PrivyUser; linkTwitter?: () => Promise<void> };
 	const glyph = (useGlyph() as unknown) as {
 		logout?: () => Promise<void>;
@@ -33,29 +33,33 @@ export default function ProfilePage() {
 
 	const name: string = twitter?.name || '';
 	const username: string = twitter?.username || '';
-	const twitterAvatarUrl: string | null = twitter?.profilePictureUrl || null;
 	const displayName = name;
 	const displayHandle = username;
 	const userId = user?.id || '';
 
-	// Fetch custom avatar from Supabase (priority over Twitter avatar)
-	const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(null);
-	const [avatarUploading, setAvatarUploading] = useState(false);
-	const avatarUrl = customAvatarUrl || twitterAvatarUrl;
-
 	const [creations, setCreations] = useState<CreationRecord[]>([]);
 	const [loadingCreations, setLoadingCreations] = useState(false);
 	const [creationsError, setCreationsError] = useState<string | null>(null);
-	const [skills, setSkills] = useState<CreatorSkills | null>(null);
-	const [badgeUrl, setBadgeUrl] = useState<string | null>(null);
-	const [badgeGenerating, setBadgeGenerating] = useState(false);
 	const [foreverApe, setForeverApe] = useState<number | null>(null);
 	const [foreverApeInput, setForeverApeInput] = useState('');
 	const [foreverApeSaving, setForeverApeSaving] = useState(false);
 	const [foreverApeError, setForeverApeError] = useState<string | null>(null);
 	const [apeImgMap, setApeImgMap] = useState<Record<string, string> | null>(null);
 	const [foreverApeImg, setForeverApeImg] = useState<string | null>(null);
-	const [ownedBadges, setOwnedBadges] = useState<Array<{ slug: string; asset?: string; title?: string }>>([]);
+
+	// AOA Album upload to Drive
+	const [albumName, setAlbumName] = useState('');
+	const [albumSongs, setAlbumSongs] = useState<File[]>([]);
+	const [albumCover, setAlbumCover] = useState<File | null>(null);
+	const [driveConnected, setDriveConnected] = useState<boolean | null>(null);
+	const [albumUploading, setAlbumUploading] = useState(false);
+	const [albumProgress, setAlbumProgress] = useState(0);
+	const [albumUploadedCount, setAlbumUploadedCount] = useState(0);
+	const [albumTotalUpload, setAlbumTotalUpload] = useState(0);
+	const [albumError, setAlbumError] = useState<string | null>(null);
+	const [albumSuccess, setAlbumSuccess] = useState<string | null>(null);
+	const albumSongsRef = useRef<HTMLInputElement>(null);
+	const albumCoverRef = useRef<HTMLInputElement>(null);
 
 	// All wallets from Glyph (primary + linked) for badge and creation lookup
 	const walletAddresses = useMemo(() => {
@@ -65,53 +69,6 @@ export default function ProfilePage() {
 		return Array.from(set);
 	}, [glyph?.user?.evmWallet, glyph?.user?.smartWallet, glyph?.user?.linkedWallets]);
 	const walletAddress = walletAddresses[0] ?? '';
-
-	// Fetch custom avatar from Supabase
-	useEffect(() => {
-		if (!userId) return;
-		let cancelled = false;
-		(async () => {
-			try {
-				const res = await fetch(`/api/profile/summary?userId=${encodeURIComponent(userId)}`);
-				if (res.ok) {
-					const json = await res.json();
-					if (!cancelled && json?.profile?.avatar_url) {
-						setCustomAvatarUrl(json.profile.avatar_url);
-					}
-				}
-			} catch {
-				// ignore
-			}
-		})();
-		return () => {
-			cancelled = true;
-		};
-	}, [userId]);
-
-	// Fetch owned badges for badge generation
-	useEffect(() => {
-		if (!walletAddresses.length) return;
-		let cancelled = false;
-		(async () => {
-			try {
-				const query = walletAddresses.length === 1
-					? `address=${encodeURIComponent(walletAddresses[0])}`
-					: walletAddresses.map((a) => `addresses=${encodeURIComponent(a)}`).join('&');
-				const res = await fetch(`/api/profile/badges?${query}`, { cache: 'no-store' });
-				if (res.ok) {
-					const json = await res.json();
-					if (!cancelled && Array.isArray(json.badges)) {
-						setOwnedBadges(json.badges);
-					}
-				}
-			} catch {
-				// ignore
-			}
-		})();
-		return () => {
-			cancelled = true;
-		};
-	}, [walletAddresses.join(',')]);
 
 	useEffect(() => {
 		if (!walletAddress) return;
@@ -201,303 +158,16 @@ export default function ProfilePage() {
 		}
 	}, [foreverApe, apeImgMap]);
 
-	const profileUrl =
-		typeof window !== 'undefined'
-			? `${window.location.origin}/profile/${username || ''}`
-			: '';
-
-	const avatarInputRef = useRef<HTMLInputElement>(null);
-	
-	const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0];
-		if (!file || !userId) return;
-		setAvatarUploading(true);
-		try {
-			const formData = new FormData();
-			formData.append('file', file);
-			formData.append('userId', userId);
-			const res = await fetch('/api/profile/avatar', { method: 'POST', body: formData });
-			const json = await res.json();
-			if (res.ok && json.url) {
-				setCustomAvatarUrl(json.url);
-				// Refresh nav avatar by triggering a re-fetch
-				if (typeof window !== 'undefined') {
-					window.dispatchEvent(new Event('avatar-updated'));
-				}
-			} else {
-				alert(json.error || 'Failed to upload avatar');
-			}
-		} catch (err) {
-			alert('Failed to upload avatar');
-		} finally {
-			setAvatarUploading(false);
-			// Reset input so same file can be selected again
-			if (avatarInputRef.current) {
-				avatarInputRef.current.value = '';
-			}
-		}
-	};
-
-	const generateBadge = async () => {
-		if (!skills) return;
-		setBadgeGenerating(true);
-		try {
-			const top = creations[0];
-			const creationPreview = top ? toGatewayUri(top.artifactUrl) : null;
-			const foreverImg = foreverApeImg ? toGatewayUri(foreverApeImg) : null;
-			// Use Forever Ape as profile image, fallback to avatar
-			const profileImgUrl = foreverImg || avatarUrl || null;
-			const loadImage = (url: string) =>
-				new Promise<HTMLImageElement>((resolve, reject) => {
-					const img = new Image();
-					img.crossOrigin = 'anonymous';
-					img.onload = () => resolve(img);
-					img.onerror = reject;
-					img.src = url;
-				});
-
-			const canvas = document.createElement('canvas');
-			canvas.width = 1200;
-			canvas.height = 800;
-			const ctx = canvas.getContext('2d');
-			if (!ctx) throw new Error('Canvas unavailable');
-
-			// Ape-inspired background with "Apes On Ape"
-			const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-			grad.addColorStop(0, '#070d1f');
-			grad.addColorStop(0.5, '#0d1f3d');
-			grad.addColorStop(1, '#070d1f');
-			ctx.fillStyle = grad;
-			ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-			// Background text "Apes On Ape"
-			ctx.save();
-			ctx.fillStyle = 'rgba(255,255,255,0.03)';
-			ctx.font = 'bold 120px Raleway, sans-serif';
-			ctx.translate(canvas.width / 2, canvas.height / 2);
-			ctx.rotate(-0.3);
-			ctx.textAlign = 'center';
-			ctx.fillText('APES ON APE', 0, 0);
-			ctx.restore();
-
-			// Decorative circles
-			ctx.fillStyle = 'rgba(0,84,249,0.08)';
-			ctx.beginPath();
-			ctx.arc(150, 120, 100, 0, Math.PI * 2);
-			ctx.fill();
-			ctx.fillStyle = 'rgba(255,215,0,0.06)';
-			ctx.beginPath();
-			ctx.arc(canvas.width - 150, canvas.height - 120, 120, 0, Math.PI * 2);
-			ctx.fill();
-
-			// Main header
-			ctx.fillStyle = '#ffffff';
-			ctx.font = 'bold 42px Raleway, sans-serif';
-			ctx.textAlign = 'left';
-			ctx.fillText('AOA Studio Badge', 60, 80);
-
-			// Profile image display (Forever Ape or avatar, top left, next to header)
-			if (profileImgUrl) {
-				try {
-					const profileImg = await loadImage(profileImgUrl);
-					ctx.save();
-					// Draw rounded square for Forever Ape, circle for avatar
-					if (foreverImg) {
-						const size = 60;
-						const x = 200 - size / 2;
-						const y = 80 - size / 2;
-						const radius = 8;
-						ctx.beginPath();
-						ctx.moveTo(x + radius, y);
-						ctx.lineTo(x + size - radius, y);
-						ctx.quadraticCurveTo(x + size, y, x + size, y + radius);
-						ctx.lineTo(x + size, y + size - radius);
-						ctx.quadraticCurveTo(x + size, y + size, x + size - radius, y + size);
-						ctx.lineTo(x + radius, y + size);
-						ctx.quadraticCurveTo(x, y + size, x, y + size - radius);
-						ctx.lineTo(x, y + radius);
-						ctx.quadraticCurveTo(x, y, x + radius, y);
-						ctx.closePath();
-						ctx.clip();
-						ctx.drawImage(profileImg, x, y, size, size);
-						ctx.restore();
-						ctx.strokeStyle = 'rgba(255,215,0,0.9)';
-						ctx.lineWidth = 3;
-						ctx.beginPath();
-						ctx.moveTo(x - 1 + radius, y - 1);
-						ctx.lineTo(x - 1 + size - radius, y - 1);
-						ctx.quadraticCurveTo(x - 1 + size, y - 1, x - 1 + size, y - 1 + radius);
-						ctx.lineTo(x - 1 + size, y - 1 + size - radius);
-						ctx.quadraticCurveTo(x - 1 + size, y - 1 + size, x - 1 + size - radius, y - 1 + size);
-						ctx.lineTo(x - 1 + radius, y - 1 + size);
-						ctx.quadraticCurveTo(x - 1, y - 1 + size, x - 1, y - 1 + size - radius);
-						ctx.lineTo(x - 1, y - 1 + radius);
-						ctx.quadraticCurveTo(x - 1, y - 1, x - 1 + radius, y - 1);
-						ctx.closePath();
-						ctx.stroke();
-					} else {
-						ctx.beginPath();
-						ctx.arc(200, 80, 35, 0, Math.PI * 2);
-						ctx.closePath();
-						ctx.clip();
-						ctx.drawImage(profileImg, 165, 45, 70, 70);
-						ctx.restore();
-						ctx.strokeStyle = 'rgba(123,176,255,0.8)';
-						ctx.lineWidth = 3;
-						ctx.beginPath();
-						ctx.arc(200, 80, 37, 0, Math.PI * 2);
-						ctx.stroke();
-					}
-				} catch {
-					// ignore
-				}
-			}
-
-			// User info section (left side)
-			ctx.fillStyle = '#7bb0ff';
-			ctx.font = 'bold 28px Raleway, sans-serif';
-			ctx.fillText(`@${username || 'unknown'}`, 60, 130);
-
-			// Forever Ape display (top right area)
-			if (foreverApe !== null && foreverImg) {
-				try {
-					const ape = await loadImage(foreverImg);
-					ctx.save();
-					ctx.beginPath();
-					ctx.arc(1000, 120, 70, 0, Math.PI * 2);
-					ctx.closePath();
-					ctx.clip();
-					ctx.drawImage(ape, 930, 50, 140, 140);
-					ctx.restore();
-					ctx.strokeStyle = 'rgba(255,215,0,0.9)';
-					ctx.lineWidth = 4;
-					ctx.beginPath();
-					ctx.arc(1000, 120, 72, 0, Math.PI * 2);
-					ctx.stroke();
-
-					// Ape ID under the image
-					ctx.fillStyle = '#ffd700';
-					ctx.font = 'bold 16px Raleway, sans-serif';
-					ctx.textAlign = 'center';
-					ctx.fillText(`#${foreverApe}`, 1000, 220);
-					ctx.textAlign = 'left';
-				} catch {
-					// ignore
-				}
-			}
-
-			// Skill levels section (middle)
-			ctx.fillStyle = 'rgba(255,255,255,0.08)';
-			ctx.fillRect(50, 250, 1100, 100);
-			ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-			ctx.lineWidth = 1;
-			ctx.strokeRect(50, 250, 1100, 100);
-
-			ctx.fillStyle = '#ffffff';
-			ctx.font = 'bold 24px Raleway, sans-serif';
-			ctx.fillText('Skill Levels', 70, 280);
-
-			ctx.font = '18px Raleway, sans-serif';
-			const skillsText = `AI Image: L${skills.visual.level}`;
-			ctx.fillText(skillsText, 70, 320);
-
-			// Recent creation section (bottom)
-			if (top) {
-				ctx.fillStyle = '#9ad5ff';
-				ctx.font = 'bold 22px Raleway, sans-serif';
-				ctx.fillText('Latest Creation', 60, 390);
-
-			ctx.fillStyle = '#ffffff';
-			ctx.font = 'bold 24px Raleway, sans-serif';
-			ctx.fillText('AI Image', 60, 420);
-
-				// Creation preview box
-				const boxX = 60;
-				const boxY = 440;
-				const boxW = 420;
-				const boxH = 160;
-				ctx.fillStyle = 'rgba(255,255,255,0.08)';
-				ctx.fillRect(boxX, boxY, boxW, boxH);
-				ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-				ctx.strokeRect(boxX, boxY, boxW, boxH);
-
-				if (top.type === 'visual' && creationPreview) {
-					try {
-						const img = await loadImage(creationPreview);
-						const aspect = img.width / img.height;
-						let drawW = boxW - 20;
-						let drawH = drawW / aspect;
-						if (drawH > boxH - 20) {
-							drawH = boxH - 20;
-							drawW = drawH * aspect;
-						}
-						const dx = boxX + (boxW - drawW) / 2;
-						const dy = boxY + (boxH - drawH) / 2;
-						ctx.drawImage(img, dx, dy, drawW, drawH);
-					} catch {
-						ctx.fillStyle = '#7bb0ff';
-						ctx.font = '16px Raleway, sans-serif';
-						ctx.fillText('Preview image unavailable', boxX + 12, boxY + 40);
-					}
-				} else {
-					ctx.fillStyle = '#7bb0ff';
-					ctx.font = '18px Raleway, sans-serif';
-					ctx.fillText('Preview unavailable', boxX + 12, boxY + 35);
-				}
-			}
-
-			// Owned Badges section
-			if (ownedBadges.length > 0) {
-				ctx.fillStyle = '#9ad5ff';
-				ctx.font = 'bold 20px Raleway, sans-serif';
-				ctx.fillText('Earned Badges', 60, 640);
-				
-				const badgeSize = 60;
-				const badgeSpacing = 70;
-				const badgesPerRow = Math.floor((canvas.width - 120) / badgeSpacing);
-				const maxBadgesToShow = Math.min(ownedBadges.length, badgesPerRow * 2);
-				
-				for (let i = 0; i < maxBadgesToShow; i++) {
-					const badge = ownedBadges[i];
-					if (!badge?.asset) continue;
-					
-					const row = Math.floor(i / badgesPerRow);
-					const col = i % badgesPerRow;
-					const x = 60 + col * badgeSpacing;
-					const y = 670 + row * badgeSpacing;
-					
-					try {
-						const badgeImg = await loadImage(`/badges/${badge.asset}`);
-						ctx.save();
-						ctx.fillStyle = 'rgba(0,0,0,0.6)';
-						ctx.fillRect(x - 3, y - 3, badgeSize + 6, badgeSize + 6);
-						ctx.drawImage(badgeImg, x, y, badgeSize, badgeSize);
-						ctx.restore();
-					} catch {
-						// ignore
-					}
-				}
-				
-				if (ownedBadges.length > maxBadgesToShow) {
-					ctx.fillStyle = '#7bb0ff';
-					ctx.font = '14px Raleway, sans-serif';
-					ctx.fillText(`+${ownedBadges.length - maxBadgesToShow} more`, 60, 670 + badgeSpacing * 2 + 20);
-				}
-			}
-
-			// Footer
-			ctx.fillStyle = '#7bb0ff';
-			ctx.font = '16px Raleway, sans-serif';
-			ctx.fillText('apesonape.io/studio', 60, canvas.height - 20);
-
-			const url = canvas.toDataURL('image/png');
-			setBadgeUrl(url);
-		} catch (e) {
-			console.error(e);
-		} finally {
-			setBadgeGenerating(false);
-		}
-	};
+	// Check Drive connection status
+	useEffect(() => {
+		if (!userId) return;
+		let cancelled = false;
+		fetch('/api/profile/drive-status', { cache: 'no-store' })
+			.then((r) => r.json())
+			.then((j) => { if (!cancelled) setDriveConnected(!!j.connected); })
+			.catch(() => { if (!cancelled) setDriveConnected(false); });
+		return () => { cancelled = true; };
+	}, [userId]);
 
 	const saveForeverApe = async () => {
 		setForeverApeError(null);
@@ -527,21 +197,88 @@ export default function ProfilePage() {
 		}
 	};
 
-	useEffect(() => {
-		if (!walletAddress) return;
-		let cancelled = false;
-		(async () => {
-			try {
-				const res = await fetch(`/api/studio/profile/xp?address=${encodeURIComponent(walletAddress)}`, { cache: 'no-store' });
-				const json = await res.json();
-				if (!res.ok) throw new Error(json?.error || 'Failed to load XP');
-				if (!cancelled) setSkills(json.skills || null);
-			} catch {
-				if (!cancelled) setSkills(null);
+	const handleAlbumUpload = async () => {
+		setAlbumError(null);
+		setAlbumSuccess(null);
+		const name = albumName.trim();
+		if (!name) {
+			setAlbumError('Enter an album name');
+			return;
+		}
+		if (albumSongs.length === 0) {
+			setAlbumError('Add at least one song (MP3 or WAV)');
+			return;
+		}
+		if (!albumCover) {
+			setAlbumError('Add an album cover image');
+			return;
+		}
+		setAlbumUploading(true);
+		setAlbumProgress(0);
+		setAlbumUploadedCount(0);
+		setAlbumTotalUpload(0);
+		const formData = new FormData();
+		formData.append('folderName', name);
+		albumSongs.forEach((f) => formData.append('songs', f));
+		formData.append('cover', albumCover);
+		try {
+			const res = await fetch('/api/profile/aoa-album', { method: 'POST', body: formData });
+			const reader = res.body?.getReader();
+			const decoder = new TextDecoder();
+			let buffer = '';
+			if (!reader) throw new Error('No response body');
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				buffer += decoder.decode(value, { stream: true });
+				const lines = buffer.split('\n\n');
+				buffer = lines.pop() || '';
+				for (const chunk of lines) {
+					const match = chunk.match(/^data:\s*(.+)$/m);
+					if (!match) continue;
+					try {
+						const data = JSON.parse(match[1]);
+						if (data.uploaded !== undefined) {
+							setAlbumUploadedCount(data.uploaded);
+							setAlbumTotalUpload(data.total);
+							setAlbumProgress(data.total > 0 ? Math.round(85 + (15 * data.uploaded) / data.total) : 85);
+						}
+						if (data.done) {
+							setAlbumProgress(100);
+							setAlbumSuccess(data.message || 'Album uploaded!');
+							setAlbumName('');
+							setAlbumSongs([]);
+							setAlbumCover(null);
+							if (albumSongsRef.current) albumSongsRef.current.value = '';
+							if (albumCoverRef.current) albumCoverRef.current.value = '';
+							setTimeout(() => {
+								setAlbumProgress(0);
+								setAlbumUploadedCount(0);
+								setAlbumTotalUpload(0);
+							}, 1500);
+						}
+						if (data.error) {
+							setAlbumError(data.error);
+						}
+					} catch {
+						// ignore parse errors for partial chunks
+					}
+				}
 			}
-		})();
-		return () => { cancelled = true; };
-	}, [walletAddress]);
+			if (!res.ok) {
+				try {
+					const json = JSON.parse(buffer || '{}');
+					setAlbumError(json.error || 'Upload failed');
+				} catch {
+					setAlbumError('Upload failed');
+				}
+			}
+		} catch (err) {
+			setAlbumError(err instanceof Error ? err.message : 'Upload failed');
+		} finally {
+			setAlbumUploading(false);
+		}
+	};
 
 	return (
 		<div className="min-h-screen relative">
@@ -679,107 +416,152 @@ export default function ProfilePage() {
 					<ProfileBadges addresses={walletAddresses} showRefresh />
 				</div>
 
-				{/* Skill Progress */}
-				<div className="relative overflow-hidden glass-dark rounded-3xl p-6 sm:p-8 border-2 border-white/10 mt-10 shadow-xl shadow-black/40 bg-gradient-to-br from-hero-blue/15 via-black/40 to-purple-900/15 backdrop-blur-xl">
-					<div className="absolute top-0 right-0 w-80 h-80 bg-hero-blue/15 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 animate-pulse" />
-					<div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-					<div className="relative">
-					<div className="flex items-center justify-between mb-6">
-						<h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-hero-blue via-purple-400 to-ape-gold bg-clip-text text-transparent">
-							Studio Skill Progress
-						</h2>
-						<div className="flex items-center gap-3 flex-wrap">
-							<button
-								onClick={generateBadge}
-								className="px-5 py-2.5 text-sm font-semibold rounded-lg bg-gradient-to-r from-hero-blue/20 to-purple-500/20 border-2 border-hero-blue/40 hover:border-hero-blue/60 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-								disabled={!skills || badgeGenerating}
-							>
-								{badgeGenerating ? (
-									<span className="flex items-center gap-2">
-										<span className="animate-spin">⏳</span>
-										<span>Building badge…</span>
-									</span>
+				{/* Upload AOA Album to Drive */}
+				{userId && (
+					<div className="relative overflow-hidden glass-dark rounded-3xl p-6 sm:p-8 border-2 border-white/10 mt-10 shadow-xl shadow-black/40 bg-gradient-to-br from-purple-900/15 via-black/40 to-hero-blue/15 backdrop-blur-xl">
+						<div className="absolute bottom-0 right-0 w-64 h-64 bg-hero-blue/10 rounded-full blur-3xl translate-y-1/2 translate-x-1/2" />
+						<div className="absolute top-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2" />
+						<div className="relative">
+							<div className="flex items-center gap-3 mb-2">
+								<span className="text-3xl">🎵</span>
+								<h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-hero-blue via-purple-400 to-ape-gold bg-clip-text text-transparent">
+									Upload AOA Album
+								</h2>
+							</div>
+							<p className="text-off-white/70 text-sm mb-6">
+								Upload to your Google Drive. MP3/WAV + 1 image (cover). Max 25 songs, 50MB per song, 10MB cover.
+							</p>
+							{/* Connect Google Drive */}
+							<div className="mb-6 flex flex-wrap items-center gap-3">
+								{driveConnected ? (
+									<>
+										<span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/20 text-green-400 border-2 border-green-500/40 font-semibold">
+											<span>✓</span> Google Drive connected
+										</span>
+										<button
+											onClick={async () => {
+												await fetch('/api/profile/drive-disconnect', { method: 'POST' });
+												setDriveConnected(false);
+											}}
+											className="text-sm text-off-white/60 hover:text-red-400 transition-colors"
+										>
+											Disconnect
+										</button>
+									</>
 								) : (
-									<span className="flex items-center gap-2">
-										<span>🎨</span>
-										<span>Generate badge</span>
-									</span>
-								)}
-							</button>
-							{badgeUrl && (
-								<>
 									<a
-										href={badgeUrl}
-										download="aoa-studio-badge.png"
-										className="px-5 py-2.5 text-sm font-semibold rounded-lg bg-gradient-to-r from-hero-blue/20 to-purple-500/20 border-2 border-hero-blue/40 hover:border-hero-blue/60 transition-all hover:scale-105 shadow-lg"
+										href="/api/auth/google/drive?state=profile"
+										className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border-2 border-hero-blue/40 text-hero-blue font-semibold transition-all hover:scale-105"
 									>
-										⬇️ Download
+										<span>🔗</span>
+										Connect Google Drive
 									</a>
-									<button
-										onClick={() => {
-											const text = encodeURIComponent(
-												`My AOA Studio badge — come check my creations!`,
-											);
-											const url = encodeURIComponent(profileUrl || `${window.location.origin}/studio`);
-											window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
-										}}
-										className="px-5 py-2.5 text-sm font-semibold rounded-lg bg-gradient-to-r from-hero-blue to-purple-500 hover:from-hero-blue/90 hover:to-purple-500/90 transition-all hover:scale-105 shadow-lg text-white"
-									>
-										🐦 Share on X
-									</button>
-								</>
+								)}
+							</div>
+							{searchParams.get('drive_error') === 'token' && (
+								<div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+									Drive connection failed. Please try again.
+								</div>
 							)}
-						</div>
-					</div>
-					{!walletAddress && <p className="text-off-white/70 text-sm">Connect your wallet to track experience.</p>}
-					{walletAddress && skills && (
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-							{(['visual'] as Array<keyof CreatorSkills>).map((skill) => {
-								const data = skills[skill];
-								const badges = getSkillBadges(skill, data.level);
-								return (
-									<div key={skill} className="relative overflow-hidden border border-white/10 rounded-2xl p-5 bg-gradient-to-br from-white/5 via-black/30 to-hero-blue/10 shadow-lg shadow-black/40 hover:shadow-xl hover:shadow-hero-blue/20 transition-all hover:scale-[1.02]">
-										<div className="absolute top-0 right-0 w-32 h-32 bg-hero-blue/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-										<div className="relative">
-											<div className="flex items-center justify-between mb-3">
-												<span className="font-bold text-lg text-hero-blue">AI Image</span>
-												<span className="px-3 py-1 rounded-full bg-hero-blue/20 border border-hero-blue/40 text-hero-blue font-bold">
-													Level {data.level}
-												</span>
-											</div>
-											<div className="w-full h-4 rounded-full bg-black/50 overflow-hidden border-2 border-white/10 shadow-inner">
-												<div
-													className="h-full bg-gradient-to-r from-hero-blue via-purple-500 to-ape-gold transition-all duration-500 shadow-lg"
-													style={{ width: `${Math.min(100, Math.round(data.progress * 100))}%` }}
-												/>
-											</div>
-											<div className="flex items-center justify-between text-xs text-off-white/70 mt-2">
-												<span className="font-semibold">{data.xp} XP</span>
-												<span>{Math.round((data.progress || 0) * 100)}% to next level</span>
-											</div>
-											{badges.length > 0 && (
-												<div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/10">
-													{badges.map((b) => (
-														<span
-															key={`${skill}-${b.level}`}
-															className="px-3 py-1 rounded-lg text-xs bg-hero-blue/20 border border-hero-blue/40 text-hero-blue font-semibold shadow-md"
-														>
-															{b.title} (Lvl {b.level})
-														</span>
-													))}
-												</div>
-											)}
+							{!driveConnected && (
+								<p className="text-off-white/60 text-sm mb-4">Connect your Google account to upload albums to your Drive.</p>
+							)}
+							<div className="space-y-5 max-w-xl">
+								<div>
+									<label className="block text-sm font-semibold text-off-white/90 mb-2">Album / folder name</label>
+									<input
+										value={albumName}
+										onChange={(e) => setAlbumName(e.target.value)}
+										placeholder="e.g. My First AOA Album"
+										disabled={albumUploading || !driveConnected}
+										className="w-full rounded-xl bg-black/60 border-2 border-hero-blue/40 p-3.5 text-white placeholder:text-off-white/40 focus:border-ape-gold/60 focus:ring-2 focus:ring-ape-gold/30 focus:outline-none transition-all disabled:opacity-60"
+										maxLength={100}
+									/>
+								</div>
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<div className="rounded-xl border-2 border-dashed border-hero-blue/30 bg-black/30 p-4 hover:border-hero-blue/50 transition-colors">
+										<label className="block text-sm font-semibold text-off-white/90 mb-2">Songs (MP3 or WAV)</label>
+										<input
+											ref={albumSongsRef}
+											type="file"
+											accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav"
+											multiple
+											disabled={albumUploading || !driveConnected}
+											onChange={(e) => setAlbumSongs(Array.from(e.target.files || []))}
+											className="block w-full text-sm text-off-white/80 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-hero-blue/40 file:text-hero-blue file:font-semibold file:cursor-pointer hover:file:bg-hero-blue/60 file:transition-colors disabled:opacity-60"
+										/>
+										{albumSongs.length > 0 && (
+											<p className="text-xs text-ape-gold font-medium mt-2">{albumSongs.length} file(s) selected</p>
+										)}
+									</div>
+									<div className="rounded-xl border-2 border-dashed border-hero-blue/30 bg-black/30 p-4 hover:border-hero-blue/50 transition-colors">
+										<label className="block text-sm font-semibold text-off-white/90 mb-2">Album cover (JPG, PNG, WebP)</label>
+										<input
+											ref={albumCoverRef}
+											type="file"
+											accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+											disabled={albumUploading || !driveConnected}
+											onChange={(e) => setAlbumCover(e.target.files?.[0] || null)}
+											className="block w-full text-sm text-off-white/80 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-hero-blue/40 file:text-hero-blue file:font-semibold file:cursor-pointer hover:file:bg-hero-blue/60 file:transition-colors disabled:opacity-60"
+										/>
+										{albumCover && (
+											<p className="text-xs text-ape-gold font-medium mt-2 truncate" title={albumCover.name}>{albumCover.name}</p>
+										)}
+									</div>
+								</div>
+								{albumUploading && (
+									<div className="space-y-2">
+										<div className="flex justify-between text-sm">
+											<span className="text-off-white/80 font-medium">
+												{albumTotalUpload > 0
+													? albumUploadedCount === 1
+														? 'Cover uploaded, uploading songs…'
+														: `Uploaded ${albumUploadedCount - 1} of ${albumTotalUpload - 1} songs`
+													: 'Sending to server…'}
+											</span>
+											<span className="text-hero-blue font-bold">{albumProgress}%</span>
+										</div>
+										<div className="h-2.5 w-full rounded-full bg-black/50 overflow-hidden border border-white/10">
+											<div
+												className="h-full bg-gradient-to-r from-hero-blue via-purple-500 to-ape-gold transition-all duration-300 ease-out"
+												style={{ width: `${albumProgress}%` }}
+											/>
 										</div>
 									</div>
-								);
-							})}
+								)}
+								<button
+									onClick={handleAlbumUpload}
+									disabled={albumUploading || !driveConnected}
+									className="w-full sm:w-auto px-8 py-3 text-sm font-bold rounded-xl bg-gradient-to-r from-hero-blue to-purple-500 hover:from-hero-blue/90 hover:to-purple-500/90 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg text-white border-2 border-black/20 flex items-center justify-center gap-2"
+								>
+									{albumUploading ? (
+										<>
+											<span className="animate-spin text-lg">⏳</span>
+											<span>Uploading…</span>
+										</>
+									) : (
+										<>
+											<span className="text-lg">📤</span>
+											<span>Upload to Drive</span>
+										</>
+									)}
+								</button>
+								{albumError && (
+									<div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold">
+										<span>⚠️</span>
+										<span>{albumError}</span>
+									</div>
+								)}
+								{albumSuccess && (
+									<div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-sm font-semibold">
+										<span>✓</span>
+										<span>{albumSuccess}</span>
+									</div>
+								)}
+							</div>
 						</div>
-					)}
-					{walletAddress && !skills && (
-						<p className="text-off-white/70 text-sm">No XP yet. Publish in Studio to start leveling up.</p>
-					)}
 					</div>
-				</div>
+				)}
 
 				{/* Studio Creations */}
 				<div className="relative overflow-hidden glass-dark rounded-3xl p-6 sm:p-8 border-2 border-white/10 mt-10 shadow-xl shadow-black/40 bg-gradient-to-br from-purple-900/15 via-black/40 to-hero-blue/15 backdrop-blur-xl">

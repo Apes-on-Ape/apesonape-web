@@ -972,10 +972,12 @@ export default function CollectionPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {activity.map((item, i) => {
-                    const type = item.type ?? (item as Record<string, unknown>).activityType ?? 'sale';
-                    const price = item.price ?? (item as Record<string, unknown>).price ?? (item as Record<string, unknown>).amount;
-                    const tokenId = item.tokenId ?? (item as Record<string, unknown>).tokenId ?? (item as Record<string, unknown>).token?.tokenId;
-                    const createdAt = item.createdAt ?? (item as Record<string, unknown>).createdAt;
+                    const itemObj = item as Record<string, unknown>;
+                    const tokenObj = itemObj.token as Record<string, unknown> | undefined;
+                    const type = item.type ?? itemObj.activityType ?? 'sale';
+                    const price = item.price ?? itemObj.price ?? itemObj.amount;
+                    const tokenId = item.tokenId ?? itemObj.tokenId ?? tokenObj?.tokenId;
+                    const createdAt = item.createdAt ?? itemObj.createdAt;
                     return (
                       <motion.div
                         key={i}
