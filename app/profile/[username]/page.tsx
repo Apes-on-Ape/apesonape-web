@@ -10,8 +10,6 @@ import { ProfileBadges } from '@/app/components/ProfileBadges';
 import { usePrivy } from '@privy-io/react-auth';
 import { useGlyph } from '@use-glyph/sdk-react';
 import { CreationRecord } from '@/lib/studio/types';
-import type { CreatorSkills } from '@/lib/studio/xp';
-import { getSkillBadges } from '@/lib/studio/xp-client';
 import { toGatewayUri } from '@/lib/studio/urls';
 
 const CDN_BASE = 'https://bqcrbcpmimfojnjdhvrz.supabase.co/storage/v1/object/public/collection/collection-index/';
@@ -42,13 +40,7 @@ export default function ProfileByUsernamePage({ params }: { params: Promise<{ us
 	const [creations, setCreations] = useState<CreationRecord[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [skills, setSkills] = useState<CreatorSkills | null>(null);
-	const [badgeUrl, setBadgeUrl] = useState<string | null>(null);
-	const [badgeGenerating, setBadgeGenerating] = useState(false);
 	const [foreverApe, setForeverApe] = useState<number | null>(null);
-	const [foreverApeInput, setForeverApeInput] = useState('');
-	const [foreverApeSaving, setForeverApeSaving] = useState(false);
-	const [foreverApeError, setForeverApeError] = useState<string | null>(null);
 	const [apeImgMap, setApeImgMap] = useState<Record<string, string> | null>(null);
 	const [foreverApeImg, setForeverApeImg] = useState<string | null>(null);
 
@@ -65,18 +57,11 @@ export default function ProfileByUsernamePage({ params }: { params: Promise<{ us
 
 				const creatorAddr = (json.items?.[0]?.creatorAddress || '').toLowerCase();
 				if (creatorAddr) {
-					const xpRes = await fetch(`/api/studio/profile/xp?address=${encodeURIComponent(creatorAddr)}`, { cache: 'no-store' });
-					const xpJson = await xpRes.json().catch(() => ({}));
-					if (xpRes.ok && !cancelled) setSkills(xpJson.skills || null);
-					// forever ape
 					try {
 						const faRes = await fetch(`/api/profile/forever-ape?address=${encodeURIComponent(creatorAddr)}`, { cache: 'no-store' });
 						const faJson = await faRes.json().catch(() => ({}));
 						if (faRes.ok && !cancelled) {
 							setForeverApe(typeof faJson.apeId === 'number' ? faJson.apeId : null);
-							setForeverApeInput(
-								typeof faJson.apeId === 'number' ? String(faJson.apeId) : '',
-							);
 						}
 					} catch {
 						// ignore
@@ -133,139 +118,6 @@ export default function ProfileByUsernamePage({ params }: { params: Promise<{ us
 		[glyph?.user?.evmWallet, glyph?.user?.smartWallet],
 	);
 
-	const profileUrl = typeof window !== 'undefined' ? `${window.location.origin}/profile/${username}` : '';
-
-	const generateBadge = async () => {
-		if (!skills) return;
-		setBadgeGenerating(true);
-		try {
-			const top = creations[0];
-			const previewUrl = top ? toGatewayUri(top.artifactUrl) : null;
-			const loadImage = (url: string) =>
-				new Promise<HTMLImageElement>((resolve, reject) => {
-					const img = new Image();
-					img.crossOrigin = 'anonymous';
-					img.onload = () => resolve(img);
-					img.onerror = reject;
-					img.src = url;
-				});
-
-			const canvas = document.createElement('canvas');
-			canvas.width = 900;
-			canvas.height = 520;
-			const ctx = canvas.getContext('2d');
-			if (!ctx) throw new Error('Canvas unavailable');
-
-			const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-			grad.addColorStop(0, '#0b1024');
-			grad.addColorStop(1, '#0a1a3a');
-			ctx.fillStyle = grad;
-			ctx.fillRect(0, 0, canvas.width, canvas.height);
-			ctx.fillStyle = 'rgba(0,84,249,0.08)';
-			ctx.beginPath();
-			ctx.arc(740, 120, 140, 0, Math.PI * 2);
-			ctx.fill();
-			ctx.fillStyle = 'rgba(255,215,0,0.06)';
-			ctx.beginPath();
-			ctx.arc(140, 360, 180, 0, Math.PI * 2);
-			ctx.fill();
-
-			ctx.fillStyle = '#ffffff';
-			ctx.font = 'bold 34px Raleway, sans-serif';
-			ctx.fillText('AOA Studio Badge', 40, 60);
-			ctx.font = '24px Raleway, sans-serif';
-			ctx.fillStyle = '#7bb0ff';
-			ctx.fillText(`@${displayHandle}`, 40, 100);
-			if (foreverApe !== null) {
-				ctx.font = '18px Raleway, sans-serif';
-				ctx.fillStyle = '#ffd700';
-				ctx.fillText(`Forever Ape: #${foreverApe}`, 40, 130);
-			}
-
-			ctx.fillStyle = 'rgba(255,255,255,0.08)';
-			ctx.fillRect(36, 160, 828, 90);
-			ctx.font = '18px Raleway, sans-serif';
-			ctx.fillStyle = '#ffffff';
-			const levelLine = `AI Image L${skills.visual.level}`;
-			ctx.fillText(levelLine, 50, 210);
-
-			if (top) {
-				ctx.fillStyle = '#9ad5ff';
-				ctx.fillText('Recent creation:', 40, 270);
-				ctx.fillStyle = '#ffffff';
-				ctx.font = '20px Raleway, sans-serif';
-				ctx.fillText(`${top.title || '(untitled)'}`, 40, 300);
-
-				const boxX = 40;
-				const boxY = 320;
-				const boxW = 360;
-				const boxH = 140;
-				ctx.fillStyle = 'rgba(255,255,255,0.06)';
-				ctx.fillRect(boxX, boxY, boxW, boxH);
-				ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-				ctx.strokeRect(boxX, boxY, boxW, boxH);
-
-				if (top.type === 'visual' && previewUrl) {
-					try {
-						const img = await loadImage(previewUrl);
-						const aspect = img.width / img.height;
-						let drawW = boxW - 16;
-						let drawH = drawW / aspect;
-						if (drawH > boxH - 16) {
-							drawH = boxH - 16;
-							drawW = drawH * aspect;
-						}
-						const dx = boxX + (boxW - drawW) / 2;
-						const dy = boxY + (boxH - drawH) / 2;
-						ctx.drawImage(img, dx, dy, drawW, drawH);
-					} catch {
-						ctx.fillStyle = '#7bb0ff';
-						ctx.fillText('Preview image unavailable', boxX + 12, boxY + 30);
-					}
-				} else {
-					ctx.fillStyle = '#7bb0ff';
-					ctx.font = '16px Raleway, sans-serif';
-					ctx.fillText('Preview unavailable', boxX + 12, boxY + 30);
-				}
-			}
-
-			ctx.fillStyle = '#7bb0ff';
-			ctx.font = '16px Raleway, sans-serif';
-			ctx.fillText('apesonape.io/studio', 40, 500);
-
-			const url = canvas.toDataURL('image/png');
-			setBadgeUrl(url);
-		} catch (e) {
-			console.error(e);
-		} finally {
-			setBadgeGenerating(false);
-		}
-	};
-
-	const saveForeverApe = async () => {
-		setForeverApeError(null);
-		const parsed = Number(foreverApeInput);
-		if (!Number.isFinite(parsed) || parsed < 0) {
-			setForeverApeError('Enter a valid Ape ID');
-			return;
-		}
-		try {
-			setForeverApeSaving(true);
-			const res = await fetch('/api/profile/forever-ape', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ address: creatorAddress, apeId: parsed }),
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json?.error || 'Failed to save');
-			setForeverApe(parsed);
-		} catch (err: unknown) {
-			setForeverApeError(err instanceof Error ? err.message : 'Failed to save');
-		} finally {
-			setForeverApeSaving(false);
-		}
-	};
-
 	return (
 		<div className="min-h-screen flex flex-col">
 			<Nav />
@@ -297,80 +149,13 @@ export default function ProfileByUsernamePage({ params }: { params: Promise<{ us
 						<div className="flex gap-2 flex-wrap">
 							<Link href="/studio" className="btn-secondary px-4 py-2 text-sm">← Back to Studio</Link>
 							{walletAddress && walletAddress === creatorAddress.toLowerCase() && (
-								<Link href="/profile" className="btn-primary px-4 py-2 text-sm">View my profile</Link>
-							)}
-							<button
-								onClick={generateBadge}
-								className="btn-secondary px-3 py-1.5 text-sm"
-								disabled={!skills || badgeGenerating}
-							>
-								{badgeGenerating ? 'Building badge…' : 'Generate badge'}
-							</button>
-							{badgeUrl && (
-								<>
-									<a
-										href={badgeUrl}
-										download="aoa-studio-badge.png"
-										className="btn-secondary px-3 py-1.5 text-sm"
-									>
-										Download
-									</a>
-									<button
-										onClick={() => {
-											const text = encodeURIComponent(
-												`Check out @${displayHandle}'s AOA Studio badge!`
-											);
-											const url = encodeURIComponent(profileUrl || `${window.location.origin}/studio`);
-											window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
-										}}
-										className="btn-primary px-3 py-1.5 text-sm"
-									>
-										Share on X
-									</button>
-								</>
+								<Link href="/profile" className="btn-primary px-4 py-2 text-sm">Edit my profile</Link>
 							)}
 						</div>
 					</div>
 					{creatorAddress && (
 						<div className="mt-4">
-							<ProfileBadges address={creatorAddress} showRefresh={walletAddress === creatorAddress?.toLowerCase()} />
-						</div>
-					)}
-					{skills && (
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-						{(['visual'] as Array<keyof CreatorSkills>).map((skill) => {
-								const data = skills[skill];
-								const badges = getSkillBadges(skill, data.level);
-								return (
-									<div key={skill} className="border border-white/10 rounded-xl p-4 bg-gradient-to-br from-white/5 via-black/20 to-black/40 shadow-md shadow-black/30">
-										<div className="flex items-center justify-between text-sm mb-2">
-										<span className="font-semibold">AI Image</span>
-											<span className="text-off-white/60">Level {data.level}</span>
-										</div>
-										<div className="w-full h-3 rounded-full bg-white/10 overflow-hidden border border-white/10">
-											<div
-												className="h-full bg-gradient-to-r from-hero-blue to-ape-gold"
-												style={{ width: `${Math.min(100, Math.round(data.progress * 100))}%` }}
-											/>
-										</div>
-										<div className="text-2xs text-off-white/60 mt-1">
-											{data.xp} XP • {Math.round((data.progress || 0) * 100)}% of next level
-										</div>
-										{badges.length > 0 && (
-											<div className="flex flex-wrap gap-2 mt-2">
-												{badges.map((b) => (
-													<span
-														key={`${skill}-${b.level}`}
-														className="px-2 py-1 rounded-full text-2xs bg-hero-blue/10 border border-hero-blue/30 text-hero-blue"
-													>
-														{b.title} (Lvl {b.level})
-													</span>
-												))}
-											</div>
-										)}
-									</div>
-								);
-							})}
+							<ProfileBadges address={creatorAddress} showRefresh={false} />
 						</div>
 					)}
 				</div>
@@ -406,29 +191,6 @@ export default function ProfileByUsernamePage({ params }: { params: Promise<{ us
 									</div>
 								</a>
 							))}
-						</div>
-					)}
-					{walletAddress && walletAddress === creatorAddress?.toLowerCase() && (
-						<div className="mt-6 rounded-xl border border-white/10 bg-black/30 p-4">
-							<div className="flex items-center gap-2 flex-wrap">
-								<input
-									value={foreverApeInput}
-									onChange={(e) => setForeverApeInput(e.target.value)}
-									className="rounded-md bg-black/40 border border-white/10 p-2 text-sm w-40"
-									placeholder="Ape ID"
-								/>
-								<button
-									onClick={saveForeverApe}
-									className="btn-primary px-3 py-1.5 text-sm"
-									disabled={foreverApeSaving}
-								>
-									{foreverApeSaving ? 'Saving…' : 'Save forever ape'}
-								</button>
-								{foreverApe !== null && (
-									<span className="text-sm text-off-white/70">Current: #{foreverApe}</span>
-								)}
-							</div>
-							{foreverApeError && <div className="text-red-300 text-xs mt-1">{foreverApeError}</div>}
 						</div>
 					)}
 				</div>

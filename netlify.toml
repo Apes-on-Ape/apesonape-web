@@ -3,6 +3,8 @@
   publish = ".next"
 
 [build.environment]
+  # Increase Node.js heap for Next.js + TypeScript (avoids "JavaScript heap out of memory" on Netlify)
+  NODE_OPTIONS = "--max-old-space-size=4096"
   # Ignore SERVICE_ROLE_KEY in secret scanning - it's expected in server-side code only
   # This key is server-only and should not trigger secret scanning failures
   SECRETS_SCAN_OMIT_KEYS = "SERVICE_ROLE_KEY,SUPABASE_SERVICE_ROLE_KEY"

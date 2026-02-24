@@ -28,7 +28,7 @@ export default function SafeImage({
 	priority = false,
 }: Props) {
 	const safeSrc = (() => {
-		if (!src) return '/placeholder.png';
+		if (!src) return '/AoA-placeholder-apecoinblue.jpg';
 		// Use full gateway URLs as-is so production can load directly (avoids proxy timeouts / same-image issues)
 		if (src.startsWith('http://') || src.startsWith('https://')) {
 			// Ensure Supabase URLs work correctly
@@ -56,8 +56,8 @@ export default function SafeImage({
 				onError={(e) => {
 					// Fallback to placeholder on error
 					const target = e.target as HTMLImageElement;
-					if (target.src !== '/placeholder.png') {
-						target.src = '/placeholder.png';
+					if (target.src !== '/AoA-placeholder-apecoinblue.jpg') {
+						target.src = '/AoA-placeholder-apecoinblue.jpg';
 					}
 				}}
 			/>
@@ -77,8 +77,8 @@ export default function SafeImage({
 			onError={(e) => {
 				// Fallback to placeholder on error
 				const target = e.target as HTMLImageElement;
-				if (target.src !== '/placeholder.png') {
-					target.src = '/placeholder.png';
+				if (target.src !== '/AoA-placeholder-apecoinblue.jpg') {
+					target.src = '/AoA-placeholder-apecoinblue.jpg';
 				}
 			}}
 		/>
