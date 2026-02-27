@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
@@ -46,20 +46,6 @@ export default function ProfilePage() {
 	const [foreverApeError, setForeverApeError] = useState<string | null>(null);
 	const [apeImgMap, setApeImgMap] = useState<Record<string, string> | null>(null);
 	const [foreverApeImg, setForeverApeImg] = useState<string | null>(null);
-
-	// AOA Album upload to Drive
-	const [albumName, setAlbumName] = useState('');
-	const [albumSongs, setAlbumSongs] = useState<File[]>([]);
-	const [albumCover, setAlbumCover] = useState<File | null>(null);
-	const [driveConnected, setDriveConnected] = useState<boolean | null>(null);
-	const [albumUploading, setAlbumUploading] = useState(false);
-	const [albumProgress, setAlbumProgress] = useState(0);
-	const [albumUploadedCount, setAlbumUploadedCount] = useState(0);
-	const [albumTotalUpload, setAlbumTotalUpload] = useState(0);
-	const [albumError, setAlbumError] = useState<string | null>(null);
-	const [albumSuccess, setAlbumSuccess] = useState<string | null>(null);
-	const albumSongsRef = useRef<HTMLInputElement>(null);
-	const albumCoverRef = useRef<HTMLInputElement>(null);
 
 	// All wallets from Glyph (primary + linked) for badge and creation lookup
 	const walletAddresses = useMemo(() => {
@@ -158,17 +144,6 @@ export default function ProfilePage() {
 		}
 	}, [foreverApe, apeImgMap]);
 
-	// Check Drive connection status
-	useEffect(() => {
-		if (!userId) return;
-		let cancelled = false;
-		fetch('/api/profile/drive-status', { cache: 'no-store' })
-			.then((r) => r.json())
-			.then((j) => { if (!cancelled) setDriveConnected(!!j.connected); })
-			.catch(() => { if (!cancelled) setDriveConnected(false); });
-		return () => { cancelled = true; };
-	}, [userId]);
-
 	const saveForeverApe = async () => {
 		setForeverApeError(null);
 		const parsed = Number(foreverApeInput);
@@ -194,74 +169,6 @@ export default function ProfilePage() {
 			setForeverApeError(err instanceof Error ? err.message : 'Failed to save');
 		} finally {
 			setForeverApeSaving(false);
-		}
-	};
-
-	const handleAlbumUpload = async () => {
-		setAlbumError(null);
-		setAlbumSuccess(null);
-		const name = albumName.trim();
-		if (!name) {
-			setAlbumError('Enter an album name');
-			return;
-		}
-		if (albumSongs.length === 0) {
-			setAlbumError('Add at least one song (MP3 or WAV)');
-			return;
-		}
-		if (!albumCover) {
-			setAlbumError('Add an album cover image');
-			return;
-		}
-		// Netlify/serverless: ~4MB request limit
-		const totalBytes = albumCover.size + albumSongs.reduce((s, f) => s + f.size, 0);
-		if (totalBytes > 4 * 1024 * 1024) {
-			setAlbumError('Total size exceeds 4MB (server limit). Use fewer or smaller files.');
-			return;
-		}
-		setAlbumUploading(true);
-		setAlbumProgress(0);
-		setAlbumUploadedCount(0);
-		setAlbumTotalUpload(0);
-		const formData = new FormData();
-		formData.append('folderName', name);
-		albumSongs.forEach((f) => formData.append('songs', f));
-		formData.append('cover', albumCover);
-		try {
-			const res = await fetch('/api/profile/aoa-album', { method: 'POST', body: formData });
-			const text = await res.text();
-			let json: { ok?: boolean; error?: string; message?: string } = {};
-			try {
-				json = JSON.parse(text || '{}');
-			} catch {
-				// Response may be plain text (e.g. Netlify error)
-				setAlbumError(
-					text.includes('Internal Error') || text.includes('413') || text.includes('Payload')
-						? 'Upload too large or server error. Try fewer/smaller files (total under 4MB).'
-						: 'Upload failed'
-				);
-				return;
-			}
-			if (res.ok && json.ok) {
-				setAlbumProgress(100);
-				setAlbumSuccess(json.message || 'Album uploaded!');
-				setAlbumName('');
-				setAlbumSongs([]);
-				setAlbumCover(null);
-				if (albumSongsRef.current) albumSongsRef.current.value = '';
-				if (albumCoverRef.current) albumCoverRef.current.value = '';
-				setTimeout(() => {
-					setAlbumProgress(0);
-					setAlbumUploadedCount(0);
-					setAlbumTotalUpload(0);
-				}, 1500);
-			} else {
-				setAlbumError(json.error || 'Upload failed');
-			}
-		} catch (err) {
-			setAlbumError(err instanceof Error ? err.message : 'Upload failed');
-		} finally {
-			setAlbumUploading(false);
 		}
 	};
 
@@ -400,153 +307,6 @@ export default function ProfilePage() {
 				<div className="mt-10">
 					<ProfileBadges addresses={walletAddresses} showRefresh />
 				</div>
-
-				{/* Upload AOA Album to Drive */}
-				{userId && (
-					<div className="relative overflow-hidden glass-dark rounded-3xl p-6 sm:p-8 border-2 border-white/10 mt-10 shadow-xl shadow-black/40 bg-gradient-to-br from-purple-900/15 via-black/40 to-hero-blue/15 backdrop-blur-xl">
-						<div className="absolute bottom-0 right-0 w-64 h-64 bg-hero-blue/10 rounded-full blur-3xl translate-y-1/2 translate-x-1/2" />
-						<div className="absolute top-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2" />
-						<div className="relative">
-							<div className="flex items-center gap-3 mb-2">
-								<span className="text-3xl">🎵</span>
-								<h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-hero-blue via-purple-400 to-ape-gold bg-clip-text text-transparent">
-									Upload AOA Album
-								</h2>
-							</div>
-							<p className="text-off-white/70 text-sm mb-6">
-								Upload to your Google Drive. MP3/WAV + 1 image (cover). Max 25 songs, 50MB per song, 10MB cover. Total under 4MB for production.
-							</p>
-							{/* Connect Google Drive */}
-							<div className="mb-6 flex flex-wrap items-center gap-3">
-								{driveConnected ? (
-									<>
-										<span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/20 text-green-400 border-2 border-green-500/40 font-semibold">
-											<span>✓</span> Google Drive connected
-										</span>
-										<button
-											onClick={async () => {
-												await fetch('/api/profile/drive-disconnect', { method: 'POST' });
-												setDriveConnected(false);
-											}}
-											className="text-sm text-off-white/60 hover:text-red-400 transition-colors"
-										>
-											Disconnect
-										</button>
-									</>
-								) : (
-									<a
-										href="/api/auth/google/drive?state=profile"
-										className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border-2 border-hero-blue/40 text-hero-blue font-semibold transition-all hover:scale-105"
-									>
-										<span>🔗</span>
-										Connect Google Drive
-									</a>
-								)}
-							</div>
-							{searchParams.get('drive_error') === 'token' && (
-								<div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-									Drive connection failed. Please try again.
-								</div>
-							)}
-							{!driveConnected && (
-								<p className="text-off-white/60 text-sm mb-4">Connect your Google account to upload albums to your Drive.</p>
-							)}
-							<div className="space-y-5 max-w-xl">
-								<div>
-									<label className="block text-sm font-semibold text-off-white/90 mb-2">Album / folder name</label>
-									<input
-										value={albumName}
-										onChange={(e) => setAlbumName(e.target.value)}
-										placeholder="e.g. My First AOA Album"
-										disabled={albumUploading || !driveConnected}
-										className="w-full rounded-xl bg-black/60 border-2 border-hero-blue/40 p-3.5 text-white placeholder:text-off-white/40 focus:border-ape-gold/60 focus:ring-2 focus:ring-ape-gold/30 focus:outline-none transition-all disabled:opacity-60"
-										maxLength={100}
-									/>
-								</div>
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-									<div className="rounded-xl border-2 border-dashed border-hero-blue/30 bg-black/30 p-4 hover:border-hero-blue/50 transition-colors">
-										<label className="block text-sm font-semibold text-off-white/90 mb-2">Songs (MP3 or WAV)</label>
-										<input
-											ref={albumSongsRef}
-											type="file"
-											accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav"
-											multiple
-											disabled={albumUploading || !driveConnected}
-											onChange={(e) => setAlbumSongs(Array.from(e.target.files || []))}
-											className="block w-full text-sm text-off-white/80 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-hero-blue/40 file:text-hero-blue file:font-semibold file:cursor-pointer hover:file:bg-hero-blue/60 file:transition-colors disabled:opacity-60"
-										/>
-										{albumSongs.length > 0 && (
-											<p className="text-xs text-ape-gold font-medium mt-2">{albumSongs.length} file(s) selected</p>
-										)}
-									</div>
-									<div className="rounded-xl border-2 border-dashed border-hero-blue/30 bg-black/30 p-4 hover:border-hero-blue/50 transition-colors">
-										<label className="block text-sm font-semibold text-off-white/90 mb-2">Album cover (JPG, PNG, WebP)</label>
-										<input
-											ref={albumCoverRef}
-											type="file"
-											accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-											disabled={albumUploading || !driveConnected}
-											onChange={(e) => setAlbumCover(e.target.files?.[0] || null)}
-											className="block w-full text-sm text-off-white/80 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-hero-blue/40 file:text-hero-blue file:font-semibold file:cursor-pointer hover:file:bg-hero-blue/60 file:transition-colors disabled:opacity-60"
-										/>
-										{albumCover && (
-											<p className="text-xs text-ape-gold font-medium mt-2 truncate" title={albumCover.name}>{albumCover.name}</p>
-										)}
-									</div>
-								</div>
-								{albumUploading && (
-									<div className="space-y-2">
-										<div className="flex justify-between text-sm">
-											<span className="text-off-white/80 font-medium">
-												{albumTotalUpload > 0
-													? albumUploadedCount === 1
-														? 'Cover uploaded, uploading songs…'
-														: `Uploaded ${albumUploadedCount - 1} of ${albumTotalUpload - 1} songs`
-													: 'Sending to server…'}
-											</span>
-											<span className="text-hero-blue font-bold">{albumProgress}%</span>
-										</div>
-										<div className="h-2.5 w-full rounded-full bg-black/50 overflow-hidden border border-white/10">
-											<div
-												className="h-full bg-gradient-to-r from-hero-blue via-purple-500 to-ape-gold transition-all duration-300 ease-out"
-												style={{ width: `${albumProgress}%` }}
-											/>
-										</div>
-									</div>
-								)}
-								<button
-									onClick={handleAlbumUpload}
-									disabled={albumUploading || !driveConnected}
-									className="w-full sm:w-auto px-8 py-3 text-sm font-bold rounded-xl bg-gradient-to-r from-hero-blue to-purple-500 hover:from-hero-blue/90 hover:to-purple-500/90 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg text-white border-2 border-black/20 flex items-center justify-center gap-2"
-								>
-									{albumUploading ? (
-										<>
-											<span className="animate-spin text-lg">⏳</span>
-											<span>Uploading…</span>
-										</>
-									) : (
-										<>
-											<span className="text-lg">📤</span>
-											<span>Upload to Drive</span>
-										</>
-									)}
-								</button>
-								{albumError && (
-									<div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold">
-										<span>⚠️</span>
-										<span>{albumError}</span>
-									</div>
-								)}
-								{albumSuccess && (
-									<div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-sm font-semibold">
-										<span>✓</span>
-										<span>{albumSuccess}</span>
-									</div>
-								)}
-							</div>
-						</div>
-					</div>
-				)}
 
 				{/* Studio Creations */}
 				<div className="relative overflow-hidden glass-dark rounded-3xl p-6 sm:p-8 border-2 border-white/10 mt-10 shadow-xl shadow-black/40 bg-gradient-to-br from-purple-900/15 via-black/40 to-hero-blue/15 backdrop-blur-xl">
