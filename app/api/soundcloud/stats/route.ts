@@ -107,74 +107,34 @@ export async function GET() {
       addTrack(t);
     }
 
-    // Collect track IDs from playlists that we need to fetch (compact refs without playback_count)
-    const compactTrackIds = new Set<number>();
-
     // Step 5a: Extract tracks from playlists we already have (list may include embedded tracks)
     for (const pl of allPlaylists) {
       const plTracks = pl.tracks || [];
       for (const t of plTracks) {
-        if (t?.id && typeof t.playback_count !== 'number') {
-          if (!trackById.has(t.id)) compactTrackIds.add(t.id);
-        } else {
-          addTrack(t);
-        }
+        addTrack(t);
       }
     }
 
-    // Step 5b: Fetch full playlist data (try /playlists/{id} first, fallback to resolve)
-    const playlistsToFetch = allPlaylists.slice(0, 150);
-    for (const pl of playlistsToFetch) {
-      const plId = pl.id;
+    // Step 5b: Resolve a limited number of playlists (avoid 502 timeout - Netlify/Edge ~10s limit)
+    const MAX_PLAYLIST_RESOLVES = 25;
+    const playlistsToResolve = allPlaylists.slice(0, MAX_PLAYLIST_RESOLVES);
+    for (const pl of playlistsToResolve) {
       const permalinkUrl = pl.permalink_url || pl.uri;
-      if (!plId && !permalinkUrl) continue;
+      if (!permalinkUrl) continue;
       try {
-        let fullPl: any = null;
-        if (plId) {
-          const plUrl = `https://api-widget.soundcloud.com/playlists/${plId}?format=json&client_id=${clientId}`;
-          const plRes = await fetch(plUrl, {
-            headers: { 'Accept': 'application/json' },
-            next: { revalidate: 3600 },
-          });
-          if (plRes.ok) fullPl = await plRes.json();
-        }
-        if (!fullPl && permalinkUrl) {
-          const resolveUrl = `https://api-widget.soundcloud.com/resolve?url=${encodeURIComponent(permalinkUrl)}&format=json&client_id=${clientId}`;
-          const resolveRes = await fetch(resolveUrl, {
-            headers: { 'Accept': 'application/json' },
-            next: { revalidate: 3600 },
-          });
-          if (resolveRes.ok) fullPl = await resolveRes.json();
-        }
-        if (!fullPl) continue;
+        const resolveUrl = `https://api-widget.soundcloud.com/resolve?url=${encodeURIComponent(permalinkUrl)}&format=json&client_id=${clientId}`;
+        const plRes = await fetch(resolveUrl, {
+          headers: { 'Accept': 'application/json' },
+          next: { revalidate: 3600 },
+        });
+        if (!plRes.ok) continue;
+        const fullPl = await plRes.json();
         const plTracks = fullPl.tracks || [];
         for (const t of plTracks) {
-          if (t?.id && typeof t.playback_count !== 'number') {
-            if (!trackById.has(t.id)) compactTrackIds.add(t.id);
-          } else {
-            addTrack(t);
-          }
+          addTrack(t);
         }
       } catch {
         // skip failed playlist
-      }
-    }
-
-    // Step 5c: Fetch compact tracks individually to get playback_count (playlist often returns id-only refs)
-    const idsToFetch = Array.from(compactTrackIds).slice(0, 3000);
-    const BATCH = 15;
-    for (let i = 0; i < idsToFetch.length; i += BATCH) {
-      const batch = idsToFetch.slice(i, i + BATCH);
-      const results = await Promise.all(
-        batch.map((id) =>
-          fetch(`https://api-widget.soundcloud.com/tracks/${id}?format=json&client_id=${clientId}`, {
-            headers: { 'Accept': 'application/json' },
-            next: { revalidate: 3600 },
-          }).then((r) => (r.ok ? r.json() : null))
-        )
-      );
-      for (const t of results) {
-        if (t?.id) addTrack(t);
       }
     }
 
