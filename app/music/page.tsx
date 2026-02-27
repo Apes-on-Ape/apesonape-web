@@ -231,21 +231,93 @@ export default function RadioPage() {
   });
 
 
-  // Fetch SoundCloud stats
+  // Fetch SoundCloud stats (chunked: base + playlist chunks to get all plays)
   useEffect(() => {
     async function fetchStats() {
       try {
         setStatsLoading(true);
         setStatsError(null);
-        
-        const response = await fetch('/api/soundcloud/stats');
-        
-        if (response.ok) {
-          const data = await response.json();
-          setStats(data);
-        } else {
-          setStatsError(`Failed to load stats (${response.status})`);
+
+        const baseRes = await fetch('/api/soundcloud/stats');
+        if (!baseRes.ok) {
+          setStatsError(`Failed to load stats (${baseRes.status})`);
+          return;
         }
+        const base = await baseRes.json();
+        if (base.error) {
+          setStatsError(base.details || base.error);
+          return;
+        }
+
+        // Merge tracks: prefer higher playback_count per id
+        const trackById = new Map<number, { id: number; title: string; permalink_url: string; artwork_url: string; playback_count: number; likes_count: number; reposts_count: number; duration: number }>();
+        for (const t of base.tracks || []) {
+          const existing = trackById.get(t.id);
+          if (!existing || (t.playback_count ?? 0) > (existing.playback_count ?? 0)) {
+            trackById.set(t.id, t);
+          }
+        }
+
+        const chunks = base.playlistChunks;
+        const totalChunks = chunks?.total ?? 1;
+        const allRemainingCompactIds = new Set<number>();
+        for (const id of base.remainingCompactIds || []) {
+          if (!trackById.has(id)) allRemainingCompactIds.add(id);
+        }
+        for (let i = 1; i < totalChunks; i++) {
+          const chunkRes = await fetch(`/api/soundcloud/stats?playlistChunk=${i}`);
+          if (!chunkRes.ok) continue;
+          const chunk = await chunkRes.json();
+          for (const t of chunk.tracks || []) {
+            const existing = trackById.get(t.id);
+            if (!existing || (t.playback_count ?? 0) > (existing.playback_count ?? 0)) {
+              trackById.set(t.id, t);
+            }
+          }
+          for (const id of chunk.remainingCompactIds || []) {
+            if (!trackById.has(id)) allRemainingCompactIds.add(id);
+          }
+        }
+        // Fetch remaining compact tracks (IDs we couldn't fetch in chunks)
+        const idsToFetch = Array.from(allRemainingCompactIds);
+        for (let i = 0; i < idsToFetch.length; i += 100) {
+          const batch = idsToFetch.slice(i, i + 100);
+          const res = await fetch(`/api/soundcloud/stats?fetchTrackIds=${batch.join(',')}`);
+          if (!res.ok) continue;
+          const data = await res.json();
+          for (const t of data.tracks || []) {
+            const existing = trackById.get(t.id);
+            if (!existing || (t.playback_count ?? 0) > (existing.playback_count ?? 0)) {
+              trackById.set(t.id, t);
+            }
+          }
+        }
+
+        let totalPlays = 0;
+        let totalLikes = 0;
+        let totalReposts = 0;
+        for (const [, t] of trackById) {
+          totalPlays += t.playback_count || 0;
+          totalLikes += t.likes_count || 0;
+          totalReposts += t.reposts_count || 0;
+        }
+        if (base.directTotalPlays != null && base.directTotalPlays > totalPlays) {
+          totalPlays = base.directTotalPlays;
+        }
+        const topTracks = Array.from(trackById.values())
+          .map((t) => ({ ...t, score: (t.playback_count || 0) + (t.likes_count || 0) * 2 }))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 10);
+
+        setStats({
+          followers: base.stats?.followers ?? base.user?.followers_count ?? 0,
+          tracks: base.stats?.tracks ?? base.user?.track_count ?? 0,
+          playlists: base.stats?.playlists ?? base.user?.playlist_count ?? 0,
+          likes: totalLikes,
+          reposts: totalReposts,
+          totalPlays,
+          topTracks,
+        });
       } catch (error) {
         setStatsError('Network error loading stats');
       } finally {
