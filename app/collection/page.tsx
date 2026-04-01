@@ -320,27 +320,33 @@ export default function CollectionPage() {
 
     (async () => {
       const updates: Array<Promise<void>> = [];
-      // Prefer CDN indices when available
+      /** Tokens not in `cdnTokensById` must still load from IPFS (do not mark fetched without data). */
+      let needIpfs: typeof missing = [];
+
       if (CDN_BASE && cdnTokensById) {
         for (const it of missing) {
           const token = it.tokenId!;
-          fetchedMetaRef.current.add(token);
           const record = cdnTokensById[token];
-          if (!record) continue;
-          const imageCandidates = (() => {
-            const fromMeta = normalizeToGatewayCandidates(record.image || '');
-            // Prepend CDN thumb
-            const thumb = `${THUMBS_BASE}/${token}.webp`;
-            return [thumb, ...fromMeta];
-          })();
-          applyTraitsToCaches(token, Array.isArray(record.attributes) ? record.attributes : []);
-          if (cancelled) continue;
-          setDriveItems(prev => prev.map(d => d.id === it.id ? { ...d, imageUrl: (imageCandidates[0] || d.imageUrl), imageUrls: imageCandidates } : d));
-          setDisplayedItems(prev => prev.map(d => d.id === it.id ? { ...d, imageUrl: (imageCandidates[0] || d.imageUrl), imageUrls: imageCandidates } : d));
+          if (record) {
+            fetchedMetaRef.current.add(token);
+            const imageCandidates = (() => {
+              const fromMeta = normalizeToGatewayCandidates(record.image || '');
+              const thumb = `${THUMBS_BASE}/${token}.webp`;
+              return [thumb, ...fromMeta];
+            })();
+            applyTraitsToCaches(token, Array.isArray(record.attributes) ? record.attributes : []);
+            if (cancelled) continue;
+            setDriveItems(prev => prev.map(d => d.id === it.id ? { ...d, imageUrl: (imageCandidates[0] || d.imageUrl), imageUrls: imageCandidates } : d));
+            setDisplayedItems(prev => prev.map(d => d.id === it.id ? { ...d, imageUrl: (imageCandidates[0] || d.imageUrl), imageUrls: imageCandidates } : d));
+          } else {
+            needIpfs.push(it);
+          }
         }
-        return;
+      } else {
+        needIpfs = missing;
       }
-      for (const it of missing) {
+
+      for (const it of needIpfs) {
         const token = it.tokenId!;
         // Mark as in-flight to avoid duplicate requests caused by re-renders
         fetchedMetaRef.current.add(token);
@@ -723,8 +729,46 @@ export default function CollectionPage() {
     return chips;
   }, [selectedByType]);
 
-  // Modal traits derived from cache; reacts to traitsVersion updates
-  // removed unused modalTraits
+  /**
+   * Modal was using a stale `modalItem` snapshot: traits live in `traitsCacheRef` and images
+   * are filled asynchronously on `driveItems` / `displayedItems`. Merge so traits + image update
+   * after lazy metadata loads (traitsVersion bumps when cache updates).
+   */
+  const modalResolved = useMemo((): DriveItem | null => {
+    if (!modalItem) return null;
+    const tid = modalItem.tokenId;
+    if (!tid) {
+      return modalItem;
+    }
+    const fromList =
+      displayedItems.find((d) => d.tokenId === tid) || driveItems.find((d) => d.tokenId === tid);
+    const cachedTraits = traitsCacheRef.current[tid];
+    const traits =
+      cachedTraits && cachedTraits.length > 0
+        ? cachedTraits
+        : modalItem.traits && modalItem.traits.length > 0
+          ? modalItem.traits
+          : fromList?.traits;
+    return {
+      ...modalItem,
+      ...(fromList || {}),
+      traits,
+    };
+  }, [modalItem, displayedItems, driveItems, traitsVersion]);
+
+  const modalImageSrcs = useMemo(() => {
+    if (!modalResolved?.tokenId) return [];
+    const t = modalResolved.tokenId;
+    const thumb = `${THUMBS_BASE}/${t}.webp`;
+    const rest =
+      modalResolved.imageUrls && modalResolved.imageUrls.length > 0
+        ? modalResolved.imageUrls
+        : modalResolved.imageUrl
+          ? [modalResolved.imageUrl]
+          : [];
+    const combined = [thumb, ...rest].filter(Boolean);
+    return [...new Set(combined)];
+  }, [modalResolved]);
 
   return (
     <div className="min-h-screen" style={{ color: 'var(--foreground)' }}>
@@ -768,7 +812,7 @@ export default function CollectionPage() {
               </h2>
               <div className="h-px flex-1 max-w-[120px] bg-gradient-to-l from-transparent to-hero-blue/50" />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
               {/* OpenSea — primary */}
               <a
                 href={OPENSEA_COLLECTION_URL}
@@ -1314,7 +1358,7 @@ export default function CollectionPage() {
       <Footer />
       <ScrollToTopButton />
       {/* Modal Preview */}
-      {modalItem && (
+      {modalResolved && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={closeModal} />
           <div className="relative z-10 glass-dark bg-black/60 rounded-xl border border-white/20 w-[95vw] max-w-4xl mx-auto overflow-hidden shadow-2xl">
@@ -1322,15 +1366,15 @@ export default function CollectionPage() {
               <div className="flex items-center gap-2">
                 <span className="text-sm" style={{ color: 'var(--ape-gray)' }}>Token</span>
                 <span className="text-base font-semibold" style={{ color: 'var(--foreground)' }}>
-                  {modalItem.tokenId ? `#${modalItem.tokenId}` : '—'}
+                  {modalResolved.tokenId ? `#${modalResolved.tokenId}` : '—'}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
-                    if (typeof window === 'undefined' || !modalItem.tokenId) return;
-                    const url = `${window.location.origin}/collection?search=${modalItem.tokenId}`;
+                    if (typeof window === 'undefined' || !modalResolved.tokenId) return;
+                    const url = `${window.location.origin}/collection?search=${modalResolved.tokenId}`;
                     if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
                       void navigator.clipboard.writeText(url);
                     }
@@ -1346,26 +1390,31 @@ export default function CollectionPage() {
               </div>
             </div>
             <div className="grid md:grid-cols-2 gap-0">
-              <div className="relative w-full aspect-square md:aspect-auto md:min-h-[28rem]">
-                <Image
-                  src={modalItem.imageUrl}
-                  alt={modalItem.name}
-                  fill
-                  sizes="50vw"
-                  className="object-contain bg-black"
-                />
+              <div className="relative w-full aspect-square md:aspect-auto md:min-h-[28rem] bg-black">
+                {modalImageSrcs.length > 0 ? (
+                  <FallbackImage
+                    srcs={modalImageSrcs}
+                    alt={modalResolved.name}
+                    sizes="50vw"
+                    className="object-contain"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                    <div className="w-12 h-12 border-4 border-hero-blue/30 border-t-hero-blue rounded-full animate-spin" />
+                  </div>
+                )}
               </div>
               <div className="p-4 md:p-6">
                 <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--foreground)' }}>
                   Traits
                 </h3>
-                {!modalItem.traits || modalItem.traits.length === 0 ? (
+                {!modalResolved.traits || modalResolved.traits.length === 0 ? (
                   <p className="text-sm" style={{ color: 'var(--ape-gray)' }}>
-                    {modalItem.tokenId ? 'Loading traits…' : 'No traits available'}
+                    {modalResolved.tokenId ? 'Loading traits…' : 'No traits available'}
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {modalItem.traits.map((t, idx) => (
+                    {modalResolved.traits.map((t, idx) => (
                       <span key={`${t.name}-${t.value}-${idx}`} className="px-2 py-1 rounded-full text-xs glass border border-white/10">
                         {t.name}: {t.value}
                       </span>

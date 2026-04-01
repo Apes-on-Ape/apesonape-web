@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 import SoundCloudPlayer from "./components/SoundCloudPlayer";
 import GlyphClientProvider from "./components/GlyphClientProvider";
+import GlyphArcadeWalletSync from "./components/GlyphArcadeWalletSync";
 import NotificationToast from "./components/NotificationToast";
 import ApeBackground from "./components/ApeBackground";
 
@@ -90,6 +91,7 @@ export default function RootLayout({
           <ApeBackground />
           <ThemeProvider>
             <GlyphClientProvider>
+              <GlyphArcadeWalletSync />
               <div className="min-h-screen">
                 {children}
               </div>

@@ -16,12 +16,12 @@ export async function GET(req: NextRequest) {
 
     const supabase = getSupabaseServerClient();
 
-    // 1. Get user profile (bananas)
+    // 1. Get user profile (bananas) — maybeSingle: row may not exist yet for new Glyph users
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('bananas, avatar_url, display_name, x_username')
       .eq('glyph_user_id', userId)
-      .single();
+      .maybeSingle();
 
     const bananas = profile?.bananas || 0;
 

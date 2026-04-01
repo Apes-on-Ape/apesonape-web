@@ -56,7 +56,7 @@ export default function ExtraLinks() {
 		{ href: '/studio',                   icon: Wand2,    label: 'Studio',          desc: 'AI music & creation' },
 		{ href: '/creative/ape-builder',     icon: Palette,  label: 'Ape Builder',     desc: 'Build with your traits' },
 		{ href: '/creative',                 icon: Wrench,   label: 'Creative Tools',  desc: 'PFP, banners, QR' },
-		{ href: 'https://arcade.apesonape.io', icon: Gamepad2, label: 'Arcade',        desc: 'Holder-only games', external: true },
+		{ href: '/arcade', icon: Gamepad2, label: 'Arcade',        desc: 'Holder-only games', external: false },
 	] : [];
 
 	return (

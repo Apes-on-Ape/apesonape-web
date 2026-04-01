@@ -54,7 +54,7 @@ const ECOSYSTEM = [
     icon: Gamepad2,
     title: 'AOA Arcade',
     description: 'Community-built games, on-chain leaderboards, and rewards for the most competitive Apes.',
-    href: 'https://arcade.apesonape.io',
+    href: '/arcade',
     tag: 'External',
     external: true,
   },
@@ -637,7 +637,7 @@ export default function HomePage() {
                     <div className="text-xs uppercase tracking-[0.15em] text-white/35">{s.label}</div>
                   </motion.div>
                 ))}
-              </div>
+      </div>
 
               <div className="flex flex-wrap justify-center gap-4">
                 <motion.a

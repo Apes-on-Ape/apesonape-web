@@ -29,7 +29,7 @@ export default function SectionCallouts() {
       title: 'Game Devs',
       description: 'Build experiences. Push boundaries. Play in our arcade and contribute your own games.',
       cta: 'Visit Arcade',
-      href: 'https://arcade.apesonape.io',
+      href: '/arcade',
       gradient: 'from-purple-500 to-purple-700',
       iconColor: 'text-purple-500',
     },

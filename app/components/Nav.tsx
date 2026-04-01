@@ -19,12 +19,30 @@ export default function Nav() {
   const pathname = usePathname();
 
   useEffect(() => {
+    // Hysteresis prevents layout shift ↔ scroll position from oscillating at one threshold
+    // (which can trigger "Maximum update depth exceeded" via tight setState loops).
+    const SCROLL_ON = 56;
+    const SCROLL_OFF = 32;
+    let raf = 0;
+
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const y = window.scrollY;
+        setIsScrolled((prev) => {
+          if (prev) return y > SCROLL_OFF;
+          return y > SCROLL_ON;
+        });
+      });
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
   const navLinks = [

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import {
   Play, Pause, SkipForward, SkipBack,
   Volume2, VolumeX, Music2, ChevronDown, ChevronUp, Shuffle,
@@ -8,7 +8,12 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ─── SoundCloud Widget API types ──────────────────────────────────────────────
-type SCTrack = { title?: string };
+/** SoundCloud may omit `title` for tail tracks until metadata resolves */
+type SCTrack = {
+  title?: string;
+  user?: { username?: string; permalink?: string };
+  permalink_url?: string;
+};
 
 interface SCWidget {
   bind(event: string, listener: () => void): void;
@@ -48,6 +53,9 @@ export default function SoundCloudPlayer() {
   const boundRef    = useRef(false);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const unmuteRef   = useRef(true);
+  /** Avoid infinite re-render loops if SoundCloud fires READY / getSounds many times in one tick */
+  const lastTrackListSigRef = useRef<string>('');
+  const lastPollSigRef = useRef<string>('');
 
   const [playlistUrl,   setPlaylistUrl]   = useState('');
   const [albumTitle,    setAlbumTitle]    = useState('AOA Radio');
@@ -105,18 +113,63 @@ export default function SoundCloudPlayer() {
       const w = widgetRef.current;
       if (!w) return;
       w.getPosition(pos => {
-        setPosition(pos);
         w.getDuration(dur => {
-          setDuration(dur);
-          setProgress(dur > 0 ? (pos / dur) * 100 : 0);
+          const progressPct = dur > 0 ? (pos / dur) * 100 : 0;
+          const sig = `${pos}|${dur}|${progressPct}`;
+          if (sig === lastPollSigRef.current) return;
+          lastPollSigRef.current = sig;
+          // Defer to next macrotask so nested widget callbacks can't synchronously exceed React's update depth
+          queueMicrotask(() => {
+            setPosition(pos);
+            setDuration(dur);
+            setProgress(progressPct);
+          });
         });
       });
-      w.getCurrentSoundIndex(idx => setCurrentIndex(idx));
+      w.getCurrentSoundIndex(idx => {
+        queueMicrotask(() => {
+          setCurrentIndex(prev => (prev === idx ? prev : idx));
+        });
+      });
     }, 1000);
   }
 
   function stopPoll() {
     if (progressRef.current) { clearInterval(progressRef.current); progressRef.current = null; }
+  }
+
+  function formatTrackLabel(sound: SCTrack, index: number): string {
+    const raw = sound.title?.trim();
+    if (raw) return raw;
+    const artist = sound.user?.username?.trim();
+    if (artist) return `${artist} (track ${index + 1})`;
+    try {
+      if (sound.permalink_url) {
+        const seg = sound.permalink_url.split('/').filter(Boolean).pop();
+        if (seg && /^[a-z0-9_-]+$/i.test(seg)) {
+          return seg.replace(/-/g, ' ');
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    return `Track ${index + 1}`;
+  }
+
+  function refreshTrackListFromWidget() {
+    const widget = widgetRef.current;
+    if (!widget) return;
+    widget.getSounds((sounds: SCTrack[]) => {
+      if (!Array.isArray(sounds)) return;
+      const labels = sounds.map((s, i) => formatTrackLabel(s, i));
+      const sig = `${sounds.length}\0${labels.join('\0')}`;
+      if (sig === lastTrackListSigRef.current) return;
+      lastTrackListSigRef.current = sig;
+      startTransition(() => {
+        setTotalTracks(sounds.length);
+        setTrackList(labels);
+      });
+    });
   }
 
   // ── Step 3: initialise widget once playerSrc is ready ────────────────────
@@ -136,11 +189,10 @@ export default function SoundCloudPlayer() {
         if (cancelled) return;
         setIsReady(true);
 
-        // Refresh track list every time READY fires (including after widget.load() calls)
-        widget.getSounds((sounds: SCTrack[]) => {
-          if (!Array.isArray(sounds)) return;
-          setTotalTracks(sounds.length);
-          setTrackList(sounds.map(s => s.title || 'Unknown Track'));
+        // Defer list refresh so bursts of READY events don't synchronously stack setState past React's limit
+        queueMicrotask(() => {
+          if (cancelled) return;
+          refreshTrackListFromWidget();
         });
 
         // ⚠ Only run first-time setup once — calling widget.load() inside READY
@@ -153,9 +205,18 @@ export default function SoundCloudPlayer() {
         widget.bind(Events.PLAY, () => {
           if (cancelled) return;
           setIsPlaying(true);
-          widget.getCurrentSound(s => setCurrentTitle(s?.title || ''));
-          widget.getCurrentSoundIndex(idx => setCurrentIndex(idx));
+          widget.getCurrentSoundIndex((idx) => {
+            setCurrentIndex(idx);
+            widget.getCurrentSound((s) => {
+              const t = s?.title?.trim();
+              setCurrentTitle(t || formatTrackLabel(s || {}, idx));
+            });
+          });
           startPoll();
+          // Titles for later playlist items often populate after playback touches them
+          setTimeout(() => {
+            if (!cancelled) refreshTrackListFromWidget();
+          }, 350);
         });
 
         widget.bind(Events.PAUSE, () => {
@@ -208,8 +269,28 @@ export default function SoundCloudPlayer() {
       }
     }
 
-    return () => { cancelled = true; stopPoll(); };
+    return () => {
+      cancelled = true;
+      stopPoll();
+      boundRef.current = false;
+      widgetRef.current = null;
+      lastTrackListSigRef.current = '';
+      lastPollSigRef.current = '';
+    };
   }, [playerSrc]);
+
+  // Re-fetch track metadata when opening the list — SoundCloud lazy-loads titles for long playlists
+  useEffect(() => {
+    if (!expanded || !isReady) return;
+    refreshTrackListFromWidget();
+    const delays = [200, 600, 1500, 3000];
+    const timers = delays.map((ms) =>
+      setTimeout(() => {
+        refreshTrackListFromWidget();
+      }, ms)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [expanded, isReady]);
 
   // ── Controls ──────────────────────────────────────────────────────────────
   function togglePlay() {
