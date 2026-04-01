@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="32" height="32" rx="4" fill="#000" />
+  
+  <!-- Glow effects -->
+  <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="1.5" result="blur" />
+    <feFlood flood-color="#ff00ff" flood-opacity="0.7" result="color"/>
+    <feComposite in="color" in2="blur" operator="in" result="glow"/>
+    <feMerge>
+      <feMergeNode in="glow"/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
+  
+  <!-- Car icon -->
+  <g transform="translate(6, 16)" filter="url(#neonGlow)">
+    <!-- Car body -->
+    <rect x="0" y="-10" width="20" height="15" rx="3" fill="#222" stroke="#ff00ff" stroke-width="1.5"/>
+    <!-- Windows -->
+    <rect x="5" y="-8" width="10" height="4" rx="1" fill="#00ffff" opacity="0.7"/>
+    <!-- Wheels -->
+    <circle cx="5" cy="8" r="4" fill="#333" stroke="#ff00ff" stroke-width="0.8"/>
+    <circle cx="15" cy="8" r="4" fill="#333" stroke="#ff00ff" stroke-width="0.8"/>
+    <!-- Headlights -->
+    <circle cx="2" cy="-5" r="1.5" fill="#ffff00"/>
+    <circle cx="18" cy="-5" r="1.5" fill="#ffff00"/>
+  </g>
+  
+  <!-- Grid lines for retro effect -->
+  <g stroke="#ff00ff" stroke-width="0.2" opacity="0.4">
+    <line x1="0" y1="8" x2="32" y2="8" />
+    <line x1="0" y1="16" x2="32" y2="16" />
+    <line x1="0" y1="24" x2="32" y2="24" />
+    <line x1="8" y1="0" x2="8" y2="32" />
+    <line x1="16" y1="0" x2="16" y2="32" />
+    <line x1="24" y1="0" x2="24" y2="32" />
+  </g>
+  
+  <!-- Motion lines -->
+  <g stroke="#00ffff" stroke-width="1" stroke-linecap="round">
+    <line x1="1" y1="16" x2="4" y2="16" stroke-dasharray="1,2" />
+    <line x1="1" y1="19" x2="5" y2="19" stroke-dasharray="1,2" />
+    <line x1="1" y1="22" x2="4" y2="22" stroke-dasharray="1,2" />
+  </g>
+</svg> 
