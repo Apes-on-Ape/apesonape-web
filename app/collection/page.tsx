@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ExternalLink, ShoppingBag, X, Tag, Activity, Search, Filter, Sparkles } from 'lucide-react';
+import { ExternalLink, ShoppingBag, X, Search, Filter, Sparkles, Link2, ChevronDown, ChevronUp } from 'lucide-react';
 import Nav from '../components/Nav';
 import Image from 'next/image';
 import SafeImage from '../components/SafeImage';
 import Footer from '../components/Footer';
+import ScrollToTopButton from '../components/ScrollToTopButton';
 // Magic Eden fetching removed in CID mode
 
 // Exclude specific trait types from the filter UI
@@ -36,6 +37,10 @@ export default function CollectionPage() {
   const router = useRouter();
   const observerTarget = useRef<HTMLDivElement>(null);
   const filtersRef = useRef<HTMLDivElement>(null);
+  // Incremented every time active filters/search change so stale observer callbacks abort
+  const filterGenRef = useRef(0);
+  // Tracks all token IDs already added to driveItems — prevents duplicates across effect re-runs
+  const plannedIdsRef = useRef<Set<string>>(new Set());
 
   // State
   // Drive-backed gallery items
@@ -67,27 +72,18 @@ export default function CollectionPage() {
   // Trait filters by type: AND across types, OR within a type
   type SelectedByType = Record<string, Set<string>>;
   const [selectedByType, setSelectedByType] = useState<SelectedByType>({});
-  const [valueFilterByType, setValueFilterByType] = useState<Record<string, string>>({});
-  const showTraitFilters = true;
   // Filter for trait types list
   const [typeFilterTerm, setTypeFilterTerm] = useState('');
-  // Friendlier search UX: controls removed per request
-  // Active trait type for tabbed filtering
-  const [activeTraitType, setActiveTraitType] = useState<string>('');
+  // Accordion expand state per type
+  const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
+  // Per-type value search
+  const [perTypeSearch, setPerTypeSearch] = useState<Record<string, string>>({});
 
   const itemsPerPage = 50;
 
   // Local search input for token ID
   const [idQuery, setIdQuery] = useState<string>('');
-
-  // Live listings from Magic Eden (getAsks) - normalized: tokenId, price, image, name, link
-  type ListingItem = { tokenId: string; price: number; image: string; name: string; link: string };
-  const [listings, setListings] = useState<ListingItem[]>([]);
-  const [listingsLoading, setListingsLoading] = useState(true);
-
-  // Recent activity from Magic Eden (NFT Activity)
-  type ActivityItem = { type?: string; price?: number; tokenId?: string; from?: string; to?: string; createdAt?: string };
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const OPENSEA_COLLECTION_URL = 'https://opensea.io/collection/apes-on-apechain';
 
   // Dynamic trait types discovered from metadata
   const [traitTypes, setTraitTypes] = useState<string[]>([]);
@@ -133,7 +129,8 @@ export default function CollectionPage() {
             map[type] = new Set(traitsMeta.valuesByType[type] || []);
           }
           setAvailableValuesByType(map);
-          setTraitTypes(traitsMeta.types.slice().sort());
+          const sorted = traitsMeta.types.slice().sort();
+          setTraitTypes(sorted);
         }
       } catch {
         // ignore; fallback to IPFS metadata
@@ -142,44 +139,7 @@ export default function CollectionPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch live listings from Magic Eden (getAsks) - API returns { items, total }
-  useEffect(() => {
-    let cancelled = false;
-    setListingsLoading(true);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
-    fetch('/api/me/asks/?limit=10&sortBy=price&sortDir=asc', { signal: controller.signal })
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => {
-        if (!cancelled) {
-          if (data?.items) {
-            const items = data.items.filter((i: { tokenId?: string; price?: number }) => i.tokenId && typeof i.price === 'number' && i.price >= 0);
-            setListings(items.slice(0, 10));
-          }
-          setListingsLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setListingsLoading(false);
-      })
-      .finally(() => clearTimeout(timeoutId));
-    return () => { cancelled = true; controller.abort(); };
-  }, []);
-
-  // Fetch recent activity from Magic Eden
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/me/activity/?limit=8')
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => {
-        if (!cancelled && data) {
-          const items = data.activities ?? data.items ?? (Array.isArray(data) ? data : []);
-          setActivity(Array.isArray(items) ? items.slice(0, 8) : []);
-        }
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+  // Magic Eden live listings and activity removed
 
   // Update URL with filters
   const updateURL = useCallback(() => {
@@ -197,18 +157,6 @@ export default function CollectionPage() {
 
   // Search controls removed; searchTerm remains available via URL if needed
 
-  // Ensure an active trait type when opening the panel or when values load
-  useEffect(() => {
-    if (!showTraitFilters) return;
-    if (activeTraitType && (availableValuesByType[activeTraitType]?.size ?? 0) > 0) return;
-    for (const t of traitTypes) {
-      if ((availableValuesByType[t]?.size ?? 0) > 0) {
-        setActiveTraitType(t);
-        return;
-      }
-    }
-    if (traitTypes.length > 0) setActiveTraitType(traitTypes[0]);
-  }, [showTraitFilters, availableValuesByType, traitTypes, activeTraitType]);
   // Normalize IPFS-like inputs to an array of gateway candidates
   function normalizeToGatewayCandidates(input: string | undefined | null): string[] {
     if (!input) return [];
@@ -299,6 +247,7 @@ export default function CollectionPage() {
         // Seed with the first page only
         const seedEnd = Math.min(startId + itemsPerPage - 1, endId);
         const plannedSeed: DriveItem[] = [];
+        plannedIdsRef.current = new Set<string>();
         for (let id = startId; id <= seedEnd; id++) {
           plannedSeed.push({
             id: String(id),
@@ -306,6 +255,7 @@ export default function CollectionPage() {
             imageUrl: '', // fetched lazily
             tokenId: String(id),
           });
+          plannedIdsRef.current.add(String(id));
         }
         items = plannedSeed;
         setPlannedUntil(seedEnd);
@@ -428,8 +378,7 @@ export default function CollectionPage() {
   // When trait filters are active, progressively fetch traits for all items (so "all values" can show)
   useEffect(() => {
     const activeTypes = Object.entries(selectedByType).filter(([, s]) => s.size > 0);
-    const needAll = activeTypes.length > 0 || showTraitFilters;
-    if (!needAll) return;
+    if (activeTypes.length === 0) return;
     const cid = DEFAULT_METADATA_CID;
     if (!cid) return;
     const gatewayBase = IPFS_GATEWAYS[0];
@@ -467,7 +416,7 @@ export default function CollectionPage() {
       await Promise.allSettled(workers);
     })();
     return () => { cancelled = true; };
-  }, [driveItems, selectedByType, showTraitFilters, applyTraitsToCaches, cdnTraitIndex, cdnTraitsMeta, totalCount]);
+  }, [driveItems, selectedByType, applyTraitsToCaches, cdnTraitIndex, cdnTraitsMeta, totalCount]);
 
   // (Removed) Magic Eden prefetch – traits now come from IPFS metadata and a local cache
 
@@ -501,26 +450,23 @@ export default function CollectionPage() {
     setTraitTypes(Array.from(new Set(types)).sort());
   }, [traitsVersion, cdnTraitsMeta]);
 
-  // Sanitize selected filters and active type if an excluded type sneaks in
+  // Sanitize selected filters if an excluded type sneaks in
   useEffect(() => {
     setSelectedByType(prev => {
       let changed = false;
       const next: Record<string, Set<string>> = {};
       for (const [k, v] of Object.entries(prev)) {
-        if (EXCLUDED_TRAIT_TYPES.has(k)) {
-          changed = true;
-          continue;
-        }
+        if (EXCLUDED_TRAIT_TYPES.has(k)) { changed = true; continue; }
         next[k] = v;
       }
       return changed ? next : prev;
     });
-    if (EXCLUDED_TRAIT_TYPES.has(activeTraitType)) {
-      setActiveTraitType('');
-    }
-  }, [traitTypes, activeTraitType]); 
+  }, [traitTypes]);
   // Apply filters and sorting for drive items
   useEffect(() => {
+    // Bump generation so any in-flight observer callback from a previous filter knows to abort
+    filterGenRef.current += 1;
+
     // Build set of matching tokenIds across the full collection (0..totalCount-1)
     // Then ensure driveItems has entries for those tokens (lightweight stubs).
     const matchIds = new Set<string>();
@@ -559,18 +505,20 @@ export default function CollectionPage() {
       return;
     }
 
-    // 1) Match by search across 0..totalCount-1
+    // 1) Compute search matches
+    let searchSet: Set<string> | null = null;
     if (hasSearch) {
+      searchSet = new Set<string>();
       for (let i = 0; i < totalCount; i++) {
         const token = String(i);
-        if (token.includes(q)) matchIds.add(token);
+        if (token.includes(q)) searchSet.add(token);
       }
     }
 
-    // 2) Match by trait filters
+    // 2) Compute trait filter matches
+    let traitSet: Set<string> | null = null;
     if (hasTraitFilters) {
       if (CDN_BASE && cdnTraitIndex) {
-        // Use prebuilt index to compute matches quickly
         let first = true;
         let working: Set<string> = new Set();
         for (const [type, values] of activeTypes) {
@@ -587,9 +535,9 @@ export default function CollectionPage() {
             working = new Set(Array.from(working).filter(x => idsForType.has(x)));
           }
         }
-        for (const id of working) matchIds.add(id);
+        traitSet = working;
       } else {
-        // Fallback to traits cache assembled from per-token metadata
+        traitSet = new Set<string>();
         for (let i = 0; i < totalCount; i++) {
           const token = String(i);
           const traits = traitsCacheRef.current[token] || [];
@@ -597,32 +545,47 @@ export default function CollectionPage() {
           const ok = activeTypes.every(([type, values]) =>
             traits.some(t => t.name === type && values.has(t.value))
           );
-          if (ok) matchIds.add(token);
+          if (ok) traitSet.add(token);
         }
       }
     }
 
-    // Ensure driveItems contains stubs for all matchIds
+    // 3) Intersect: when both are active use AND logic so results satisfy ALL conditions
+    if (searchSet && traitSet) {
+      searchSet.forEach(id => { if (traitSet!.has(id)) matchIds.add(id); });
+    } else if (searchSet) {
+      searchSet.forEach(id => matchIds.add(id));
+    } else if (traitSet) {
+      traitSet.forEach(id => matchIds.add(id));
+    }
+
+    // Ensure driveItems contains stubs for all matchIds (use ref to prevent duplicates across re-runs)
     if (matchIds.size > 0) {
-      const existing = new Set(driveItems.map(d => d.tokenId || ''));
       const additions: DriveItem[] = [];
       matchIds.forEach(token => {
-        if (!existing.has(token)) {
-          additions.push({
-            id: token,
-            name: token,
-            imageUrl: '',
-            tokenId: token,
-          });
+        if (!plannedIdsRef.current.has(token)) {
+          plannedIdsRef.current.add(token);
+          additions.push({ id: token, name: token, imageUrl: '', tokenId: token });
         }
       });
       if (additions.length > 0) {
-        setDriveItems(prev => [...prev, ...additions]);
+        setDriveItems(prev => {
+          // Extra dedup guard: ensure no token ID already present
+          const existingIds = new Set(prev.map(d => d.id));
+          const safeAdditions = additions.filter(a => !existingIds.has(a.id));
+          return safeAdditions.length > 0 ? [...prev, ...safeAdditions] : prev;
+        });
       }
     }
 
-    // Now filter driveItems by the computed matchIds
-    const filtered = driveItems.filter(item => item.tokenId && matchIds.has(item.tokenId));
+    // Filter driveItems by matchIds and deduplicate by tokenId defensively
+    const seenIds = new Set<string>();
+    const filtered = driveItems.filter(item => {
+      if (!item.tokenId || !matchIds.has(item.tokenId)) return false;
+      if (seenIds.has(item.tokenId)) return false;
+      seenIds.add(item.tokenId);
+      return true;
+    });
 
     // Sorting
     filtered.sort((a, b) => {
@@ -652,8 +615,14 @@ export default function CollectionPage() {
 
   // Infinite scroll: append more items when sentinel enters view
   useEffect(() => {
+    // Capture current generation — if filters change while this observer is live, bail out
+    const capturedGen = filterGenRef.current;
+
     const observer = new IntersectionObserver(
       entries => {
+        // If filters changed since this observer was created, ignore — a fresh observer
+        // with the correct filteredItems will be set up after the next render.
+        if (filterGenRef.current !== capturedGen) return;
         if (!entries[0].isIntersecting || !hasMore || loading) return;
         const nextPage = page + 1;
         const start = nextPage * itemsPerPage;
@@ -661,7 +630,11 @@ export default function CollectionPage() {
         const newItems = filteredItems.slice(start, end);
 
         if (newItems.length > 0) {
-          setDisplayedItems(prev => [...prev, ...newItems]);
+          setDisplayedItems(prev => {
+            const existingIds = new Set(prev.map(d => d.tokenId));
+            const fresh = newItems.filter(d => !existingIds.has(d.tokenId));
+            return fresh.length > 0 ? [...prev, ...fresh] : prev;
+          });
           setPage(nextPage);
           // We still may have more if filteredItems has more rows or if more tokens can be planned
           setHasMore(end < filteredItems.length || (plannedUntil + 1) < (totalCount));
@@ -672,6 +645,7 @@ export default function CollectionPage() {
             const planEndId = Math.min(plannedUntil + itemsPerPage, (totalCount - 1));
             const planned: DriveItem[] = [];
             for (let id = planStartId; id <= planEndId; id++) {
+              plannedIdsRef.current.add(String(id));
               planned.push({
                 id: String(id),
                 name: String(id),
@@ -717,7 +691,7 @@ export default function CollectionPage() {
     setIdQuery('');
     setSortBy('token-asc');
     setSelectedByType({});
-    setValueFilterByType({});
+    setPerTypeSearch({});
   };
 
   const handleSurpriseMe = () => {
@@ -753,14 +727,14 @@ export default function CollectionPage() {
   // removed unused modalTraits
 
   return (
-    <div className="min-h-screen" style={{ color: 'var(--foreground)', background: 'var(--background)' }}>
+    <div className="min-h-screen" style={{ color: 'var(--foreground)' }}>
       <Nav />
 
       <div className="pt-24 pb-20 relative">
         {/* Subtle gradient backdrop */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-hero-blue/5 rounded-full blur-3xl" />
-          <div className="absolute top-40 right-0 w-[400px] h-[300px] bg-ape-gold/5 rounded-full blur-3xl" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-hero-blue/8 rounded-full blur-3xl" />
+          <div className="absolute top-40 right-0 w-[400px] h-[300px] bg-hero-blue/5 rounded-full blur-3xl" />
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
@@ -771,7 +745,7 @@ export default function CollectionPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
           >
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-hero-blue via-ape-gold to-accent-cyan">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-hero-blue via-hero-blue-light to-accent-cyan">
               Apes on Apechain
             </h1>
             <p className="text-lg text-ape-gray max-w-2xl mx-auto">
@@ -794,216 +768,64 @@ export default function CollectionPage() {
               </h2>
               <div className="h-px flex-1 max-w-[120px] bg-gradient-to-l from-transparent to-hero-blue/50" />
             </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Magic Eden */}
-                <a
-                  href="https://magiceden.io/collections/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="glass-dark rounded-2xl p-6 flex items-center justify-between group border border-white/10 hover:border-hero-blue/50 transition-all duration-300 hover:shadow-xl hover:shadow-hero-blue/20 hover:scale-[1.02] relative overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-hero-blue/0 to-hero-blue/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="flex items-center gap-4 relative z-10">
-                    <div className="w-12 h-12 rounded-xl bg-hero-blue/10 flex items-center justify-center group-hover:bg-hero-blue/20 transition-colors">
-                      <Image 
-                        src="/magiceden_icon.jpeg" 
-                        alt="Magic Eden" 
-                        width={32}
-                        height={32}
-                        className="w-8 h-8 rounded-lg"
-                      />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg" style={{ color: 'var(--foreground)' }}>
-                        Magic Eden
-                      </h3>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* OpenSea — primary */}
+              <a
+                href={OPENSEA_COLLECTION_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="glass-dark rounded-2xl p-6 flex items-center justify-between group border border-white/10 hover:border-hero-blue/50 transition-all duration-300 hover:shadow-xl hover:shadow-hero-blue/20 hover:scale-[1.02] relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-hero-blue/0 to-hero-blue/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className="w-12 h-12 rounded-xl bg-hero-blue/10 flex items-center justify-center overflow-hidden group-hover:bg-hero-blue/20 transition-colors">
+                    <Image
+                      src="/opensea-logo.webp"
+                      alt="OpenSea"
+                      width={32}
+                      height={32}
+                      className="w-8 h-8 object-contain"
+                    />
                   </div>
-                  <ExternalLink className="w-5 h-5 text-hero-blue opacity-0 group-hover:opacity-100 transition-opacity relative z-10" />
-                </a>
-
-                {/* Mintify */}
-                <a
-                  href="https://app.mintify.com/nft/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="glass-dark rounded-2xl p-6 flex items-center justify-between group border border-white/10 hover:border-ape-gold/50 transition-all duration-300 hover:shadow-xl hover:shadow-ape-gold/20 hover:scale-[1.02] relative overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-ape-gold/0 to-ape-gold/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="flex items-center gap-4 relative z-10">
-                    <div className="w-12 h-12 rounded-xl bg-ape-gold/10 flex items-center justify-center group-hover:bg-ape-gold/20 transition-colors">
-                      <Image 
-                        src="/mintify_icon.jpeg" 
-                        alt="Mintify" 
-                        width={32}
-                        height={32}
-                        className="w-8 h-8 rounded-lg"
-                      />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg" style={{ color: 'var(--foreground)' }}>
-                        Mintify
-                      </h3>
-                    </div>
+                  <div>
+                    <h3 className="font-semibold text-lg" style={{ color: 'var(--foreground)' }}>
+                      OpenSea
+                    </h3>
                   </div>
-                  <ExternalLink className="w-5 h-5 text-ape-gold opacity-0 group-hover:opacity-100 transition-opacity relative z-10" />
-                </a>
-
-                {/* OpenSea */}
-                <a
-                  href="https://opensea.io/collection/apes-on-apechain"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="glass-dark rounded-2xl p-6 flex items-center justify-between group border border-white/10 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 hover:scale-[1.02] relative overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="flex items-center gap-4 relative z-10">
-                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center overflow-hidden group-hover:bg-blue-500/20 transition-colors">
-                      <Image
-                        src="/opensea-logo.webp"
-                        alt="OpenSea"
-                        width={32}
-                        height={32}
-                        className="w-8 h-8 object-contain"
-                      />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg" style={{ color: 'var(--foreground)' }}>
-                        OpenSea
-                      </h3>
-                    </div>
-                  </div>
-                  <ExternalLink className="w-5 h-5 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity relative z-10" />
-                </a>
-              </div>
-          </motion.section>
-
-          {/* Live Listings (Floor) */}
-          <motion.section
-            className="mb-16"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.15 }}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-ape-gold/10 border border-ape-gold/20">
-                  <Tag className="w-5 h-5 text-ape-gold" />
                 </div>
-                <h2 className="text-xl font-semibold" style={{ color: 'var(--foreground)' }}>
-                  Listings
-                </h2>
-              </div>
-                  <a
-                    href="https://magiceden.io/collections/apechain/apes-on-apechain"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-hero-blue hover:underline"
-                  >
-                    View all on Magic Eden →
-                  </a>
+                <ExternalLink className="w-5 h-5 text-hero-blue opacity-0 group-hover:opacity-100 transition-opacity relative z-10" />
+              </a>
+
+              {/* Mintify */}
+              <a
+                href="https://app.mintify.com/nft/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="glass-dark rounded-2xl p-6 flex items-center justify-between group border border-white/10 hover:border-hero-blue/50 transition-all duration-300 hover:shadow-xl hover:shadow-hero-blue/20 hover:scale-[1.02] relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-hero-blue/0 to-hero-blue/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className="w-12 h-12 rounded-xl bg-hero-blue/10 flex items-center justify-center group-hover:bg-hero-blue/20 transition-colors">
+                    <Image
+                      src="/mintify_icon.jpeg"
+                      alt="Mintify"
+                      width={32}
+                      height={32}
+                      className="w-8 h-8 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg" style={{ color: 'var(--foreground)' }}>
+                      Mintify
+                    </h3>
+                  </div>
+                </div>
+                <ExternalLink className="w-5 h-5 text-hero-blue opacity-0 group-hover:opacity-100 transition-opacity relative z-10" />
+              </a>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-10 gap-4">
-                  {(listingsLoading || listings.length === 0) ? (
-                    <div className="col-span-full rounded-xl glass-dark border border-white/10 overflow-hidden">
-                      <div className="h-1.5 w-full bg-white/5 overflow-hidden">
-                        <div className="h-full w-1/4 min-w-[100px] bg-ape-gold/80 rounded-full animate-loading-bar" />
-                      </div>
-                    </div>
-                  ) : listings.map((item, i) => {
-                    const img = item.image?.trim() ? item.image : `${THUMBS_BASE}/${item.tokenId}.webp`;
-                    return (
-                      <motion.a
-                        key={item.tokenId || i}
-                        href={item.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="glass-dark rounded-xl overflow-hidden group border border-white/10 hover:border-ape-gold/50 transition-all duration-300 block"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: i * 0.03 }}
-                        whileHover={{ scale: 1.03, y: -4 }}
-                      >
-                        <div className="relative aspect-square overflow-hidden">
-                          <SafeImage
-                            src={img}
-                            alt={item.name || `#${item.tokenId}`}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-500"
-                            sizes="120px"
-                          />
-                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-black/70 text-xs border border-white/20 font-medium backdrop-blur-sm">
-                            #{item.tokenId}
-                          </div>
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                        <div className="p-3 text-center bg-white/[0.02] border-t border-white/5">
-                          <p className="text-sm font-bold text-ape-gold">
-                            {item.price.toFixed(2)} APE
-                          </p>
-                        </div>
-                      </motion.a>
-                    );
-                  })}
-                </div>
           </motion.section>
 
-          {/* Recent Activity */}
-          {activity.length > 0 && (
-            <motion.section
-              className="mb-16"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
-            >
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
-                    <Activity className="w-5 h-5 text-accent-green" />
-                    Recent Activity
-                  </h2>
-                  <a
-                    href="https://magiceden.io/collections/apechain/apes-on-apechain"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-hero-blue hover:underline"
-                  >
-                    View all →
-                  </a>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {activity.map((item, i) => {
-                    const itemObj = item as Record<string, unknown>;
-                    const tokenObj = itemObj.token as Record<string, unknown> | undefined;
-                    const type = item.type ?? itemObj.activityType ?? 'sale';
-                    const price = item.price ?? itemObj.price ?? itemObj.amount;
-                    const tokenId = item.tokenId ?? itemObj.tokenId ?? tokenObj?.tokenId;
-                    const createdAt = item.createdAt ?? itemObj.createdAt;
-                    return (
-                      <motion.div
-                        key={i}
-                        className="glass-dark rounded-xl p-4 flex items-center gap-3 border border-white/10 hover:border-accent-green/30 transition-colors"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.05 }}
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-accent-green/20 flex items-center justify-center">
-                          <Activity className="w-5 h-5 text-accent-green" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium capitalize" style={{ color: 'var(--foreground)' }}>
-                            {String(type)}
-                          </p>
-                          <p className="text-xs text-ape-gray truncate">
-                            {typeof price === 'number' ? `${price.toFixed(2)} APE` : '—'}
-                            {tokenId != null ? ` · #${tokenId}` : ''}
-                          </p>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-            </motion.section>
-          )}
+          {/* Live listings and recent activity sections removed (Magic Eden-based) */}
 
           {/* Divider */}
           <div className="flex items-center gap-4 mb-8">
@@ -1020,10 +842,10 @@ export default function CollectionPage() {
             transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
             {/* Gradient border wrapper */}
-            <div className="relative rounded-2xl p-[1px] bg-gradient-to-r from-hero-blue/50 via-ape-gold/40 to-hero-blue/50 shadow-[0_0_30px_-10px_rgba(0,84,249,0.3)]">
+            <div className="relative rounded-2xl p-[1px] bg-gradient-to-r from-hero-blue/50 via-hero-blue-light/40 to-hero-blue/50 shadow-[0_0_30px_-10px_rgba(0,84,249,0.3)]">
               <div className="glass-dark rounded-2xl p-4 sm:p-5 border border-white/10 shadow-xl shadow-black/30 overflow-hidden relative">
                 {/* Gradient accent overlay */}
-                <div className="absolute inset-0 bg-gradient-to-r from-hero-blue/[0.07] via-transparent to-ape-gold/[0.07] pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-r from-hero-blue/[0.07] via-transparent to-hero-blue-light/[0.07] pointer-events-none" />
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
                 <div className="flex flex-col gap-4 relative">
@@ -1061,7 +883,7 @@ export default function CollectionPage() {
                       </button>
                       <button
                         onClick={handleSurpriseMe}
-                        className="inline-flex items-center gap-2 px-4 py-3 rounded-xl border border-ape-gold/40 bg-ape-gold/10 text-ape-gold hover:bg-ape-gold/20 hover:border-ape-gold/60 transition-all text-sm font-medium"
+                        className="inline-flex items-center gap-2 px-4 py-3 rounded-xl border border-hero-blue/40 bg-hero-blue/10 text-hero-blue hover:bg-hero-blue/20 hover:border-hero-blue/60 transition-all text-sm font-medium"
                       >
                         <Sparkles className="w-4 h-4" />
                         Surprise me
@@ -1124,131 +946,228 @@ export default function CollectionPage() {
             </div>
 
             {/* Scroll to filters on mobile */}
-            {showTraitFilters && (
-              <button
-                onClick={() => filtersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="mt-3 flex items-center gap-2 text-sm text-ape-gray hover:text-hero-blue transition-colors lg:hidden"
-              >
-                <Filter className="w-4 h-4" />
-                Filter by traits
-              </button>
-            )}
+            <button
+              onClick={() => filtersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="mt-3 flex items-center gap-2 text-sm text-ape-gray hover:text-hero-blue transition-colors lg:hidden"
+            >
+              <Filter className="w-4 h-4" />
+              Filter by traits
+            </button>
           </motion.div>
 
           {/* Sidebar filters (left) + Grid (right) */}
           <div className="grid lg:grid-cols-5 gap-6">
             {/* Left: Trait Filters */}
-            <aside ref={filtersRef} className="lg:col-span-1 space-y-4">
-              {/* Trait Filters */}
-              <div className="glass-dark rounded-xl p-4 border border-white/10 sticky top-24 shadow-lg shadow-black/20">
-                <div className="flex items-center gap-2 mb-3">
-                  <Filter className="w-4 h-4 text-ape-gray flex-shrink-0" />
-                  <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Filter by traits</span>
-                </div>
-                <input
-                  type="text"
-                  value={typeFilterTerm}
-                  onChange={(e) => setTypeFilterTerm(e.target.value)}
-                  placeholder="Search trait types…"
-                  className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm placeholder-ape-gray focus:border-hero-blue focus:outline-none focus:ring-1 focus:ring-hero-blue/30 mb-3"
-                  style={{ color: 'var(--foreground)' }}
-                />
-                {/* Trait type buttons */}
-                <div className="flex flex-col gap-2 overflow-y-auto max-h-60 pr-1 custom-scrollbar">
-                  {traitTypes
-                    .filter((t) => !EXCLUDED_TRAIT_TYPES.has(t))
-                    .filter((t) => t.toLowerCase().includes(typeFilterTerm.toLowerCase()))
-                    .map((type) => {
-                      const count = (selectedByType[type]?.size ?? 0);
-                      const hasValues = (availableValuesByType[type]?.size ?? 0) > 0;
-                      const isActive = activeTraitType === type;
-                      return (
-                        <button
-                          key={type}
-                          disabled={!hasValues}
-                          onClick={() => {
-                            if (isActive) setActiveTraitType('');
-                            else setActiveTraitType(type);
-                          }}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-sm border transition-all flex items-center justify-between ${
-                            isActive
-                              ? 'border-hero-blue text-hero-blue bg-hero-blue/15 shadow-sm'
-                              : 'border-white/10 hover:border-hero-blue/40 hover:bg-white/5'
-                          } ${!hasValues ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          title={hasValues ? `Filter by ${type}` : 'Loading values…'}
-                        >
-                          <span>{type}</span>
-                          {count > 0 && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-hero-blue/20 text-hero-blue text-xs font-medium">
-                              {count}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
+            <aside ref={filtersRef} className="lg:col-span-1">
+              <div className="sticky top-24 space-y-3">
+
+                {/* Panel header */}
+                <div className="flex items-center justify-between px-0.5">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-3.5 h-3.5 text-hero-blue" />
+                    <span className="text-sm font-bold text-white">Filter Traits</span>
+                    {selectedChips.length > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-hero-blue text-white font-bold">
+                        {selectedChips.length}
+                      </span>
+                    )}
+                  </div>
+                  {selectedChips.length > 0 && (
+                    <button
+                      onClick={clearFilters}
+                      className="text-[11px] text-white/30 hover:text-red-400 transition-colors flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" /> Reset
+                    </button>
+                  )}
                 </div>
 
-                {/* Active trait type: value selector */}
-                {activeTraitType && (
-                  <div className="mt-4 pt-4 border-t border-white/10">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-ape-gray">{activeTraitType} values</span>
-                      {(selectedByType[activeTraitType]?.size ?? 0) > 0 && (
+                {/* Active chips */}
+                {selectedChips.length > 0 && (
+                  <div className="rounded-xl border border-hero-blue/25 bg-hero-blue/5 p-2.5 space-y-1.5">
+                    <p className="text-[10px] uppercase tracking-widest text-hero-blue/50 font-bold">Active</p>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedChips.map((c, idx) => (
                         <button
-                          type="button"
-                          className="text-xs text-hero-blue hover:underline"
-                          onClick={() => clearTypeSelection(activeTraitType)}
+                          key={`${c.type}-${c.value}-${idx}`}
+                          onClick={() => toggleTraitValue(c.type, c.value)}
+                          className="inline-flex items-center gap-1 pl-2 pr-1.5 py-0.5 rounded-lg bg-hero-blue/15 border border-hero-blue/30 text-hero-blue text-[11px] font-medium hover:bg-hero-blue/25 transition-colors group"
                         >
-                          Clear
+                          {c.value}
+                          <X className="w-2.5 h-2.5 opacity-50 group-hover:opacity-100" />
                         </button>
-                      )}
+                      ))}
                     </div>
-                    <input
-                      type="text"
-                      value={valueFilterByType[activeTraitType] || ''}
-                      onChange={(e) => setValueFilterByType(prev => ({ ...prev, [activeTraitType]: e.target.value }))}
-                      placeholder="Search values…"
-                      className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm placeholder-ape-gray focus:border-hero-blue focus:outline-none mb-2"
-                      style={{ color: 'var(--foreground)' }}
-                    />
-                    {(() => {
-                      let allValues = Array.from(availableValuesByType[activeTraitType] || []).sort((a, b) => a.localeCompare(b));
-                      const q = (valueFilterByType[activeTraitType] || '').toLowerCase();
-                      if (q) allValues = allValues.filter(v => v.toLowerCase().includes(q));
-                      const visible = allValues; // show all values at once
-                      const selected = selectedByType[activeTraitType] || new Set<string>();
-                      return (
-                        <>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs" style={{ color: 'var(--ape-gray)' }}>
-                              {allValues.length} values
-                            </span>
-                          </div>
-                          {allValues.length === 0 ? (
-                            <div className="text-xs text-ape-gray py-2">No values found</div>
-                          ) : (
-                            <div className="space-y-1 max-h-72 overflow-auto pr-1 custom-scrollbar">
-                              {visible.map((v) => (
-                                <label
-                                  key={v}
-                                  className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={selected.has(v)}
-                                    onChange={() => toggleTraitValue(activeTraitType, v)}
-                                    className="rounded border-white/20 text-hero-blue focus:ring-hero-blue/50"
-                                  />
-                                  <span className="text-sm break-words whitespace-normal" style={{ color: 'var(--foreground)' }}>
-                                    {v}
+                  </div>
+                )}
+
+                {/* Type search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={typeFilterTerm}
+                    onChange={e => setTypeFilterTerm(e.target.value)}
+                    placeholder="Search traits…"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-white/8 bg-white/[0.03] text-sm text-white placeholder-white/20 focus:border-hero-blue/40 focus:bg-white/5 focus:outline-none transition-all"
+                  />
+                </div>
+
+                {/* Accordion list */}
+                {!cdnTraitsMeta ? (
+                  /* Loading skeleton */
+                  <div className="space-y-1.5">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                      <div key={i} className="h-10 rounded-xl bg-white/[0.03] border border-white/8 animate-pulse" style={{ opacity: 1 - i * 0.1 }} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-1 max-h-[calc(100vh-320px)] overflow-y-auto pr-0.5 custom-scrollbar">
+                    {traitTypes
+                      .filter(t => !EXCLUDED_TRAIT_TYPES.has(t))
+                      .filter(t => t.toLowerCase().includes(typeFilterTerm.toLowerCase()))
+                      .map(type => {
+                        const allValues = Array.from(availableValuesByType[type] || []).sort((a, b) => a.localeCompare(b));
+                        const selectedSet = selectedByType[type] || new Set<string>();
+                        const selectedCount = selectedSet.size;
+                        const isExpanded = !!expandedTypes[type];
+                        const search = perTypeSearch[type] || '';
+                        const filteredValues = search
+                          ? allValues.filter(v => v.toLowerCase().includes(search.toLowerCase()))
+                          : allValues;
+                        const counts = cdnTraitsMeta?.counts?.[type] || {};
+                        const maxCount = Math.max(...Object.values(counts));
+
+                        return (
+                          <div
+                            key={type}
+                            className={`rounded-xl border overflow-hidden transition-colors duration-150 ${
+                              selectedCount > 0
+                                ? 'border-hero-blue/35 bg-hero-blue/[0.04]'
+                                : 'border-white/8 bg-white/[0.02] hover:border-white/15'
+                            }`}
+                          >
+                            {/* Header */}
+                            <button
+                              onClick={() => setExpandedTypes(prev => ({ ...prev, [type]: !prev[type] }))}
+                              className="w-full flex items-center justify-between px-3 py-2.5 text-left group"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`text-xs font-semibold truncate transition-colors ${selectedCount > 0 ? 'text-hero-blue' : 'text-white/70 group-hover:text-white'}`}>
+                                  {type}
+                                </span>
+                                {selectedCount > 0 && (
+                                  <span className="flex-shrink-0 w-4 h-4 rounded-full bg-hero-blue text-white text-[9px] font-black flex items-center justify-center">
+                                    {selectedCount}
                                   </span>
-                                </label>
-                              ))}
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-shrink-0 ml-1">
+                                <span className="text-[10px] text-white/15">{allValues.length}</span>
+                                <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : 'rotate-0'}`}>
+                                  <ChevronDown className="w-3.5 h-3.5 text-white/25" />
+                                </div>
+                              </div>
+                            </button>
+
+                            {/* Body — CSS grid transition (no Framer Motion = no twitching) */}
+                            <div
+                              style={{
+                                display: 'grid',
+                                gridTemplateRows: isExpanded ? '1fr' : '0fr',
+                                transition: 'grid-template-rows 0.2s ease',
+                              }}
+                            >
+                              <div className="overflow-hidden">
+                                <div className="border-t border-white/8">
+                                  {/* Clear + value search */}
+                                  <div className="flex items-center gap-2 px-3 pt-2 pb-1">
+                                    {allValues.length > 6 && (
+                                      <div className="relative flex-1">
+                                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-white/15" />
+                                        <input
+                                          value={search}
+                                          onChange={e => setPerTypeSearch(prev => ({ ...prev, [type]: e.target.value }))}
+                                          placeholder="Search…"
+                                          className="w-full pl-6 pr-2 py-1 bg-white/5 border border-white/8 rounded-lg text-[11px] text-white placeholder-white/15 focus:outline-none focus:border-hero-blue/30"
+                                        />
+                                      </div>
+                                    )}
+                                    {selectedCount > 0 && (
+                                      <button
+                                        onClick={() => clearTypeSelection(type)}
+                                        className="flex-shrink-0 text-[10px] text-hero-blue/70 hover:text-hero-blue transition-colors"
+                                      >
+                                        Clear
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Values */}
+                                  <div className="px-1.5 pb-2 max-h-48 overflow-y-auto custom-scrollbar space-y-0.5">
+                                    {filteredValues.length === 0 ? (
+                                      <div className="text-[11px] text-white/20 py-2 text-center">No results</div>
+                                    ) : (
+                                      filteredValues.map(value => {
+                                        const count = counts[value] ?? 0;
+                                        const pct = count > 0 ? ((count / 10000) * 100) : 0;
+                                        const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                                        const isChecked = selectedSet.has(value);
+                                        return (
+                                          <label
+                                            key={value}
+                                            className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors group/val ${
+                                              isChecked ? 'bg-hero-blue/15' : 'hover:bg-white/5'
+                                            }`}
+                                          >
+                                            {/* Checkbox */}
+                                            <div className={`flex-shrink-0 w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${
+                                              isChecked
+                                                ? 'bg-hero-blue border-hero-blue'
+                                                : 'border-white/20 group-hover/val:border-white/40'
+                                            }`}>
+                                              {isChecked && (
+                                                <svg className="w-2 h-2 text-white" viewBox="0 0 8 8" fill="none">
+                                                  <path d="M1.5 4l2 2 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                </svg>
+                                              )}
+                                            </div>
+                                            <input
+                                              type="checkbox"
+                                              checked={isChecked}
+                                              onChange={() => toggleTraitValue(type, value)}
+                                              className="sr-only"
+                                            />
+
+                                            {/* Label + bar */}
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center justify-between mb-0.5">
+                                                <span className={`text-[11px] font-medium truncate ${isChecked ? 'text-hero-blue' : 'text-white/60 group-hover/val:text-white/80'}`}>
+                                                  {value}
+                                                </span>
+                                                <span className={`text-[10px] flex-shrink-0 ml-1 ${isChecked ? 'text-hero-blue/70' : 'text-white/20'}`}>
+                                                  {pct > 0 ? `${pct.toFixed(1)}%` : ''}
+                                                </span>
+                                              </div>
+                                              {/* Rarity bar */}
+                                              <div className="h-0.5 rounded-full bg-white/5 overflow-hidden">
+                                                <div
+                                                  className={`h-full rounded-full transition-all duration-300 ${isChecked ? 'bg-hero-blue' : 'bg-white/20'}`}
+                                                  style={{ width: `${barWidth}%` }}
+                                                />
+                                              </div>
+                                            </div>
+                                          </label>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                          )}
-                        </>
-                      );
-                    })()}
+                          </div>
+                        );
+                      })}
                   </div>
                 )}
               </div>
@@ -1258,39 +1177,57 @@ export default function CollectionPage() {
             <section className="lg:col-span-4">
               {/* Results header */}
               {!loading && (
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-                  <p className="text-sm text-ape-gray">
-                    {filteredItems.length === 0
-                      ? 'No results'
-                      : `Showing ${displayedItems.length}${hasMore ? '+' : ''} of ${filteredItems.length.toLocaleString()} Apes`}
-                    {(searchTerm || selectedChips.length > 0) && ' (filtered)'}
-                  </p>
-                  {(searchTerm || selectedChips.length > 0) && (
-                    <button
-                      onClick={clearFilters}
-                      className="text-xs text-hero-blue hover:underline font-medium"
-                    >
-                      Reset filters
-                    </button>
+                <div className="flex flex-col gap-2 mb-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-ape-gray">
+                      {filteredItems.length === 0
+                        ? 'No results'
+                        : `Showing ${displayedItems.length}${hasMore ? '+' : ''} of ${filteredItems.length.toLocaleString()} Apes`}
+                      {(searchTerm || selectedChips.length > 0) && ' (filtered)'}
+                    </p>
+                    {(searchTerm || selectedChips.length > 0) && (
+                      <button
+                        onClick={clearFilters}
+                        className="text-xs text-hero-blue hover:underline font-medium"
+                      >
+                        Reset filters
+                      </button>
+                    )}
+                  </div>
+                  {selectedChips.length > 0 && (
+                    <p className="text-xs text-ape-gray">
+                      Filtered by{' '}
+                      {selectedChips
+                        .map((chip) => `${chip.type}: ${chip.value}`)
+                        .join(' • ')}
+                    </p>
                   )}
                 </div>
               )}
 
               {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="text-center">
-                  <div className="w-16 h-16 border-4 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin mx-auto mb-4"></div>
-                  <p style={{ color: 'var(--ape-gray)' }}>Loading collection...</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 py-6">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="glass-dark rounded-xl border border-white/5 animate-pulse overflow-hidden"
+                    >
+                      <div className="aspect-square bg-white/5" />
+                      <div className="p-3 space-y-2 bg-white/[0.02] border-t border-white/5">
+                        <div className="h-3 w-2/3 rounded-full bg-white/10" />
+                        <div className="h-3 w-1/3 rounded-full bg-white/5" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            ) : (
+              ) : (
               <>
                   {/* 4 columns on desktop */}
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                     {displayedItems.map((item, idx) => (
                       <motion.div
                         key={item.id}
-                        className="glass-dark rounded-xl overflow-hidden border border-white/10 cursor-pointer group hover:border-ape-gold/30 transition-all duration-300"
+                        className="glass-dark rounded-xl overflow-hidden border border-white/10 cursor-pointer group hover:border-hero-blue/30 transition-all duration-300"
                         onClick={() => openModal(item)}
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1334,7 +1271,7 @@ export default function CollectionPage() {
 
                 {hasMore && (
                   <div ref={observerTarget} className="flex justify-center py-8">
-                    <div className="w-12 h-12 border-4 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin"></div>
+                    <div className="w-12 h-12 border-4 border-hero-blue/30 border-t-hero-blue rounded-full animate-spin"></div>
                   </div>
                 )}
 
@@ -1375,6 +1312,7 @@ export default function CollectionPage() {
       </div>
 
       <Footer />
+      <ScrollToTopButton />
       {/* Modal Preview */}
       {modalItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -1387,9 +1325,25 @@ export default function CollectionPage() {
                   {modalItem.tokenId ? `#${modalItem.tokenId}` : '—'}
                 </span>
               </div>
-              <button onClick={closeModal} className="p-2 rounded hover:bg-white/5" aria-label="Close">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window === 'undefined' || !modalItem.tokenId) return;
+                    const url = `${window.location.origin}/collection?search=${modalItem.tokenId}`;
+                    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                      void navigator.clipboard.writeText(url);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-hero-blue hover:bg-white/5"
+                >
+                  <Link2 className="w-3 h-3" />
+                  Copy link
+                </button>
+                <button onClick={closeModal} className="p-2 rounded hover:bg-white/5" aria-label="Close">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
             <div className="grid md:grid-cols-2 gap-0">
               <div className="relative w-full aspect-square md:aspect-auto md:min-h-[28rem]">

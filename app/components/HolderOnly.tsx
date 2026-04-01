@@ -81,7 +81,7 @@ export default function HolderOnly({
 						</button>
 					)}
 					<a
-						href={`https://opensea.io/assets/ethereum/${APE_COLLECTION}`}
+						href="https://opensea.io/collection/apes-on-apechain"
 						target="_blank"
 						rel="noopener noreferrer"
 						className="px-4 py-2 rounded-lg border border-white/20 text-off-white/90 hover:bg-white/10 transition-colors"

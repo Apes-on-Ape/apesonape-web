@@ -172,7 +172,7 @@ export default function QrBadgePage() {
 						</div>
 
 						<div className="glass-dark rounded-xl p-5 space-y-3">
-							<div className="font-semibold text-ape-gold flex items-center gap-2"><Type className="w-4 h-4"/> Caption</div>
+							<div className="font-semibold text-hero-blue flex items-center gap-2"><Type className="w-4 h-4"/> Caption</div>
 							<input value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="@handle or label" className="w-full bg-transparent border border-white/10 rounded px-3 py-2"/>
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 								<label className="text-xs text-off-white/70">Text Color

@@ -21,8 +21,8 @@ export default function SectionCallouts() {
       description: 'Showcase your work. Join a community that celebrates creativity and visual expression.',
       cta: 'View Collection',
       href: '/collection',
-      gradient: 'from-ape-gold to-yellow-600',
-      iconColor: 'text-ape-gold',
+      gradient: 'from-hero-blue-light to-hero-blue',
+      iconColor: 'text-hero-blue-light',
     },
     {
       icon: Gamepad2,
@@ -85,7 +85,7 @@ export default function SectionCallouts() {
                 <motion.div 
                   className={`inline-flex p-4 rounded-xl mb-6 shadow-lg ${
                     callout.iconColor === 'text-hero-blue' ? 'bg-hero-blue' : 
-                    callout.iconColor === 'text-ape-gold' ? 'bg-ape-gold' : 
+                    callout.iconColor === 'text-hero-blue-light' ? 'bg-hero-blue-light' : 
                     callout.iconColor === 'text-purple-500' ? 'bg-accent-purple' : 
                     'bg-accent-green'
                   }`}

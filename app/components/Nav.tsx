@@ -5,9 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Sun, Moon } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import Image from 'next/image';
-import { useTheme } from './ThemeProvider';
 import { cn } from '@/lib/utils';
 
 const AuthNavControls = dynamic(() => import('./AuthNavControls'), { ssr: false });
@@ -17,7 +16,6 @@ const NotificationBell = dynamic(() => import('./NotificationBell'), { ssr: fals
 export default function Nav() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -30,9 +28,9 @@ export default function Nav() {
   }, []);
 
   const navLinks = [
+    { href: '/about', label: 'About' },
     { href: '/collection', label: 'Collection' },
     { href: '/music', label: 'Music' },
-    { href: '/studio', label: 'Studio' },
     { href: '/wardrobe', label: 'Wardrobe' },
   ];
   
@@ -113,45 +111,11 @@ export default function Nav() {
             })}
             <ExtraLinks />
             <NotificationBell />
-            
-            {/* Theme Toggle */}
-            <motion.button
-              onClick={toggleTheme}
-              className="p-2.5 rounded-xl glass transition-all duration-300"
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-color-hover)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-color)';
-              }}
-              aria-label="Toggle theme"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {theme === 'dark' ? (
-                <Sun className="w-5 h-5 text-ape-gold" />
-              ) : (
-                <Moon className="w-5 h-5 text-hero-blue" />
-              )}
-            </motion.button>
-            
             <AuthNavControls />
           </div>
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center gap-2">
-            <motion.button
-              onClick={toggleTheme}
-              className="p-2.5 rounded-xl glass"
-              aria-label="Toggle theme"
-              whileTap={{ scale: 0.9 }}
-            >
-              {theme === 'dark' ? (
-                <Sun className="w-5 h-5 text-ape-gold" />
-              ) : (
-                <Moon className="w-5 h-5 text-hero-blue" />
-              )}
-            </motion.button>
             <motion.button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2.5 rounded-xl glass transition-colors"

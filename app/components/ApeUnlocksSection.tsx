@@ -87,16 +87,16 @@ export default function ApeUnlocksSection() {
   return (
     <section className="relative py-4 px-4 overflow-hidden">
       {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#02060B] via-[#070B12] to-[#0B0F17]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#06080F] via-[#07090F] to-[#080808]" />
       
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
-          className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl animate-pulse"
+          className="absolute top-1/4 left-1/4 w-96 h-96 bg-hero-blue/5 rounded-full blur-3xl animate-pulse"
           style={{ animationDuration: '4s' }}
         />
         <div 
-          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse"
+          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent-cyan/4 rounded-full blur-3xl animate-pulse"
           style={{ animationDuration: '6s', animationDelay: '2s' }}
         />
       </div>
@@ -112,11 +112,11 @@ export default function ApeUnlocksSection() {
             viewport={{ once: true }}
             className="relative h-[500px] lg:h-[600px]"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-400/30 to-cyan-400/20 rounded-3xl blur-xl" />
-            <div className="relative h-full bg-gradient-to-br from-amber-950/20 via-amber-900/30 to-black/40 backdrop-blur-sm rounded-3xl border-2 border-amber-400/40 overflow-hidden shadow-2xl">
+            <div className="absolute inset-0 bg-gradient-to-br from-hero-blue/20 to-accent-cyan/10 rounded-3xl blur-xl" />
+            <div className="relative h-full bg-gradient-to-br from-hero-blue/10 via-black/40 to-black/40 backdrop-blur-sm rounded-3xl border-2 border-hero-blue/30 overflow-hidden shadow-2xl">
               <Suspense fallback={
                 <div className="h-full flex items-center justify-center">
-                  <div className="text-amber-400 text-lg animate-pulse">Loading 3D Avatar...</div>
+                  <div className="text-hero-blue text-lg animate-pulse">Loading 3D Avatar...</div>
                 </div>
               }>
                 <Canvas>
@@ -124,11 +124,11 @@ export default function ApeUnlocksSection() {
                   {/* Enhanced lighting for brightness */}
                   <ambientLight intensity={1.2} />
                   <directionalLight position={[5, 5, 5]} intensity={1.5} color="#ffffff" />
-                  <directionalLight position={[-5, 5, 5]} intensity={1.2} color="#fbbf24" />
+                  <directionalLight position={[-5, 5, 5]} intensity={1.2} color="#3377FF" />
                   <spotLight position={[10, 10, 10]} angle={0.3} penumbra={1} intensity={2} color="#ffffff" />
-                  <pointLight position={[-10, -10, -10]} intensity={1} color="#fbbf24" />
+                  <pointLight position={[-10, -10, -10]} intensity={1} color="#0054F9" />
                   <pointLight position={[0, 10, 0]} intensity={1.5} color="#ffffff" />
-                  <hemisphereLight intensity={0.8} groundColor="#4a3f35" />
+                  <hemisphereLight intensity={0.8} groundColor="#0a1a3a" />
                   <ApeModel selectedAnimation={selectedAnimation} onAnimationsLoaded={handleAnimationsLoaded} />
                   <OrbitControls 
                     enableZoom={false}
@@ -144,7 +144,7 @@ export default function ApeUnlocksSection() {
             {/* Animation Controls */}
             {availableAnimations.length > 0 && (
               <div className="mt-6 space-y-3">
-                <h4 className="text-sm font-semibold text-amber-300 text-center uppercase tracking-wider">
+                  <h4 className="text-sm font-semibold text-hero-blue text-center uppercase tracking-wider">
                   Select Animation
                 </h4>
                 <div className="flex flex-wrap gap-2 justify-center">
@@ -154,8 +154,8 @@ export default function ApeUnlocksSection() {
                       onClick={() => setSelectedAnimation(animName)}
                       className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-300 ${
                         selectedAnimation === animName
-                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-lg shadow-amber-500/50 scale-105'
-                          : 'bg-black/40 text-amber-300 border border-amber-500/30 hover:border-amber-500/60 hover:bg-amber-500/10'
+                          ? 'bg-hero-blue text-white shadow-lg shadow-hero-blue/40 scale-105'
+                          : 'bg-black/40 text-hero-blue border border-hero-blue/30 hover:border-hero-blue/60 hover:bg-hero-blue/10'
                       }`}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
@@ -178,7 +178,7 @@ export default function ApeUnlocksSection() {
           >
             {/* Title */}
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-black leading-tight">
-              <span className="bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-white via-hero-blue-light to-white bg-clip-text text-transparent">
                 What Your Ape Unlocks
               </span>
             </h2>
@@ -196,15 +196,15 @@ export default function ApeUnlocksSection() {
                 >
                   {/* Bullet Point */}
                   <div className="flex-shrink-0 mt-1.5">
-                    <div className="w-2 h-2 rounded-full bg-gradient-to-r from-amber-400 to-amber-600 group-hover:scale-150 transition-transform duration-300" />
+                    <div className="w-2 h-2 rounded-full bg-hero-blue group-hover:scale-150 transition-transform duration-300" />
                   </div>
                   
                   {/* Text */}
                   <div className="flex-1">
-                    <h3 className="text-xl md:text-2xl font-bold text-amber-100 group-hover:text-amber-300 transition-colors duration-300">
+                    <h3 className="text-xl md:text-2xl font-bold text-white group-hover:text-hero-blue transition-colors duration-300">
                       {benefit.title}
                       {benefit.description && (
-                        <span className="text-lg md:text-xl font-normal text-amber-100/70 ml-1">
+                        <span className="text-lg md:text-xl font-normal text-white/50 ml-1">
                           {benefit.description}
                         </span>
                       )}

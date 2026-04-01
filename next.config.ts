@@ -1,6 +1,21 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Turbopack alias map — mirrors the webpack resolve.alias below so shims work in dev
+  turbopack: {
+    resolveAlias: {
+      '@react-native-async-storage/async-storage': './shims/empty.js',
+      '@solana-program/system':    './shims/solana-system.js',
+      '@solana-program/token':     './shims/solana-token.js',
+      '@solana-program/token-2022':'./shims/solana-token.js',
+      'tap':                       './shims/empty.js',
+      'tape':                      './shims/empty.js',
+      'why-is-node-running':       './shims/empty.js',
+      'desm':                      './shims/empty.js',
+      'fastbench':                 './shims/empty.js',
+      'pino-elasticsearch':        './shims/empty.js',
+    },
+  },
   images: {
     unoptimized: true,
     remotePatterns: [
