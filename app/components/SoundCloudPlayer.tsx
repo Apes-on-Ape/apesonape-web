@@ -126,10 +126,13 @@ export default function SoundCloudPlayer() {
 
     function initWidget() {
       if (!iframeRef.current || !window.SC?.Widget) return;
-      const widget = window.SC.Widget(iframeRef.current);
+      // Capture Events locally so TypeScript knows it's non-null inside callbacks
+      const SCWidget = window.SC.Widget;
+      const Events = SCWidget.Events;
+      const widget = SCWidget(iframeRef.current);
       widgetRef.current = widget;
 
-      widget.bind(window.SC.Widget.Events.READY, () => {
+      widget.bind(Events.READY, () => {
         if (cancelled) return;
         setIsReady(true);
 
@@ -147,7 +150,7 @@ export default function SoundCloudPlayer() {
 
         widget.setVolume(0); // start muted; user unmutes on first interaction
 
-        widget.bind(window.SC.Widget.Events.PLAY, () => {
+        widget.bind(Events.PLAY, () => {
           if (cancelled) return;
           setIsPlaying(true);
           widget.getCurrentSound(s => setCurrentTitle(s?.title || ''));
@@ -155,13 +158,13 @@ export default function SoundCloudPlayer() {
           startPoll();
         });
 
-        widget.bind(window.SC.Widget.Events.PAUSE, () => {
+        widget.bind(Events.PAUSE, () => {
           if (cancelled) return;
           setIsPlaying(false);
           stopPoll();
         });
 
-        widget.bind(window.SC.Widget.Events.FINISH, () => {
+        widget.bind(Events.FINISH, () => {
           if (cancelled) return;
           // SoundCloud auto-advances in a playlist; nothing extra needed
         });
