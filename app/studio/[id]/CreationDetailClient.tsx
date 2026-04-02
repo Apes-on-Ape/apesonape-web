@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BadgeCheck, ExternalLink, ShieldAlert, Trash2 } from 'lucide-react';
+import { BadgeCheck, ExternalLink, Link2, ShieldAlert, Trash2 } from 'lucide-react';
 import SafeImage from '@/app/components/SafeImage';
 import { CreationRecord } from '@/lib/studio/types';
 import { gatewayCandidates } from '@/lib/studio/urls';
@@ -313,6 +313,20 @@ export default function CreationDetailClient({ creation }: Props) {
 					>
 						View metadata <ExternalLink className="w-4 h-4" />
 					</Link>
+					<button
+						type="button"
+						onClick={() => {
+							if (typeof window === 'undefined') return;
+							const url = window.location.href;
+							if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+								void navigator.clipboard.writeText(url);
+							}
+						}}
+						className="btn-secondary px-4 py-2 text-sm inline-flex items-center gap-2"
+					>
+						<Link2 className="w-4 h-4" />
+						Copy link
+					</button>
 					{isOwner && (
 						<button
 							type="button"

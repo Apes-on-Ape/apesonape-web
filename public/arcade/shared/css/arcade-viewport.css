@@ -1,0 +1,156 @@
+/**
+ * Arcade-wide viewport & responsive layout
+ * Include on arcade-menu, landing page, and individual games for consistent scaling.
+ */
+:root {
+    --arcade-safe-top: env(safe-area-inset-top, 0px);
+    --arcade-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --arcade-safe-left: env(safe-area-inset-left, 0px);
+    --arcade-safe-right: env(safe-area-inset-right, 0px);
+    --arcade-ui-pad: clamp(8px, 2.5vmin, 20px);
+    --arcade-text-xs: clamp(8px, 2.8vmin, 11px);
+    --arcade-text-sm: clamp(10px, 3.2vmin, 14px);
+    --arcade-text-md: clamp(12px, 3.6vmin, 18px);
+    --arcade-max-ui-width: min(100vw - 2 * var(--arcade-ui-pad), 720px);
+}
+
+html {
+    height: 100%;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    min-height: 100%;
+    min-height: 100dvh;
+    box-sizing: border-box;
+}
+
+/* Use on hub pages (e.g. arcade-menu) when you want safe-area + margin; avoid on full-screen canvas games */
+body.arcade-app-shell {
+    padding:
+        calc(var(--arcade-safe-top) + var(--arcade-ui-pad))
+        calc(var(--arcade-safe-right) + var(--arcade-ui-pad))
+        calc(var(--arcade-safe-bottom) + var(--arcade-ui-pad))
+        calc(var(--arcade-safe-left) + var(--arcade-ui-pad));
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* Centered game shell: scales down on small screens */
+.arcade-viewport-fill {
+    width: 100%;
+    min-height: calc(100dvh - 2 * var(--arcade-ui-pad));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.arcade-ui-max {
+    width: 100%;
+    max-width: var(--arcade-max-ui-width);
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Canvas / WebGL parents: never overflow horizontally */
+.arcade-canvas-host {
+    max-width: 100%;
+    max-height: min(92dvh, 100%);
+    width: auto;
+    height: auto;
+}
+
+/* Touch: keep controls usable */
+@media (pointer: coarse) {
+    button,
+    .menu-button,
+    .arcade-button,
+    a.arcade-button {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+    :root {
+        --arcade-ui-pad: clamp(6px, 2vmin, 12px);
+    }
+}
+
+/* Foldables / tablets */
+@media (min-width: 481px) and (max-width: 1024px) {
+    :root {
+        --arcade-max-ui-width: min(100vw - 32px, 900px);
+    }
+}
+
+/*
+ * Mobile game frames (Block Dodger, Neon Racer, etc.): letterbox 2:3 playfield inside
+ * the dynamic viewport so nothing is clipped under notches or browser chrome.
+ * Requires: <script src="shared/js/arcade-device.js"></script> early in <head>
+ * (sets html.arcade-is-mobile | arcade-is-desktop).
+ */
+html.arcade-is-mobile body {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+}
+
+html.arcade-is-mobile .game-container-wrapper {
+    width: 100%;
+    min-height: 100dvh;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding:
+        max(0px, env(safe-area-inset-top))
+        max(0px, env(safe-area-inset-right))
+        max(0px, env(safe-area-inset-bottom))
+        max(0px, env(safe-area-inset-left));
+    box-sizing: border-box;
+}
+
+/*
+ * Letterboxed 2:3 games only (Block Dodger, Neon Racer — they wrap #gameContainer in
+ * .game-container-wrapper). Full-screen games (Galaxy Ape, etc.) omit the wrapper.
+ */
+html.arcade-is-mobile .game-container-wrapper #gameContainer {
+    width: auto !important;
+    max-width: min(400px, calc(100vw - 16px)) !important;
+    max-height: min(
+        92dvh,
+        calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px)
+    ) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    aspect-ratio: 2 / 3;
+    box-sizing: border-box;
+}
+
+/* Flappy-style wrapper: keep canvas visible on small screens */
+html.arcade-is-mobile .game-container {
+    max-width: min(500px, calc(100vw - 24px));
+    width: 100%;
+    box-sizing: border-box;
+}
+
+html.arcade-is-mobile .game-container #gameCanvas {
+    width: 100% !important;
+    height: auto !important;
+    max-height: min(88dvh, calc((min(500px, 100vw - 24px) - 24px) * 1.5));
+    aspect-ratio: 320 / 480;
+    object-fit: contain;
+}
+
+/* Re-run layout when virtual keyboard / URL bar changes height (supported browsers) */
+@supports (height: 100dvh) {
+    html.arcade-is-mobile .game-container-wrapper {
+        height: 100dvh;
+        max-height: 100dvh;
+    }
+}

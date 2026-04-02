@@ -1,258 +1,524 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Play, Pause, SkipForward } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState, startTransition } from 'react';
+import {
+  Play, Pause, SkipForward, SkipBack,
+  Volume2, VolumeX, Music2, ChevronDown, ChevronUp, Shuffle,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-type SoundCloudTrack = { title?: string };
+// ─── SoundCloud Widget API types ──────────────────────────────────────────────
+/** SoundCloud may omit `title` for tail tracks until metadata resolves */
+type SCTrack = {
+  title?: string;
+  user?: { username?: string; permalink?: string };
+  permalink_url?: string;
+};
 
-interface SoundCloudWidgetOptions {
-  auto_play?: boolean;
-  visual?: boolean;
-  show_comments?: boolean;
-  hide_related?: boolean;
-  show_reposts?: boolean;
-  show_user?: boolean;
-  show_teaser?: boolean;
-  start_track?: number;
-}
-
-interface SoundCloudWidget {
+interface SCWidget {
   bind(event: string, listener: () => void): void;
   play(): void;
   pause(): void;
   next(): void;
-  isPaused(callback: (paused: boolean) => void): void;
-  setVolume(volumePercent: number): void;
-  getCurrentSound(callback: (sound: SoundCloudTrack | null) => void): void;
-  getSounds(callback: (sounds: SoundCloudTrack[]) => void): void;
-  getCurrentSoundIndex(callback: (index: number) => void): void;
-  load(url: string, options?: SoundCloudWidgetOptions): void;
+  prev(): void;
+  isPaused(cb: (paused: boolean) => void): void;
+  setVolume(vol: number): void;
+  getVolume(cb: (vol: number) => void): void;
+  getCurrentSound(cb: (sound: SCTrack | null) => void): void;
+  getSounds(cb: (sounds: SCTrack[]) => void): void;
+  getCurrentSoundIndex(cb: (idx: number) => void): void;
+  load(url: string, opts?: object): void;
+  getPosition(cb: (pos: number) => void): void;
+  getDuration(cb: (dur: number) => void): void;
+  seekTo(ms: number): void;
 }
 
-interface SoundCloud {
+interface SC {
   Widget: {
-    (iframe: HTMLIFrameElement): SoundCloudWidget;
-    Events: {
-      READY: string;
-      PLAY: string;
-      PAUSE: string;
-      FINISH: string;
-    };
+    (iframe: HTMLIFrameElement): SCWidget;
+    Events: { READY: string; PLAY: string; PAUSE: string; FINISH: string; PLAY_PROGRESS: string };
   };
 }
 
-declare global {
-  interface Window {
-    SC?: SoundCloud;
-  }
-}
+declare global { interface Window { SC?: SC } }
 
-const PLAYLIST_URL = 'https://soundcloud.com/apesonape/sets/fubar-by-smokethatdank';
+// ─── Constants ────────────────────────────────────────────────────────────────
+const FALLBACK_URL = 'https://soundcloud.com/apesonape';
 
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function SoundCloudPlayer() {
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const widgetRef = useRef<SoundCloudWidget | null>(null);
-  const [isReady, setIsReady] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTitle, setCurrentTitle] = useState<string>('');
-  const hasAutoTriedRef = useRef(false);
-  const unmuteOnFirstInteractionRef = useRef(true);
+  const iframeRef   = useRef<HTMLIFrameElement | null>(null);
+  const widgetRef   = useRef<SCWidget | null>(null);
+  // Ensures PLAY/PAUSE/FINISH are only bound once even when widget.load() re-fires READY
+  const boundRef    = useRef(false);
+  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const unmuteRef   = useRef(true);
+  /** Avoid infinite re-render loops if SoundCloud fires READY / getSounds many times in one tick */
+  const lastTrackListSigRef = useRef<string>('');
+  const lastPollSigRef = useRef<string>('');
 
-  // Use a stable start index for SSR/CSR match; we randomize after READY
-  const stableStartIndex = 0;
+  const [playlistUrl,   setPlaylistUrl]   = useState('');
+  const [albumTitle,    setAlbumTitle]    = useState('AOA Radio');
+  const [isReady,       setIsReady]       = useState(false);
+  const [isPlaying,     setIsPlaying]     = useState(false);
+  const [currentTitle,  setCurrentTitle]  = useState('');
+  const [currentIndex,  setCurrentIndex]  = useState(0);
+  const [totalTracks,   setTotalTracks]   = useState(0);
+  const [volume,        setVolume]        = useState(50);
+  const [isMuted,       setIsMuted]       = useState(true);
+  const [progress,      setProgress]      = useState(0);
+  const [duration,      setDuration]      = useState(0);
+  const [position,      setPosition]      = useState(0);
+  const [expanded,      setExpanded]      = useState(false);
+  const [trackList,     setTrackList]     = useState<string[]>([]);
 
-  // Build iframe src with minimal classic player UI
-  const playerSrc = useMemo(() => {
-    const encoded = encodeURIComponent(PLAYLIST_URL);
-    const params = new URLSearchParams({
-      url: encoded,
-      auto_play: 'true',
-      hide_related: 'true',
-      show_comments: 'false',
-      show_user: 'true',
-      show_reposts: 'false',
-      show_teaser: 'false',
-      visual: 'false',
-      start_track: String(stableStartIndex),
-    });
-    return `https://w.soundcloud.com/player/?${params.toString()}`;
+  // ── Step 1: fetch latest playlist URL from our API ────────────────────────
+  useEffect(() => {
+    fetch('/api/soundcloud/latest-playlist')
+      .then(r => r.json())
+      .then(data => {
+        setPlaylistUrl(data.url  || FALLBACK_URL);
+        setAlbumTitle(data.title || 'AOA Radio');
+      })
+      .catch(() => setPlaylistUrl(FALLBACK_URL));
   }, []);
 
+  // ── Step 2: build iframe src once URL is known ────────────────────────────
+  // URLSearchParams will correctly encode the url param (no manual encodeURIComponent needed)
+  const playerSrc = useMemo(() => {
+    if (!playlistUrl) return '';
+    const p = new URLSearchParams({
+      url:           playlistUrl,
+      auto_play:     'true',
+      hide_related:  'true',
+      show_comments: 'false',
+      show_user:     'true',
+      show_reposts:  'false',
+      show_teaser:   'false',
+      visual:        'false',
+    });
+    return `https://w.soundcloud.com/player/?${p.toString()}`;
+  }, [playlistUrl]);
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function fmt(ms: number) {
+    if (!ms) return '0:00';
+    const s = Math.floor(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  function startPoll() {
+    if (progressRef.current) clearInterval(progressRef.current);
+    progressRef.current = setInterval(() => {
+      const w = widgetRef.current;
+      if (!w) return;
+      w.getPosition(pos => {
+        w.getDuration(dur => {
+          const progressPct = dur > 0 ? (pos / dur) * 100 : 0;
+          const sig = `${pos}|${dur}|${progressPct}`;
+          if (sig === lastPollSigRef.current) return;
+          lastPollSigRef.current = sig;
+          // Defer to next macrotask so nested widget callbacks can't synchronously exceed React's update depth
+          queueMicrotask(() => {
+            setPosition(pos);
+            setDuration(dur);
+            setProgress(progressPct);
+          });
+        });
+      });
+      w.getCurrentSoundIndex(idx => {
+        queueMicrotask(() => {
+          setCurrentIndex(prev => (prev === idx ? prev : idx));
+        });
+      });
+    }, 1000);
+  }
+
+  function stopPoll() {
+    if (progressRef.current) { clearInterval(progressRef.current); progressRef.current = null; }
+  }
+
+  function formatTrackLabel(sound: SCTrack, index: number): string {
+    const raw = sound.title?.trim();
+    if (raw) return raw;
+    const artist = sound.user?.username?.trim();
+    if (artist) return `${artist} (track ${index + 1})`;
+    try {
+      if (sound.permalink_url) {
+        const seg = sound.permalink_url.split('/').filter(Boolean).pop();
+        if (seg && /^[a-z0-9_-]+$/i.test(seg)) {
+          return seg.replace(/-/g, ' ');
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    return `Track ${index + 1}`;
+  }
+
+  function refreshTrackListFromWidget() {
+    const widget = widgetRef.current;
+    if (!widget) return;
+    widget.getSounds((sounds: SCTrack[]) => {
+      if (!Array.isArray(sounds)) return;
+      const labels = sounds.map((s, i) => formatTrackLabel(s, i));
+      const sig = `${sounds.length}\0${labels.join('\0')}`;
+      if (sig === lastTrackListSigRef.current) return;
+      lastTrackListSigRef.current = sig;
+      startTransition(() => {
+        setTotalTracks(sounds.length);
+        setTrackList(labels);
+      });
+    });
+  }
+
+  // ── Step 3: initialise widget once playerSrc is ready ────────────────────
   useEffect(() => {
+    if (!playerSrc) return;
     let cancelled = false;
 
     function initWidget() {
-      if (!iframeRef.current || !window.SC || !window.SC.Widget) return;
-      const widget = window.SC.Widget(iframeRef.current);
+      if (!iframeRef.current || !window.SC?.Widget) return;
+      // Capture Events locally so TypeScript knows it's non-null inside callbacks
+      const SCWidget = window.SC.Widget;
+      const Events = SCWidget.Events;
+      const widget = SCWidget(iframeRef.current);
       widgetRef.current = widget;
 
-      widget.bind(window.SC.Widget.Events.READY, () => {
+      widget.bind(Events.READY, () => {
         if (cancelled) return;
         setIsReady(true);
-        // Start muted to satisfy autoplay policies
-        widget.setVolume(0);
 
-        // Ensure random start within playlist length
-        widget.getSounds((sounds: SoundCloudTrack[]) => {
-          if (!Array.isArray(sounds) || sounds.length === 0) return;
-          const randomIndex = Math.floor(Math.random() * sounds.length);
-          widget.load(PLAYLIST_URL, {
-            auto_play: true,
-            visual: false,
-            show_comments: false,
-            hide_related: true,
-            show_reposts: false,
-            show_user: true,
-            show_teaser: false,
-            start_track: randomIndex,
-          });
+        // Defer list refresh so bursts of READY events don't synchronously stack setState past React's limit
+        queueMicrotask(() => {
+          if (cancelled) return;
+          refreshTrackListFromWidget();
         });
 
-        // Fallback attempt to play if blocked
-        if (!hasAutoTriedRef.current) {
-          hasAutoTriedRef.current = true;
-          setTimeout(() => {
-            widget.isPaused((paused: boolean) => {
-              if (paused) {
-                try { widget.play(); } catch {}
-              }
+        // ⚠ Only run first-time setup once — calling widget.load() inside READY
+        //   would re-fire READY and create an infinite loop.
+        if (boundRef.current) return;
+        boundRef.current = true;
+
+        widget.setVolume(0); // start muted; user unmutes on first interaction
+
+        widget.bind(Events.PLAY, () => {
+          if (cancelled) return;
+          setIsPlaying(true);
+          widget.getCurrentSoundIndex((idx) => {
+            setCurrentIndex(idx);
+            widget.getCurrentSound((s) => {
+              const t = s?.title?.trim();
+              setCurrentTitle(t || formatTrackLabel(s || {}, idx));
             });
-          }, 600);
-        }
-      });
-
-      widget.bind(window.SC.Widget.Events.PLAY, () => {
-        if (cancelled) return;
-        setIsPlaying(true);
-        widget.getCurrentSound((sound: SoundCloudTrack | null) => setCurrentTitle(sound?.title || ''));
-      });
-
-      widget.bind(window.SC.Widget.Events.PAUSE, () => {
-        if (cancelled) return;
-        setIsPlaying(false);
-      });
-
-      widget.bind(window.SC.Widget.Events.FINISH, () => {
-        if (cancelled) return;
-        playRandomTrack();
-      });
-
-      // On first user interaction, unmute and ensure playback
-      const resumeFromGesture = () => {
-        if (!unmuteOnFirstInteractionRef.current) return;
-        unmuteOnFirstInteractionRef.current = false;
-        try {
-          widget.setVolume(50);
-          widget.isPaused((paused: boolean) => {
-            if (paused) widget.play();
           });
-        } catch {}
-        window.removeEventListener('pointerdown', resumeFromGesture);
-        window.removeEventListener('keydown', resumeFromGesture);
-        window.removeEventListener('touchstart', resumeFromGesture);
-      };
-      window.addEventListener('pointerdown', resumeFromGesture, { once: true });
-      window.addEventListener('keydown', resumeFromGesture, { once: true });
-      window.addEventListener('touchstart', resumeFromGesture, { once: true });
+          startPoll();
+          // Titles for later playlist items often populate after playback touches them
+          setTimeout(() => {
+            if (!cancelled) refreshTrackListFromWidget();
+          }, 350);
+        });
+
+        widget.bind(Events.PAUSE, () => {
+          if (cancelled) return;
+          setIsPlaying(false);
+          stopPoll();
+        });
+
+        widget.bind(Events.FINISH, () => {
+          if (cancelled) return;
+          // SoundCloud auto-advances in a playlist; nothing extra needed
+        });
+
+        // Try to autoplay (browsers may block, but worth trying)
+        setTimeout(() => {
+          widget.isPaused(paused => { if (paused) { try { widget.play(); } catch { /* blocked */ } } });
+        }, 800);
+
+        // Unmute + play on first user interaction (bypasses autoplay block)
+        const resumeOnInteraction = () => {
+          if (!unmuteRef.current) return;
+          unmuteRef.current = false;
+          setIsMuted(false);
+          try {
+            widget.setVolume(50);
+            widget.isPaused(paused => { if (paused) widget.play(); });
+          } catch { /* ignore */ }
+        };
+        window.addEventListener('pointerdown', resumeOnInteraction, { once: true });
+        window.addEventListener('keydown',     resumeOnInteraction, { once: true });
+        window.addEventListener('touchstart',  resumeOnInteraction, { once: true });
+      });
     }
 
-    function ensureScript() {
-      const sc = window.SC;
-      if (sc && typeof sc.Widget === 'function') {
-        initWidget();
-        return;
-      }
+    // Load the SoundCloud Widget API script (once)
+    if (window.SC && typeof window.SC.Widget === 'function') {
+      initWidget();
+    } else {
       const existing = document.querySelector('script[data-sc-widget]') as HTMLScriptElement | null;
       if (existing) {
         existing.addEventListener('load', initWidget);
-        return;
+      } else {
+        const s = document.createElement('script');
+        s.src = 'https://w.soundcloud.com/player/api.js';
+        s.async = true;
+        s.defer = true;
+        s.setAttribute('data-sc-widget', 'true');
+        s.addEventListener('load', initWidget);
+        document.body.appendChild(s);
       }
-      const script = document.createElement('script');
-      script.src = 'https://w.soundcloud.com/player/api.js';
-      script.async = true;
-      script.defer = true;
-      script.setAttribute('data-sc-widget', 'true');
-      script.addEventListener('load', initWidget);
-      document.body.appendChild(script);
     }
 
-    ensureScript();
     return () => {
       cancelled = true;
+      stopPoll();
+      boundRef.current = false;
+      widgetRef.current = null;
+      lastTrackListSigRef.current = '';
+      lastPollSigRef.current = '';
     };
-  }, []);
+  }, [playerSrc]);
 
+  // Re-fetch track metadata when opening the list — SoundCloud lazy-loads titles for long playlists
+  useEffect(() => {
+    if (!expanded || !isReady) return;
+    refreshTrackListFromWidget();
+    const delays = [200, 600, 1500, 3000];
+    const timers = delays.map((ms) =>
+      setTimeout(() => {
+        refreshTrackListFromWidget();
+      }, ms)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [expanded, isReady]);
+
+  // ── Controls ──────────────────────────────────────────────────────────────
   function togglePlay() {
-    const widget = widgetRef.current;
-    if (!widget) return;
-    widget.isPaused((paused: boolean) => {
-      if (paused) {
-        widget.play();
-      } else {
-        widget.pause();
-      }
-    });
+    const w = widgetRef.current;
+    if (!w) return;
+    // Unmute on first manual play
+    if (unmuteRef.current) {
+      unmuteRef.current = false;
+      setIsMuted(false);
+      w.setVolume(volume || 50);
+    }
+    w.isPaused(paused => paused ? w.play() : w.pause());
   }
 
   function nextTrack() {
-    const widget = widgetRef.current;
-    if (!widget) return;
-    widget.next();
+    const w = widgetRef.current;
+    if (!w) return;
+    w.next();
+    setTimeout(() => w.getCurrentSound(s => setCurrentTitle(s?.title || '')), 400);
   }
 
-  function playRandomTrack() {
-    const widget = widgetRef.current;
-    if (!widget) return;
-    widget.getSounds((sounds: SoundCloudTrack[]) => {
-      if (!Array.isArray(sounds) || sounds.length === 0) return;
-      const randomIndex = Math.floor(Math.random() * sounds.length);
-      widget.load(PLAYLIST_URL, {
-        auto_play: true,
-        visual: false,
-        show_comments: false,
-        hide_related: true,
-        show_reposts: false,
-        show_user: true,
-        show_teaser: false,
-        start_track: randomIndex,
-      });
+  function prevTrack() {
+    const w = widgetRef.current;
+    if (!w) return;
+    w.prev();
+    setTimeout(() => w.getCurrentSound(s => setCurrentTitle(s?.title || '')), 400);
+  }
+
+  function shuffle() {
+    const w = widgetRef.current;
+    if (!w || !totalTracks) return;
+    const idx = Math.floor(Math.random() * totalTracks);
+    w.load(playlistUrl, {
+      auto_play: true, visual: false, show_comments: false,
+      hide_related: true, show_reposts: false, show_user: true,
+      show_teaser: false, start_track: idx,
     });
   }
 
+  function jumpToTrack(idx: number) {
+    const w = widgetRef.current;
+    if (!w) return;
+    w.load(playlistUrl, {
+      auto_play: true, visual: false, show_comments: false,
+      hide_related: true, show_reposts: false, show_user: true,
+      show_teaser: false, start_track: idx,
+    });
+    setExpanded(false);
+  }
+
+  function handleVolume(val: number) {
+    setVolume(val);
+    setIsMuted(val === 0);
+    widgetRef.current?.setVolume(val);
+    if (val > 0 && unmuteRef.current) { unmuteRef.current = false; }
+  }
+
+  function toggleMute() {
+    const w = widgetRef.current;
+    if (!w) return;
+    if (isMuted) {
+      const v = volume || 50;
+      setIsMuted(false); setVolume(v); w.setVolume(v);
+    } else {
+      setIsMuted(true); w.setVolume(0);
+    }
+  }
+
+  function handleSeek(e: React.MouseEvent<HTMLDivElement>) {
+    if (!widgetRef.current || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    widgetRef.current.seekTo(ratio * duration);
+  }
+
+  const displayTitle = currentTitle || albumTitle;
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed bottom-4 right-4 z-40 flex items-center gap-3 glass-dark border border-white/10 rounded-xl p-3 shadow-lg">
-      {/* Hidden/minimal iframe player */}
-      <iframe
-        ref={iframeRef}
-        title="Apes On Ape — SoundCloud Player"
-        style={{ width: 0, height: 0, opacity: 0, pointerEvents: 'none', position: 'absolute' }}
-        src={playerSrc}
-        allow="autoplay; encrypted-media"
-      />
+    <>
+      {/* Hidden iframe — only mounted once we have a playlist URL */}
+      {playerSrc && (
+        <iframe
+          ref={iframeRef}
+          title="AOA Radio"
+          src={playerSrc}
+          allow="autoplay; encrypted-media"
+          style={{ width: 0, height: 0, opacity: 0, pointerEvents: 'none', position: 'absolute', zIndex: -1 }}
+        />
+      )}
 
-      {/* Simple Controls */}
-      <button
-        onClick={togglePlay}
-        className="p-2 rounded-lg bg-hero-blue/10 hover:bg-hero-blue/20 transition-colors"
-        aria-label={isPlaying ? 'Pause' : 'Play'}
-        disabled={!isReady}
+      <motion.div
+        initial={{ y: 100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 1.5, duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+        className="fixed bottom-4 right-4 z-50"
+        style={{ maxWidth: expanded ? '340px' : '320px' }}
       >
-        {isPlaying ? <Pause className="w-5 h-5 text-hero-blue" /> : <Play className="w-5 h-5 text-hero-blue" />}
-      </button>
-      <button
-        onClick={nextTrack}
-        className="p-2 rounded-lg bg-hero-blue/10 hover:bg-hero-blue/20 transition-colors"
-        aria-label="Next"
-        disabled={!isReady}
-      >
-        <SkipForward className="w-5 h-5 text-hero-blue" />
-      </button>
+        <div
+          className="rounded-2xl border border-hero-blue/25 shadow-2xl shadow-hero-blue/10 overflow-hidden"
+          style={{ background: 'rgba(8,8,16,0.92)', backdropFilter: 'blur(20px)' }}
+        >
+          {/* Playlist panel */}
+          <AnimatePresence>
+            {expanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="border-b border-white/10 overflow-hidden"
+              >
+                <div className="p-3 max-h-52 overflow-y-auto">
+                  <div className="text-[10px] uppercase tracking-widest text-white/30 font-bold px-2 mb-1">
+                    {albumTitle}
+                  </div>
+                  {trackList.length === 0 && (
+                    <p className="text-[11px] text-white/30 px-2 py-2">Loading tracks…</p>
+                  )}
+                  {trackList.map((track, i) => (
+                    <button
+                      key={i}
+                      onClick={() => jumpToTrack(i)}
+                      className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-all flex items-center gap-2
+                        ${i === currentIndex
+                          ? 'bg-hero-blue/20 text-hero-blue font-bold'
+                          : 'text-white/50 hover:bg-white/5 hover:text-white'
+                        }`}
+                    >
+                      {i === currentIndex && isPlaying
+                        ? <span className="w-3 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-hero-blue animate-pulse" /></span>
+                        : <span className="w-3 text-white/25 text-[10px]">{i + 1}</span>
+                      }
+                      <span className="truncate">{track}</span>
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-      <div className="max-w-[14rem] truncate" style={{ color: 'var(--foreground)' }}>
-        {currentTitle || 'SoundCloud Player'}
-      </div>
-    </div>
+          {/* Seek bar */}
+          <div className="h-1 bg-white/10 cursor-pointer relative group" onClick={handleSeek}>
+            <div
+              className="absolute left-0 top-0 h-full bg-gradient-to-r from-hero-blue to-accent-cyan"
+              style={{ width: `${progress}%`, transition: 'width 0.5s linear' }}
+            />
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow opacity-0 group-hover:opacity-100 pointer-events-none"
+              style={{ left: `calc(${progress}% - 6px)` }}
+            />
+          </div>
+
+          {/* Main controls row */}
+          <div className="px-4 py-3 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-hero-blue/15 flex items-center justify-center flex-shrink-0 relative">
+              <Music2 className="w-5 h-5 text-hero-blue" />
+              {isPlaying && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border border-black" />
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-white truncate leading-tight">{displayTitle}</div>
+              <div className="text-[10px] text-white/35 mt-0.5">
+                {duration > 0
+                  ? `${fmt(position)} / ${fmt(duration)}`
+                  : `AOA Records · Track ${currentIndex + 1}${totalTracks ? ` of ${totalTracks}` : ''}`
+                }
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={prevTrack}
+                disabled={!isReady}
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-30"
+              >
+                <SkipBack className="w-3.5 h-3.5 text-white/60" />
+              </button>
+              <button
+                onClick={togglePlay}
+                disabled={!isReady}
+                className="w-9 h-9 rounded-xl bg-hero-blue hover:bg-hero-blue-light transition-colors flex items-center justify-center disabled:opacity-40 shadow-lg shadow-hero-blue/30"
+              >
+                {isPlaying
+                  ? <Pause className="w-4 h-4 text-white" />
+                  : <Play  className="w-4 h-4 text-white ml-0.5" />
+                }
+              </button>
+              <button
+                onClick={nextTrack}
+                disabled={!isReady}
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-30"
+              >
+                <SkipForward className="w-3.5 h-3.5 text-white/60" />
+              </button>
+            </div>
+          </div>
+
+          {/* Volume + shuffle + expand */}
+          <div className="px-4 pb-3 flex items-center gap-2">
+            <button onClick={toggleMute} className="p-1 text-white/40 hover:text-white transition-colors">
+              {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            </button>
+            <input
+              type="range" min={0} max={100} value={isMuted ? 0 : volume}
+              onChange={e => handleVolume(parseInt(e.target.value))}
+              className="flex-1 h-1 accent-hero-blue cursor-pointer opacity-60 hover:opacity-100 transition-opacity"
+            />
+            <button
+              onClick={shuffle}
+              disabled={!isReady || !totalTracks}
+              className="p-1 text-white/30 hover:text-hero-blue transition-colors disabled:opacity-20"
+              title="Shuffle"
+            >
+              <Shuffle className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setExpanded(e => !e)}
+              className="p-1 text-white/30 hover:text-hero-blue transition-colors"
+              title={expanded ? 'Collapse' : 'Show playlist'}
+            >
+              {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
   );
 }
-
-

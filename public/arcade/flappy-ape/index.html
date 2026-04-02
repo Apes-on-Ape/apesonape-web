@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+    <title>Flappy Ape - Apes on Ape Arcade</title>
+    <link rel="icon" type="image/svg+xml" href="../block-dodger/favicon.svg">
+    <script src="../shared/js/arcade-device.js"></script>
+    <script src="../shared/js/arcade-config.js"></script>
+    <!-- Security System - MUST BE FIRST -->
+    <script src="../shared/js/security.js"></script>
+    <!-- Loading Screen System -->
+    <script src="../shared/js/loading-screen.js"></script>
+    <!-- Secure Database Wrapper -->
+    <script src="../shared/js/secure-db.js"></script>
+    <!-- Web3.js for Ethereum interaction -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
+    <!-- Supabase client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <!-- SoundCloud API -->
+    <script src="https://w.soundcloud.com/player/api.js"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <!-- Google Fonts - Press Start 2P for retro arcade feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <!-- Arcade profile bootstrap (no access guard) -->
+    <script src="../shared/js/wallet-guard.js?v=8"></script>
+    <link rel="stylesheet" href="../shared/css/arcade-viewport.css">
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Debug utility - must load first -->
+    <script src="../shared/js/debug.js"></script>
+</head>
+<body>
+    <!-- Hidden SoundCloud player -->
+    <iframe id="soundcloud-player" width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay"
+        src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fapeprofessore%2Fsets%2Farcade&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=true">
+    </iframe>
+    
+    <div class="game-container">
+        <!-- Game canvas -->
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- Game UI -->
+        <div class="game-ui">
+            <div class="score-display">Score: <span id="score">0</span></div>
+            <div class="high-score-display">High Score: <span id="highScore">0</span></div>
+        </div>
+        
+        <!-- Game controls -->
+        <div class="game-controls">
+            <button id="pauseButton" class="control-button">
+                <i class="fas fa-pause"></i>
+            </button>
+            <button id="soundButton" class="control-button">
+                <i class="fas fa-volume-up"></i>
+            </button>
+        </div>
+        
+        <!-- Game over screen -->
+        <div id="gameOverScreen" class="modal">
+            <div class="modal-content">
+                <h2>Game Over</h2>
+                <p>Final Score: <span id="finalScore">0</span></p>
+                <button id="restartButton" class="arcade-button">Play Again</button>
+                <button id="menuReturnButton" class="arcade-button">Return to Menu</button>
+            </div>
+        </div>
+        
+        <!-- Pause menu -->
+        <div id="pauseMenu" class="modal">
+            <div class="modal-content">
+                <h2>Paused</h2>
+                <button id="resumeButton" class="arcade-button">Resume</button>
+                <button id="restartPauseButton" class="arcade-button">Restart</button>
+                <button id="menuPauseButton" class="arcade-button">Main Menu</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Achievement System -->
+    <script src="../shared/js/arcade-url-glyph-seed.js"></script>
+    <script src="../shared/js/arcade-persist-wallet.js?v=8"></script>
+    <script src="../shared/js/achievements.js?v=8"></script>
+    <script src="../shared/js/game-score-utils.js?v=8"></script>
+    <script src="../shared/js/nft.js"></script>
+    
+    <!-- Game scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/wallet.js"></script>
+    <script src="../shared/js/leaderboard-stub.js"></script>
+    <script src="js/sound.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 

@@ -100,7 +100,7 @@ export function ProfileBadges({ address, addresses, showRefresh = false, classNa
   return (
     <div className={className}>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-hero-blue via-purple-400 to-ape-gold bg-clip-text text-transparent">
+        <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-hero-blue via-hero-blue-light to-accent-cyan bg-clip-text text-transparent">
           Ape Badges
         </h2>
         {showRefresh && (
@@ -179,7 +179,7 @@ export function ProfileBadges({ address, addresses, showRefresh = false, classNa
                         </div>
                       )}
                       {isEarned && (
-                        <div className="absolute top-1 right-1 w-4 h-4 bg-ape-gold rounded-full border-2 border-black shadow-lg flex items-center justify-center">
+                        <div className="absolute top-1 right-1 w-4 h-4 bg-hero-blue rounded-full border-2 border-black shadow-lg flex items-center justify-center">
                           <span className="text-[8px]">✓</span>
                         </div>
                       )}

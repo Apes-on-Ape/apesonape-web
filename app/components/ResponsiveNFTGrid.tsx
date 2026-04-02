@@ -67,7 +67,7 @@ const ResponsiveNFTGrid: React.FC<ResponsiveNFTGridProps> = ({
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-ape-gold/30 border-t-ape-gold rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-4 border-hero-blue/30 border-t-hero-blue rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-300">Loading NFTs...</p>
         </div>
       </div>
@@ -77,7 +77,7 @@ const ResponsiveNFTGrid: React.FC<ResponsiveNFTGridProps> = ({
   return (
     <div className={`${isFullscreen ? 'fixed inset-0 z-50 bg-black' : ''}`}>
       {/* Controls */}
-      <div className="flex items-center justify-between mb-6 p-4 bg-black/20 rounded-lg border border-ape-gold/30">
+      <div className="flex items-center justify-between mb-6 p-4 bg-black/20 rounded-lg border border-hero-blue/30">
         <div className="flex items-center gap-4">
           {/* View Mode Toggle */}
           <div className="flex gap-2">
@@ -85,8 +85,8 @@ const ResponsiveNFTGrid: React.FC<ResponsiveNFTGridProps> = ({
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded-lg transition-colors ${
                 viewMode === 'grid' 
-                  ? 'bg-ape-gold/20 border border-ape-gold/50' 
-                  : 'bg-black/20 border border-ape-gold/30 hover:bg-ape-gold/10'
+                  ? 'bg-hero-blue/20 border border-hero-blue/50' 
+                  : 'bg-black/20 border border-hero-blue/30 hover:bg-hero-blue/10'
               }`}
             >
               <Grid className="w-5 h-5" />
@@ -95,8 +95,8 @@ const ResponsiveNFTGrid: React.FC<ResponsiveNFTGridProps> = ({
               onClick={() => setViewMode('list')}
               className={`p-2 rounded-lg transition-colors ${
                 viewMode === 'list' 
-                  ? 'bg-ape-gold/20 border border-ape-gold/50' 
-                  : 'bg-black/20 border border-ape-gold/30 hover:bg-ape-gold/10'
+                  ? 'bg-hero-blue/20 border border-hero-blue/50' 
+                  : 'bg-black/20 border border-hero-blue/30 hover:bg-hero-blue/10'
               }`}
             >
               <List className="w-5 h-5" />
@@ -110,8 +110,8 @@ const ResponsiveNFTGrid: React.FC<ResponsiveNFTGridProps> = ({
                 onClick={() => setGridSize('small')}
                 className={`px-3 py-1 rounded-lg text-sm transition-colors ${
                   gridSize === 'small'
-                    ? 'bg-ape-gold/20 text-ape-gold border border-ape-gold/50'
-                    : 'bg-black/20 text-gray-300 border border-ape-gold/30 hover:bg-ape-gold/10'
+                    ? 'bg-hero-blue/20 text-hero-blue border border-hero-blue/50'
+                    : 'bg-black/20 text-gray-300 border border-hero-blue/30 hover:bg-hero-blue/10'
                 }`}
               >
                 Small
@@ -120,8 +120,8 @@ const ResponsiveNFTGrid: React.FC<ResponsiveNFTGridProps> = ({
                 onClick={() => setGridSize('medium')}
                 className={`px-3 py-1 rounded-lg text-sm transition-colors ${
                   gridSize === 'medium'
-                    ? 'bg-ape-gold/20 text-ape-gold border border-ape-gold/50'
-                    : 'bg-black/20 text-gray-300 border border-ape-gold/30 hover:bg-ape-gold/10'
+                    ? 'bg-hero-blue/20 text-hero-blue border border-hero-blue/50'
+                    : 'bg-black/20 text-gray-300 border border-hero-blue/30 hover:bg-hero-blue/10'
                 }`}
               >
                 Medium
@@ -130,8 +130,8 @@ const ResponsiveNFTGrid: React.FC<ResponsiveNFTGridProps> = ({
                 onClick={() => setGridSize('large')}
                 className={`px-3 py-1 rounded-lg text-sm transition-colors ${
                   gridSize === 'large'
-                    ? 'bg-ape-gold/20 text-ape-gold border border-ape-gold/50'
-                    : 'bg-black/20 text-gray-300 border border-ape-gold/30 hover:bg-ape-gold/10'
+                    ? 'bg-hero-blue/20 text-hero-blue border border-hero-blue/50'
+                    : 'bg-black/20 text-gray-300 border border-hero-blue/30 hover:bg-hero-blue/10'
                 }`}
               >
                 Large
@@ -144,7 +144,7 @@ const ResponsiveNFTGrid: React.FC<ResponsiveNFTGridProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 rounded-lg bg-ape-gold/20 hover:bg-ape-gold/30 transition-colors border border-ape-gold/30"
+            className="p-2 rounded-lg bg-hero-blue/20 hover:bg-hero-blue/30 transition-colors border border-hero-blue/30"
             title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen (F11)'}
           >
             {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
@@ -167,7 +167,7 @@ const ResponsiveNFTGrid: React.FC<ResponsiveNFTGridProps> = ({
               className={`group cursor-pointer ${
                 viewMode === 'grid' 
                   ? 'aspect-square' 
-                  : 'flex items-center gap-4 p-4 bg-black/20 rounded-lg border border-ape-gold/20 hover:border-ape-gold/50'
+                  : 'flex items-center gap-4 p-4 bg-black/20 rounded-lg border border-hero-blue/20 hover:border-hero-blue/50'
               }`}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -177,7 +177,7 @@ const ResponsiveNFTGrid: React.FC<ResponsiveNFTGridProps> = ({
               onClick={() => onNFTSelect(nft)}
             >
               {viewMode === 'grid' ? (
-                <div className="relative h-full bg-gradient-to-br from-ape-gold/20 to-ape-gold/5 rounded-lg overflow-hidden border border-ape-gold/30">
+                <div className="relative h-full bg-gradient-to-br from-hero-blue/20 to-hero-blue/5 rounded-lg overflow-hidden border border-hero-blue/30">
                   <Image 
                     src={nft.image} 
                     alt={nft.name}
@@ -188,7 +188,7 @@ const ResponsiveNFTGrid: React.FC<ResponsiveNFTGridProps> = ({
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   <div className="absolute bottom-2 left-2 right-2 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div className="font-semibold truncate">{nft.name}</div>
-                    <div className="text-ape-gold">{nft.price.toFixed(2)} {nft.currency}</div>
+                    <div className="text-hero-blue">{nft.price.toFixed(2)} {nft.currency}</div>
                     <div className={`text-xs ${getRarityColor(nft.rarity)}`}>
                       #{nft.rarity} {getRarityLabel(nft.rarity)}
                     </div>
@@ -207,7 +207,7 @@ const ResponsiveNFTGrid: React.FC<ResponsiveNFTGridProps> = ({
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-white">{nft.name}</h3>
-                    <p className="text-ape-gold">{nft.price.toFixed(2)} {nft.currency}</p>
+                    <p className="text-hero-blue">{nft.price.toFixed(2)} {nft.currency}</p>
                     <p className={`text-sm ${getRarityColor(nft.rarity)}`}>
                       #{nft.rarity} {getRarityLabel(nft.rarity)}
                     </p>

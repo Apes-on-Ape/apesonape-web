@@ -4,7 +4,9 @@ import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 import SoundCloudPlayer from "./components/SoundCloudPlayer";
 import GlyphClientProvider from "./components/GlyphClientProvider";
+import GlyphArcadeWalletSync from "./components/GlyphArcadeWalletSync";
 import NotificationToast from "./components/NotificationToast";
+import ApeBackground from "./components/ApeBackground";
 
 const raleway = Raleway({
   variable: "--font-raleway",
@@ -84,15 +86,20 @@ export default function RootLayout({
       <body
         className={`${raleway.variable} antialiased font-sans`}
       >
-        <ThemeProvider>
-          <GlyphClientProvider>
-            <div className="min-h-screen">
-              {children}
-            </div>
-            <NotificationToast />
-          </GlyphClientProvider>
-          <SoundCloudPlayer />
-        </ThemeProvider>
+        {/* Root stacking context — ApeBackground at z:-1 renders behind all page content */}
+        <div style={{ position: 'relative', zIndex: 0 }}>
+          <ApeBackground />
+          <ThemeProvider>
+            <GlyphClientProvider>
+              <GlyphArcadeWalletSync />
+              <div className="min-h-screen">
+                {children}
+              </div>
+              <NotificationToast />
+            </GlyphClientProvider>
+            <SoundCloudPlayer />
+          </ThemeProvider>
+        </div>
       </body>
     </html>
   );

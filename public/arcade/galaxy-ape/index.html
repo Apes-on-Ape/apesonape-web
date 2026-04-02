@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <title>Galaxy Ape - Arcade Game</title>
+    <link rel="stylesheet" href="../shared/css/arcade-viewport.css">
+    <link rel="stylesheet" href="style.css">
+    <!-- Shared arcade styles -->
+    <!-- <link rel="stylesheet" href="../shared/css/arcade.css"> -->
+    <link rel="icon" href="../favicon.ico" type="image/x-icon">
+    <!-- Mobile optimizations -->
+    <link rel="stylesheet" href="mobile.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <!-- Security System - MUST BE FIRST -->
+    <script src="../shared/js/debug.js"></script>
+    <script src="../shared/js/arcade-config.js"></script>
+    <script src="../shared/js/arcade-device.js"></script>
+    <script src="../shared/js/security.js"></script>
+    <!-- Loading Screen System -->
+    <script src="../shared/js/loading-screen.js"></script>
+    <!-- Secure Database Wrapper -->
+    <script src="../shared/js/secure-db.js"></script>
+    <!-- SoundCloud API -->
+    <script src="https://w.soundcloud.com/player/api.js"></script>
+    <!-- Supabase API -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Web3.js for Ethereum interaction -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
+    <!-- Arcade profile bootstrap (no access guard) -->
+    <script src="../shared/js/wallet-guard.js?v=8"></script>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- Mobile touch controls -->
+        <div id="mobileControls" class="mobile-controls">
+            <!-- Virtual thumbstick for movement -->
+            <div id="thumbstickContainer" class="thumbstick-container">
+                <div id="thumbstickBase" class="thumbstick-base"></div>
+                <div id="thumbstickKnob" class="thumbstick-knob"></div>
+            </div>
+            
+            <!-- Fire button for shooting missiles -->
+            <div id="fireButton" class="fire-button">
+                <div class="fire-button-inner">🚀</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="startScreen" class="overlay">
+        <div class="overlay-content">
+            <div class="title-section">
+                <div class="arcade-title">
+                    <span class="title-letter">G</span>
+                    <span class="title-letter">A</span>
+                    <span class="title-letter">L</span>
+                    <span class="title-letter">A</span>
+                    <span class="title-letter">X</span>
+                    <span class="title-letter">Y</span>
+                    <span class="title-letter space"></span>
+                    <span class="title-letter">A</span>
+                    <span class="title-letter">P</span>
+                    <span class="title-letter">E</span>
+                </div>
+                <div class="arcade-subtitle">SPACE EDITION</div>
+                <div class="menu-character">
+                    <img src="assets/images/placeholder.png" alt="Character" class="character-image">
+                </div>
+                <p>ARROWS/WASD to move & SPACE to shoot</p>
+                <p>MOBILE: Use thumbstick & fire button</p>
+                <p>DESTROY enemies, DODGE lasers!</p>
+                <div class="insert-coin">INSERT COIN</div>
+            </div>
+            <div class="buttons-section">
+                <div class="buttons">
+                    <button id="startButton" class="arcade-button">START GAME</button>
+                </div>
+                <div class="credits"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="gameOverScreen" class="overlay">
+        <div class="overlay-content">
+            <div class="title-section">
+                <div class="game-over-title">GAME OVER</div>
+                <div class="pixel-art-explosion"></div>
+                <div id="finalScore">SCORE: 0</div>
+                <div class="continue-text">CONTINUE?</div>
+                <div class="countdown">10</div>
+            </div>
+            <div class="buttons-section">
+                <div class="buttons">
+                    <button id="playAgainButton" class="arcade-button">PLAY AGAIN</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load shared libraries -->
+    <!-- <script src="../shared/js/supabase.js"></script> -->
+    
+    <!-- Achievement System -->
+    <script src="../shared/js/arcade-url-glyph-seed.js"></script>
+    <script src="../shared/js/arcade-persist-wallet.js?v=8"></script>
+    <script src="../shared/js/achievements.js?v=8"></script>
+    <script src="../shared/js/game-score-utils.js?v=8"></script>
+    
+    <!-- Load game scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/wallet.js"></script>
+    <script src="../shared/js/leaderboard-stub.js"></script>
+    <script src="js/shop.js"></script>
+    <script src="js/sound.js"></script>
+    <script src="js/assetLoader.js"></script>
+    <script src="js/background.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/obstacles.js"></script>
+    <script src="js/spaceObstacles.js"></script>
+    <script src="js/asteroids.js"></script>
+    <script src="js/spaceships.js"></script>
+    <script src="js/bosses.js"></script>
+    <script src="js/weapons.js"></script>
+    <script src="js/mobileControls.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 
+</html> 

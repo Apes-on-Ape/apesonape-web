@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+    <title>Ape-Man - Ape Arcade</title>
+    <link rel="stylesheet" href="../shared/css/arcade-viewport.css">
+    <link rel="icon" type="image/png" href="public/favicon-32x32.png">
+    
+    <!-- Debug utility - must load first -->
+    <script src="../shared/js/debug.js"></script>
+    <script src="../shared/js/arcade-config.js"></script>
+    <script src="../shared/js/arcade-device.js"></script>
+    
+    <!-- External libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
+    <!-- Security System - MUST BE FIRST -->
+    <script src="../shared/js/security.js"></script>
+    <!-- Loading Screen System -->
+    <script src="../shared/js/loading-screen.js"></script>
+    <!-- Secure Database Wrapper -->
+    <script src="../shared/js/secure-db.js"></script>
+    <!-- Arcade profile bootstrap (no access guard) -->
+    <script src="../shared/js/wallet-guard.js?v=8"></script>
+    <style>
+        :root {
+            --primary-color: #FFD700;
+            --secondary-color: #FFA500;
+            --accent-color: #FFE5B4;
+            --background-color: #000000;
+            --text-color: #ffffff;
+            --panel-color: rgba(30, 30, 40, 0.85);
+            --button-color: #FFD700;
+            --button-hover-color: #FFA500;
+        }
+
+        html {
+            overflow-x: hidden;
+            overflow-y: auto;
+            height: 100%;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100dvh;
+            height: 100dvh;
+            max-height: 100dvh;
+            background: #000000;
+            font-family: 'Press Start 2P', cursive, Arial, sans-serif;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(255, 215, 0, 0.08) 0%, transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(255, 215, 0, 0.08) 0%, transparent 25%);
+            color: var(--text-color);
+            overflow-x: hidden;
+            overflow-y: auto;
+            box-sizing: border-box;
+            max-width: 100vw;
+        }
+
+        .menu-container {
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%);
+            border-radius: 10px;
+            border: 4px solid #FFD700;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.7), 
+                        0 0 40px rgba(255, 215, 0, 0.3), 
+                        inset 0 0 15px rgba(255, 215, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            position: relative;
+            max-width: 400px;
+            width: 90%;
+            margin: 0 auto;
+            min-height: 400px;
+        }
+
+        #gameContainer {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100dvh;
+            background: #000;
+            z-index: 1000;
+        }
+        
+        #gameContainer.show {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Logical game aspect matches engine (896×1152) */
+        .js-pacman-playground {
+            width: min(96vw, calc((100dvh - 140px) * 896 / 1152));
+            max-width: 520px;
+            aspect-ratio: 896 / 1152;
+            height: auto;
+            max-height: min(88dvh, 720px);
+            position: relative;
+            background-color: #000;
+            margin: 0 auto;
+            display: block;
+            box-sizing: border-box;
+        }
+
+        .menu-container h1 {
+            color: #ffffff;
+            font-size: clamp(24px, 7vw, 46px);
+            margin-bottom: clamp(15px, 5dvh, 35px);
+            margin-top: clamp(0px, 2dvh, 10px);
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.7),
+                         0 0 20px rgba(255, 215, 0, 0.5),
+                         0 0 30px rgba(255, 215, 0, 0.3);
+            animation: titleGlow 2s ease-in-out infinite alternate;
+            line-height: 1.3;
+            text-align: center;
+            letter-spacing: 2px;
+            position: relative;
+            padding: 10px 20px;
+            font-family: 'Press Start 2P', cursive;
+            word-break: break-word;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            left: 0;
+            right: 0;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .menu-container h1::before {
+            content: '';
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #FFD700, transparent);
+        }
+
+        .menu-button {
+            background: rgba(0, 0, 0, 0.7);
+            color: #FFD700;
+            border: 2px solid #FFD700;
+            padding: clamp(8px, 3vw, 14px) clamp(15px, 5vw, 25px);
+            margin: clamp(5px, 1.5dvh, 10px) auto;
+            font-size: clamp(12px, 3vw, 16px);
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            text-shadow: 0 0 5px #FFD700;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.4),
+                        inset 0 0 5px rgba(255, 215, 0, 0.2);
+            width: clamp(180px, 60%, 280px);
+            max-width: 280px;
+            text-align: center;
+            display: block;
+            position: relative;
+            z-index: 1001;
+            pointer-events: auto;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            min-height: 44px;
+            min-width: 180px;
+            white-space: normal;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            hyphens: auto;
+            font-family: 'Press Start 2P', cursive;
+            letter-spacing: 1px;
+            line-height: 1.4;
+            overflow: visible;
+            box-sizing: border-box;
+            left: 0 !important;
+            right: 0 !important;
+        }
+
+        .menu-button::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.2), transparent);
+            transition: 0.5s;
+            z-index: -1;
+        }
+
+        .menu-button:hover::after {
+            left: 100%;
+        }
+
+        .menu-button:hover {
+            background: rgba(255, 215, 0, 0.15);
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.7),
+                        inset 0 0 10px rgba(255, 215, 0, 0.4);
+            transform: translateY(-2px);
+            border-color: #ffffff;
+        }
+
+        .menu-button:active {
+            background: rgba(255, 215, 0, 0.3);
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.7);
+            transform: translateY(1px);
+        }
+
+        /* Generic button styling for backwards compatibility */
+        button {
+            background: rgba(0, 0, 0, 0.7);
+            color: #FFD700;
+            border: 2px solid #FFD700;
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            font-family: 'Press Start 2P', cursive, Arial, sans-serif;
+        }
+
+        button:hover {
+            background: rgba(255, 215, 0, 0.2);
+            transform: scale(1.05);
+        }
+
+        /* Leaderboard Modal */
+        #leaderboardModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            backdrop-filter: blur(3px);
+        }
+
+        .leaderboard-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #000;
+            padding: clamp(15px, 4vw, 25px);
+            border-radius: 10px;
+            color: #FFD700;
+            width: clamp(280px, 90%, 600px);
+            max-height: 85dvh;
+            overflow-y: auto;
+            border: 3px solid #FFD700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.6),
+                       0 0 30px rgba(255, 215, 0, 0.3),
+                       inset 0 0 10px rgba(255, 215, 0, 0.2);
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+            z-index: 1001;
+            font-family: 'Press Start 2P', cursive;
+            font-size: clamp(10px, 2.5vw, 14px);
+        }
+
+        #leaderboardTitle {
+            color: #FFD700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 24px;
+            letter-spacing: 1px;
+            position: relative;
+            padding-bottom: 15px;
+        }
+        
+        #leaderboardTitle::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #FFD700, transparent);
+        }
+
+        .leaderboard-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 12px;
+        }
+
+        .leaderboard-content th {
+            background: rgba(255, 215, 0, 0.15);
+            color: #FFD700;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #FFD700;
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+        }
+
+        .leaderboard-content td {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+            color: #FFD700;
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+        }
+
+        .leaderboard-content tr:hover {
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        /* Highlighted row for current user */
+        .current-user {
+            background: rgba(255, 215, 0, 0.2) !important; 
+            font-weight: bold;
+        }
+        
+        .current-user td {
+            color: #ffffff !important;
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.8) !important;
+        }
+
+        /* Desktop improvements - constrained to proper max width */
+        @media (min-width: 769px) {
+            .leaderboard-content {
+                width: 500px;
+                max-width: 80%;
+                padding: 30px;
+            }
+        }
+
+        .game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1001;
+            display: none;
+        }
+
+        .game-over-screen h2 {
+            color: #FFD700;
+            font-size: clamp(28px, 6vw, 42px);
+            margin-bottom: clamp(10px, 3dvh, 20px);
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.7),
+                         0 0 20px rgba(255, 215, 0, 0.4);
+            font-family: 'Press Start 2P', cursive;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        .game-over-screen p {
+            color: #fff;
+            font-size: clamp(18px, 4vw, 32px);
+            margin-bottom: clamp(20px, 5dvh, 30px);
+            font-family: 'Press Start 2P', cursive;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        /* Animation keyframes */
+        @keyframes titleGlow {
+            0% {
+                text-shadow: 0 0 10px rgba(255, 215, 0, 0.7),
+                             0 0 20px rgba(255, 215, 0, 0.5),
+                             0 0 30px rgba(255, 215, 0, 0.3);
+            }
+            100% {
+                text-shadow: 0 0 15px rgba(255, 215, 0, 0.9),
+                             0 0 25px rgba(255, 215, 0, 0.7),
+                             0 0 35px rgba(255, 215, 0, 0.5);
+            }
+        }
+
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            .menu-container {
+                padding: 5px 15px;
+            }
+            
+            .menu-container h1 {
+                font-size: clamp(18px, 6vw, 28px);
+                margin-bottom: clamp(10px, 3dvh, 20px);
+                margin-top: clamp(5px, 2dvh, 10px);
+                letter-spacing: 1px;
+        }
+
+        .menu-button {
+                font-size: clamp(10px, 2.8vw, 14px);
+                padding: clamp(6px, 2.5vw, 12px) clamp(12px, 4vw, 20px);
+                margin: clamp(3px, 1dvh, 8px) auto;
+                width: clamp(160px, 70%, 260px);
+                min-height: 40px;
+                line-height: 1.3;
+                letter-spacing: 0.5px;
+            }
+            
+
+        }
+
+        /* Desktop improvements - constrained to 400x600 max */
+        @media (min-width: 769px) {
+            body {
+                padding: 20px;
+            }
+            
+            .menu-container {
+                max-width: 380px;
+                max-height: 560px;
+                padding: 20px;
+                margin: 0 auto;
+                border: 2px solid #FFD700;
+                box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            }
+            
+            .menu-container h1 {
+                font-size: clamp(24px, 5vw, 32px);
+                margin-bottom: 20px;
+                margin-top: 5px;
+            }
+            
+            .menu-button {
+                font-size: 14px;
+                padding: 12px 20px;
+                margin: 8px auto;
+                width: 240px;
+                max-width: 280px;
+                min-height: 48px;
+                line-height: 1.3;
+            }
+            
+            #gameContainer {
+                width: 100vw;
+                height: 100dvh;
+        }
+
+            #gameContainer.show {
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+            }
+            
+            .js-pacman-playground {
+                width: min(92vw, 500px);
+                max-height: 78dvh;
+                aspect-ratio: 896 / 1152;
+                height: auto;
+                margin: 0 auto;
+                display: block;
+            }
+            
+
+        }
+
+        /* Mobile Controls CSS */
+        .mobile-controls {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+            display: none; /* Hidden by default, shown on mobile */
+        }
+
+        .mobile-controls.active {
+            display: block;
+        }
+
+        /* Arrow Control Buttons */
+        .arrow-controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 180px;
+            height: 180px;
+            pointer-events: auto;
+            display: grid;
+            grid-template-areas: 
+                ". up ."
+                "left center right"
+                ". down .";
+            grid-template-columns: 55px 55px 55px;
+            grid-template-rows: 55px 55px 55px;
+            gap: 5px;
+            justify-content: center;
+            align-content: center;
+            z-index: 1000;
+        }
+        
+        .arrow-button {
+            background: rgba(255, 215, 0, 0.95);
+            border: 3px solid #FFA500;
+            border-radius: 12px;
+            color: #000;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            touch-action: manipulation;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+            width: 55px;
+            height: 55px;
+        }
+        
+        .arrow-button:active,
+        .arrow-button.pressed {
+            background: #FFA500;
+            transform: scale(0.9);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        }
+        
+        .arrow-up {
+            grid-area: up;
+        }
+        
+        .arrow-down {
+            grid-area: down;
+        }
+        
+        .arrow-left {
+            grid-area: left;
+        }
+        
+        .arrow-right {
+            grid-area: right;
+        }
+
+        /* Mobile specific adjustments */
+        @media (max-width: 999px) {
+            .mobile-controls.active {
+                display: block;
+            }
+            
+            .arrow-controls {
+                bottom: 25px;
+                width: 160px;
+                height: 160px;
+                grid-template-columns: 50px 50px 50px;
+                grid-template-rows: 50px 50px 50px;
+                gap: 5px;
+            }
+            
+            .arrow-button {
+                width: 50px;
+                height: 50px;
+                font-size: 24px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .arrow-controls {
+                bottom: 20px;
+                width: 140px;
+                height: 140px;
+                grid-template-columns: 45px 45px 45px;
+                grid-template-rows: 45px 45px 45px;
+                gap: 2px;
+            }
+            
+            .arrow-button {
+                width: 45px;
+                height: 45px;
+                font-size: 22px;
+            }
+        }
+
+        @media (min-width: 1000px) {
+            .mobile-controls {
+                display: none !important;
+            }
+            
+            .mobile-instruction {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="menu-container">
+        <h1>APE-MAN</h1>
+        
+        <!-- Selected Ape Display -->
+        <div id="selectedApeDisplay" style="margin: 10px 0; display: none;">
+            <img id="selectedApeImage" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid #FFD700; margin: 5px;" alt="Selected Ape">
+            <p id="selectedApeText" style="font-size: 8px; margin: 5px 0; color: #FFD700;">Playing as: Ape #XXX</p>
+        </div>
+        
+        <p style="font-size: 10px; margin: 10px 0; color: #FFD700;">ARROWS to move & COLLECT dots!</p>
+        <p style="font-size: 8px; margin: 5px 0; color: #FFA500;" class="mobile-instruction">MOBILE: Use arrow buttons</p>
+        <button class="menu-button" id="startButton">Start Game</button>
+        <button class="menu-button" id="soundToggleButton">Sound: ON</button>
+    </div>
+    
+    <div id="gameContainer">
+        <div class="js-pacman-playground">
+            <div class="score">
+                <div class="p1-score">1UP<br /><span>00</span></div>
+                <div class="high-score">HIGH SCORE<br /><span>00</span></div>
+                <div class="p2-score">2UP<br /><span>00</span></div>
+            </div>
+            <div class="start-p1" style="display: none">PLAYER ONE</div>
+            <div class="start-ready" style="display: none">READY!</div>
+            <div class="game-over" style="display: none">GAME OVER</div>
+            <div class="sound-status on" style="display: none"><span class="wrap">SOUND: <span class="on">ON</span><span class="off">OFF</span></span></div>
+            <div class="paused" style="display: none"><span class="wrap">PAUSED</span></div>
+            <div class="game-over-screen">
+                <h2>Game Over</h2>
+                <p>Score: 0</p>
+                <button class="menu-button" id="mainMenuButton">Main Menu</button>
+                <button class="menu-button" id="playAgainButton">Play Again</button>
+            </div>
+        </div>
+        
+        <!-- Mobile touch controls -->
+        <div id="mobileControls" class="mobile-controls">
+            <!-- Arrow buttons for movement -->
+            <div id="arrowControls" class="arrow-controls">
+                <button id="arrowUp" class="arrow-button arrow-up">▲</button>
+                <button id="arrowLeft" class="arrow-button arrow-left">◀</button>
+                <button id="arrowRight" class="arrow-button arrow-right">▶</button>
+                <button id="arrowDown" class="arrow-button arrow-down">▼</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Supabase JS SDK - Using specific version with full URL to ensure it loads correctly -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.32.0/dist/umd/supabase.min.js"></script>
+    
+    <!-- Add console debugging for Supabase -->
+    <script>
+        // Check if Supabase is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof supabase === 'undefined') {
+                console.error('Supabase SDK not loaded!');
+                // Try to load it again as a fallback
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.32.0/dist/umd/supabase.min.js';
+                script.onload = function() {
+                    console.log('Supabase SDK loaded via fallback');
+                };
+                document.head.appendChild(script);
+            } else {
+                console.log('Supabase SDK loaded successfully');
+                
+                // Initialize connection to Supabase on page load
+                window.SUPABASE_URL = 'https://bqcrbcpmimfojnjdhvrz.supabase.co';
+                window.SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxY3JiY3BtaW1mb2puamRodnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3MjE1ODEsImV4cCI6MjA4MDI5NzU4MX0.tlDiLyCdrOAULzLH9fv0rm5wpiHqy4nzDvmpC9xXRGw';
+                
+                // Do not persist DB credentials in localStorage.
+            }
+        });
+    </script>
+    
+    <!-- Asset roots for dist/img + dist/audio (must run before bundle) -->
+    <script>
+        (function () {
+            try {
+                var u = new URL(window.location.href);
+                var path = u.pathname;
+                if (!path.endsWith('/')) {
+                    if (/\.html?$/i.test(path)) {
+                        path = path.replace(/\/[^/]*$/, '/') || '/';
+                    } else {
+                        path = path + '/';
+                    }
+                }
+                var base = u.origin + path + 'dist/';
+                window.JSPACMAN_ASSETS_PATH = base;
+                window.JSPACMAN_IMG_PATH = base + 'img/';
+                window.JSPACMAN_AUDIO_PATH = base + 'audio/';
+            } catch (e) {}
+        })();
+    </script>
+    <!-- Game Scripts -->
+    <script src="dist/main.bundle.js"></script>
+    <script>
+        // Ensure jsPacman is available globally
+        window.jsPacman = window.jsPacman || window.re || window.he || window.Z || window.Q;
+        
+        // Suppress the warning message
+        if (!window.jsPacman) {
+            console.warn('jsPacman not found in global scope, but continuing anyway');
+            // Create a minimal implementation to prevent errors
+            window.jsPacman = class {
+                constructor(options) {
+                    this.el = options.el;
+                    this.width = options.width;
+                    this.height = options.height;
+                    this.scaling = { 
+                        resize: function() {}, 
+                        height: options.height, 
+                        width: options.width,
+                        getFactor: function() { return 1; }
+                    };
+                    this.sound = { 
+                        mute: function() {},
+                        toggle: function() {}
+                    };
+                    this.model = { score: 0 };
+                }
+                
+                start(callback) {
+                    if (callback) callback();
+                }
+                
+                startLevel() {}
+                
+                onGameOver() {
+                    super.onGameOver && super.onGameOver();
+                    
+                    console.log('GameWithPosition.onGameOver called, score:', this.model.score);
+                    
+                    // Use the independent score saving utility
+                    const score = this.model.score;
+                    GameScoreUtils.saveGameScore('ape_man', score, {
+                        success: true,
+                        onComplete: (success, result) => {
+                            if (success) {
+                                console.log('✅ Game score saved successfully');
+                            } else {
+                                console.error('❌ Failed to save game score');
+                            }
+                        }
+                    });
+                    
+                    // Trigger achievement for game end (this will work if achievement system is available)
+                    if (window.triggerAchievementEvent) {
+                        window.triggerAchievementEvent('gameEnd', { 
+                            gameId: 'ape_man', 
+                            score: this.model.score,
+                            success: true 
+                        });
+                    }
+                    
+                    // Show game over screen
+                    const gameOverScreen = document.querySelector('.game-over-screen');
+                    if (gameOverScreen) {
+                        // Update score display
+                        const scoreDisplay = gameOverScreen.querySelector('p');
+                        if (scoreDisplay) {
+                            scoreDisplay.textContent = `Score: ${this.model.score || 0}`;
+                        }
+                        
+                        gameOverScreen.style.display = 'flex';
+                    }
+                }
+            };
+        }
+    </script>
+    <!-- Achievement System -->
+    <script src="../shared/js/arcade-url-glyph-seed.js"></script>
+    <script src="../shared/js/arcade-persist-wallet.js?v=8"></script>
+    <script src="../shared/js/achievements.js?v=8"></script>
+    
+    <script src="../shared/js/nft.js"></script>
+    <script src="src/js/MobileControls.js"></script>
+    <script src="../shared/js/game-score-utils.js?v=8"></script>
+    <script>
+        // Initialize NFT module and update UI
+        if (window.NFT && typeof window.NFT.loadSelectedApe === 'function') {
+            console.log('Initializing NFT module...');
+            const selectedApe = window.NFT.loadSelectedApe();
+            if (selectedApe) {
+                console.log('Loaded selected ape:', selectedApe.tokenId);
+                
+                // Update the menu to show selected ape
+                const apeDisplay = document.getElementById('selectedApeDisplay');
+                const apeImage = document.getElementById('selectedApeImage');
+                const apeText = document.getElementById('selectedApeText');
+                
+                if (apeDisplay && apeImage && apeText) {
+                    apeDisplay.style.display = 'block';
+                    apeImage.src = selectedApe.image;
+                    apeImage.onerror = () => {
+                        apeImage.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjIiIGZpbGw9IiNGRkQ3MDAiIHN0cm9rZT0iI0ZGQTUwMCIgc3Ryb2tlLXdpZHRoPSI0Ii8+Cjx0ZXh0IHg9IjI0IiB5PSIzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjMDAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BUEUtTUFOPC90ZXh0Pgo8L3N2Zz4K';
+                    };
+                    apeText.textContent = `Playing as: ${selectedApe.name || `Ape #${selectedApe.tokenId}`}`;
+                }
+            } else {
+                console.log('No ape selected');
+            }
+        } else {
+            console.log('NFT module not available');
+        }
+    </script>
+    <script>
+        // Debugging utility function
+        function debugVisibility() {
+            const gameContainer = document.getElementById('gameContainer');
+            const menuContainer = document.querySelector('.menu-container');
+            
+            console.log('===== VISIBILITY DEBUG =====');
+            console.log('Menu container:', menuContainer ? {
+                display: window.getComputedStyle(menuContainer).display,
+                visibility: window.getComputedStyle(menuContainer).visibility,
+                opacity: window.getComputedStyle(menuContainer).opacity,
+                zIndex: window.getComputedStyle(menuContainer).zIndex
+            } : 'Not found');
+            
+            console.log('Game container:', gameContainer ? {
+                display: window.getComputedStyle(gameContainer).display,
+                visibility: window.getComputedStyle(gameContainer).visibility,
+                opacity: window.getComputedStyle(gameContainer).opacity,
+                zIndex: window.getComputedStyle(gameContainer).zIndex
+            } : 'Not found');
+            console.log('============================');
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded fired - initializing ape-man');
+
+            var playgroundSnapshot = document.querySelector('.js-pacman-playground');
+            window.APEMAN_PLAYGROUND_TEMPLATE = playgroundSnapshot ? playgroundSnapshot.innerHTML : '';
+            
+            // Get references to key elements
+            const gameContainer = document.getElementById('gameContainer');
+            const menuContainer = document.querySelector('.menu-container');
+            const startButton = document.getElementById('startButton');
+            const soundToggleButton = document.getElementById('soundToggleButton');
+            const gameOverScreen = document.querySelector('.game-over-screen');
+            const mainMenuButton = document.getElementById('mainMenuButton');
+            const playAgainButton = document.getElementById('playAgainButton');
+            
+            console.log('Elements found:', {
+                gameContainer: !!gameContainer,
+                menuContainer: !!menuContainer,
+                startButton: !!startButton
+            });
+            
+            let game = null;
+            let soundEnabled = true;
+
+            /** Fit canvas to viewport; engine logical aspect is 896×1152 */
+            function getApeManGameSize() {
+                var OW = 896;
+                var OH = 1152;
+                var vw = window.innerWidth;
+                var vh = window.innerHeight;
+                var mobile = window.matchMedia('(max-width: 999px)').matches;
+                var bottomReserve = mobile ? 210 : 90;
+                var topReserve = 28;
+                var maxW = Math.min(vw * 0.94, 560);
+                var maxH = Math.max(240, vh - bottomReserve - topReserve);
+                var w = maxW;
+                var h = (w * OH) / OW;
+                if (h > maxH) {
+                    h = maxH;
+                    w = (h * OW) / OH;
+                }
+                w = Math.max(220, Math.floor(w));
+                h = Math.max(280, Math.floor(h));
+                return { width: w, height: h };
+            }
+
+            // Initialize sound state from session storage
+            if (sessionStorage.getItem('apeman_sound_muted') === 'true') {
+                soundEnabled = false;
+                soundToggleButton.textContent = 'Sound: OFF';
+            }
+
+            // Periodically check for wallet updates from arcade
+            setInterval(function() {
+                if (window.Wallet) {
+                    // Only update if we detect a change
+                    const currentWallet = window.Wallet.currentWallet;
+                    
+                    // First check localStorage (used by the arcade hub)
+                    const connectedWallet =
+                        typeof window.getArcadeWalletForDatabase === 'function'
+                            ? window.getArcadeWalletForDatabase()
+                            : '';
+                    if (connectedWallet && connectedWallet !== currentWallet) {
+                        console.log('Wallet updated from localStorage:', connectedWallet);
+                        window.Wallet.setCurrentWallet(connectedWallet);
+                        return;
+                    }
+                    
+                    // Check parent arcade wallet
+                    if (window !== window.parent && window.parent.Wallet && window.parent.Wallet.currentWallet) {
+                        const arcadeWallet = window.parent.Wallet.currentWallet;
+                        if (arcadeWallet !== currentWallet) {
+                            console.log('Wallet updated from parent arcade:', arcadeWallet);
+                            window.Wallet.setCurrentWallet(arcadeWallet);
+                        }
+                    } else if (window.arcadeWallet && window.arcadeWallet !== currentWallet) {
+                        // Check window context
+                        console.log('Wallet updated from arcade context:', window.arcadeWallet);
+                        window.Wallet.setCurrentWallet(window.arcadeWallet);
+                    }
+                }
+            }, 5000); // Check every 5 seconds
+
+            // Add direct event listener for main menu button
+            if (mainMenuButton) {
+                mainMenuButton.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    
+                    // Simply reload the page for a complete reset
+                    window.location.reload();
+                    
+                    return false;
+                });
+            }
+            
+            // Add direct event listener for play again button
+            if (playAgainButton) {
+                playAgainButton.addEventListener('click', function() {
+                    if (gameOverScreen) {
+                        gameOverScreen.style.display = 'none';
+                    }
+                    resetGame();
+                    startGame();
+                });
+            }
+
+            // Simple function to show the menu and hide the game
+            function showMenu() {
+                console.log('showMenu() called');
+                console.log('gameContainer found:', !!gameContainer);
+                console.log('menuContainer found:', !!menuContainer);
+                
+                if (gameContainer) {
+                gameContainer.style.display = 'none';
+                    console.log('gameContainer hidden');
+                }
+                if (menuContainer) {
+                menuContainer.style.display = 'flex';
+                    console.log('menuContainer shown');
+                }
+            }
+
+            // Simple function to show the game and hide the menu
+            function showGame() {
+                console.log('showGame() called');
+                if (menuContainer) {
+                menuContainer.style.display = 'none';
+                    console.log('menuContainer hidden');
+                }
+                if (gameContainer) {
+                gameContainer.style.display = 'flex';
+                    gameContainer.classList.add('show');
+                    console.log('gameContainer shown with flex centering');
+                }
+            }
+
+            // Function to reset the game state
+            function resetGame() {
+                // Clean up the existing game
+                if (game) {
+                    // Mute sounds
+                    if (game.sound && typeof game.sound.mute === 'function') {
+                        game.sound.mute(true);
+                    }
+                    
+                    // Pause the game
+                    if (typeof game.pause === 'function') {
+                        game.pause();
+                    }
+
+                    if (typeof game.destroy === 'function') {
+                        try {
+                            game.destroy();
+                        } catch (err) {
+                            console.warn('game.destroy:', err);
+                        }
+                    }
+                    
+                    // Reset mobile controls
+                    if (window.MobileControls) {
+                        window.MobileControls.reset();
+                        window.MobileControls.hideControls();
+                    }
+                    
+                    game = null;
+                }
+                
+                const playground = document.querySelector('.js-pacman-playground');
+                if (playground) {
+                    playground.style.width = '';
+                    playground.style.height = '';
+                    playground.style.maxWidth = '';
+                    playground.style.maxHeight = '';
+                    playground.style.aspectRatio = '';
+                    if (window.APEMAN_PLAYGROUND_TEMPLATE) {
+                        playground.innerHTML = window.APEMAN_PLAYGROUND_TEMPLATE;
+                    } else {
+                        playground.innerHTML = '';
+                    }
+                }
+            }
+
+            // Function to start the game
+            function startGame() {
+                console.log('Starting game...');
+                
+                // Check for arcade wallet before starting
+                if (window.Wallet) {
+                    window.Wallet.checkForArcadeWallet();
+                }
+                
+                // Show the game container
+                showGame();
+                
+                // Reset any existing game
+                resetGame();
+                
+                // Get reference to the playground
+                const playground = document.querySelector('.js-pacman-playground');
+                var size = getApeManGameSize();
+                if (playground) {
+                    playground.style.aspectRatio = 'auto';
+                    playground.style.width = size.width + 'px';
+                    playground.style.height = size.height + 'px';
+                    playground.style.maxWidth = '96vw';
+                    playground.style.maxHeight = '88dvh';
+                }
+                
+                // Create GameWithPosition class if needed
+                if (!window.GameWithPosition && window.jsPacman) {
+                    window.GameWithPosition = class extends window.jsPacman {
+                        constructor(options) {
+                            super(options);
+                        }
+                        
+                        onGameOver() {
+                            super.onGameOver && super.onGameOver();
+                            
+                            console.log('GameWithPosition.onGameOver called, score:', this.model.score);
+                            
+                            // Use the independent score saving utility
+                            const score = this.model.score;
+                            GameScoreUtils.saveGameScore('ape_man', score, {
+                                success: true,
+                                onComplete: (success, result) => {
+                                    if (success) {
+                                        console.log('✅ Game score saved successfully');
+                                    } else {
+                                        console.error('❌ Failed to save game score');
+                                    }
+                                }
+                            });
+                            
+                            // Trigger achievement for game end (this will work if achievement system is available)
+                            if (window.triggerAchievementEvent) {
+                                window.triggerAchievementEvent('gameEnd', { 
+                                    gameId: 'ape_man', 
+                                    score: this.model.score,
+                                    success: true 
+                                });
+                            }
+                            
+                            // Show game over screen
+                            const gameOverScreen = document.querySelector('.game-over-screen');
+                            if (gameOverScreen) {
+                                // Update score display
+                                const scoreDisplay = gameOverScreen.querySelector('p');
+                                if (scoreDisplay) {
+                                    scoreDisplay.textContent = `Score: ${this.model.score || 0}`;
+                                }
+                                
+                                gameOverScreen.style.display = 'flex';
+                            }
+                        }
+                    };
+                }
+                
+                // Check if GameWithPosition is defined
+                if (window.GameWithPosition) {
+                    try {
+                        // Create game instance
+                        game = new window.GameWithPosition({
+                            el: playground,
+                            width: size.width,
+                            height: size.height,
+                            soundEnabled: true
+                        });
+                        
+                        // Apply sound settings
+                        if (!soundEnabled && game.sound) {
+                            game.sound.mute(true);
+                        }
+                        
+                        // Initialize mobile controls
+                        if (window.MobileControls) {
+                            window.MobileControls.init(game);
+                            window.MobileControls.updateVisibility(true);
+                        }
+                        
+                        // Start the game
+                        game.start(() => {
+                            game.startLevel();
+                        });
+                        
+                        // Trigger achievement for game start
+                        if (window.triggerAchievementEvent) {
+                            window.triggerAchievementEvent('gameStart', { gameId: 'ape_man' });
+                        }
+                    } catch (error) {
+                        console.error('Error creating game instance:', error);
+                        showMenu();
+                    }
+                } else {
+                    console.error('Cannot initialize game: jsPacman is not defined');
+                    alert('Error loading game. Please refresh the page and try again.');
+                    showMenu();
+                }
+            }
+
+            // Sound toggle button handler
+            soundToggleButton.addEventListener('click', () => {
+                soundEnabled = !soundEnabled;
+                soundToggleButton.textContent = soundEnabled ? 'Sound: ON' : 'Sound: OFF';
+                sessionStorage.setItem('apeman_sound_muted', String(!soundEnabled));
+                
+                if (game && game.sound) {
+                    game.sound.toggle();
+                }
+            });
+
+            // Merge arcade Wallet helpers with wallet-guard's partial window.Wallet (e.g. loadSelectedApe only).
+            (function () {
+                var W = (window.Wallet = window.Wallet || {});
+                if (typeof W.checkForArcadeWallet !== 'function') {
+                    if (W.currentWallet === undefined) W.currentWallet = null;
+                    W.getCurrentWallet = function () {
+                        return this.currentWallet;
+                    };
+                    W.setCurrentWallet = function (wallet) {
+                        this.currentWallet = wallet;
+                        console.log('Wallet set:', wallet);
+                    };
+                    W.checkForArcadeWallet = function () {
+                        try {
+                            const connectedWallet =
+                                typeof window.getArcadeWalletForDatabase === 'function'
+                                    ? window.getArcadeWalletForDatabase()
+                                    : '';
+                            if (connectedWallet) {
+                                this.setCurrentWallet(connectedWallet);
+                                console.log('Wallet retrieved from localStorage:', connectedWallet);
+                                return true;
+                            }
+                            if (window !== window.parent) {
+                                console.log('Checking parent for arcade wallet...');
+                                if (window.parent.Wallet && window.parent.Wallet.currentWallet) {
+                                    const arcadeWallet = window.parent.Wallet.currentWallet;
+                                    this.setCurrentWallet(arcadeWallet);
+                                    console.log('Wallet retrieved from parent arcade:', arcadeWallet);
+                                    return true;
+                                }
+                            }
+                            if (window.arcadeWallet) {
+                                this.setCurrentWallet(window.arcadeWallet);
+                                console.log('Wallet retrieved from arcade context:', window.arcadeWallet);
+                                return true;
+                            }
+                            console.warn('No arcade wallet found in window context');
+                            return false;
+                        } catch (error) {
+                            console.error('Error accessing arcade wallet:', error);
+                            return false;
+                        }
+                    };
+                }
+                try {
+                    if (!W.currentWallet) {
+                        const connectedWallet =
+                            typeof window.getArcadeWalletForDatabase === 'function'
+                                ? window.getArcadeWalletForDatabase()
+                                : '';
+                        if (connectedWallet) {
+                            W.setCurrentWallet(connectedWallet);
+                            console.log('Wallet loaded from localStorage:', connectedWallet);
+                        } else if (window !== window.parent) {
+                            console.log('Game is in an iframe, trying to access parent wallet...');
+                            if (window.parent.Wallet && window.parent.Wallet.currentWallet) {
+                                const arcadeWallet = window.parent.Wallet.currentWallet;
+                                W.setCurrentWallet(arcadeWallet);
+                                console.log('Wallet loaded from parent arcade:', arcadeWallet);
+                            } else {
+                                console.warn('Parent wallet not found or not accessible');
+                            }
+                        } else {
+                            console.log('Game is not in an iframe, checking for arcade wallet in window context...');
+                            if (window.arcadeWallet) {
+                                W.setCurrentWallet(window.arcadeWallet);
+                                console.log('Wallet loaded from arcade context:', window.arcadeWallet);
+                            } else {
+                                console.warn('No arcade wallet found in window context');
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error accessing wallet sources:', error);
+                }
+            })();
+
+            // Make resetGameAndShowMenu function global
+            window.resetGameAndShowMenu = function() {
+                resetGame();
+                showMenu();
+            };
+
+            // Start button click handler
+            startButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                startGame();
+            });
+
+            // Ensure menu is visible on page load
+            console.log('DOMContentLoaded: Ensuring menu is visible');
+            showMenu();
+            var _p = typeof window.whenArcadeProfileAvatarReady === 'function' ? window.whenArcadeProfileAvatarReady() : Promise.resolve();
+            _p.then(function () {
+                if (window.ArcadeLoading && typeof window.ArcadeLoading.gameReady === 'function') {
+                    window.ArcadeLoading.gameReady();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

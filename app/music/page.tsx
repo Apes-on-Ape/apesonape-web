@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Radio, Play, Music, Heart, Repeat2, ListMusic, Disc3, Trophy } from 'lucide-react';
+import { Play, Music, Heart, Disc3, Trophy, ExternalLink, ChevronRight, Users } from 'lucide-react';
 import { SiSoundcloud } from 'react-icons/si';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import Image from 'next/image';
+import Link from 'next/link';
+import { ARTISTS } from '@/app/data/artists';
 
 interface Track {
   id: string;
@@ -50,7 +52,6 @@ interface Playlist {
   artwork?: string;
 }
 
-
 type SoundCloudTrack = {
   id: number;
   title?: string;
@@ -87,73 +88,20 @@ interface SoundCloud {
   };
 }
 
-// Featured albums from apesonape SoundCloud
 const AVAILABLE_PLAYLISTS: Playlist[] = [
-  {
-    id: 'visionary',
-    title: 'Visionary',
-    url: 'https://soundcloud.com/apesonape/sets/visionary-by-smokethatdank',
-    trackCount: 8,
-  },
-  {
-    id: 'teeth-in-the-vines',
-    title: 'Teeth In The Vines',
-    url: 'https://soundcloud.com/apesonape/sets/teeth-in-the-vines-by-notime',
-    trackCount: 6,
-  },
-  {
-    id: 'press-start',
-    title: 'Press Start',
-    url: 'https://soundcloud.com/apesonape/sets/press-start-by-2real2x',
-    trackCount: 7,
-  },
-  {
-    id: 'fubar',
-    title: 'FUBAR',
-    url: 'https://soundcloud.com/apesonape/sets/fubar-by-smokethatdank',
-    trackCount: 5,
-  },
-  {
-    id: 'brutal-dynasty',
-    title: 'Brutal Dynasty',
-    url: 'https://soundcloud.com/apesonape/sets/brutal-dynasty-by-simian-maw',
-    trackCount: 9,
-  },
-  {
-    id: 'unwrapped',
-    title: 'Unwrapped But Not Finished',
-    url: 'https://soundcloud.com/apesonape/sets/unwrapped-but-not-finished-by-2real2x',
-    trackCount: 8,
-  },
-  {
-    id: 'warm-up-vol-i',
-    title: 'Warm Up Vol. I',
-    url: 'https://soundcloud.com/apesonape/sets/warm-up-vol-i-by-zen',
-    trackCount: 10,
-  },
-  {
-    id: 'el-juego',
-    title: 'El Juego',
-    url: 'https://soundcloud.com/apesonape/sets/el-juego-by-zen',
-    trackCount: 6,
-  },
-  {
-    id: 'sinatra-season-2',
-    title: 'Sinatra Season 2',
-    url: 'https://soundcloud.com/apesonape/sets/sinatra-season-2-by-dr-dibs',
-    trackCount: 12,
-  },
-  {
-    id: 'saint-dank',
-    title: 'Saint Dank',
-    url: 'https://soundcloud.com/apesonape/sets/saint-dank-by-smokethatdank',
-    trackCount: 8,
-  },
+  { id: 'visionary', title: 'Visionary', url: 'https://soundcloud.com/apesonape/sets/visionary-by-smokethatdank', trackCount: 8 },
+  { id: 'teeth-in-the-vines', title: 'Teeth In The Vines', url: 'https://soundcloud.com/apesonape/sets/teeth-in-the-vines-by-notime', trackCount: 6 },
+  { id: 'press-start', title: 'Press Start', url: 'https://soundcloud.com/apesonape/sets/press-start-by-2real2x', trackCount: 7 },
+  { id: 'fubar', title: 'FUBAR', url: 'https://soundcloud.com/apesonape/sets/fubar-by-smokethatdank', trackCount: 5 },
+  { id: 'brutal-dynasty', title: 'Brutal Dynasty', url: 'https://soundcloud.com/apesonape/sets/brutal-dynasty-by-simian-maw', trackCount: 9 },
+  { id: 'unwrapped', title: 'Unwrapped But Not Finished', url: 'https://soundcloud.com/apesonape/sets/unwrapped-but-not-finished-by-2real2x', trackCount: 8 },
+  { id: 'warm-up-vol-i', title: 'Warm Up Vol. I', url: 'https://soundcloud.com/apesonape/sets/warm-up-vol-i-by-zen', trackCount: 10 },
+  { id: 'el-juego', title: 'El Juego', url: 'https://soundcloud.com/apesonape/sets/el-juego-by-zen', trackCount: 6 },
+  { id: 'sinatra-season-2', title: 'Sinatra Season 2', url: 'https://soundcloud.com/apesonape/sets/sinatra-season-2-by-dr-dibs', trackCount: 12 },
+  { id: 'saint-dank', title: 'Saint Dank', url: 'https://soundcloud.com/apesonape/sets/saint-dank-by-smokethatdank', trackCount: 8 },
 ];
 
-// Generate album artwork gradient fallback from playlist ID
 function getAlbumArtwork(playlistId: string): string {
-  // Generate a consistent gradient based on playlist ID
   const gradients = [
     'from-purple-500 to-pink-500',
     'from-green-500 to-emerald-500',
@@ -168,39 +116,43 @@ function getAlbumArtwork(playlistId: string): string {
     'from-teal-500 to-green-500',
     'from-violet-500 to-fuchsia-500',
   ];
-  
-  // Use hash of playlistId to get consistent gradient
   const hash = Array.from(playlistId).reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return gradients[hash % gradients.length];
 }
 
-const DEFAULT_PLAYLIST_URL = AVAILABLE_PLAYLISTS[3].url; // FUBAR by smokethatdank - fallback
+const DEFAULT_PLAYLIST_URL = AVAILABLE_PLAYLISTS[3].url;
+
+function StatItem({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-2xl font-black text-white tabular-nums">{value}</span>
+      <span className="text-xs uppercase tracking-[0.15em] text-white/35 font-semibold">{label}</span>
+    </div>
+  );
+}
 
 export default function RadioPage() {
   const [nowPlaying, setNowPlaying] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(70);
-  const [isMuted, setIsMuted] = useState(false);
+  const [volume] = useState(70);
   const [isReady, setIsReady] = useState(false);
   const [allTracks, setAllTracks] = useState<Track[]>([]);
   const [stats, setStats] = useState<SoundCloudStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
-  const [statsError, setStatsError] = useState<string | null>(null);
   const [playlistUrl, setPlaylistUrl] = useState(DEFAULT_PLAYLIST_URL);
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist>(AVAILABLE_PLAYLISTS[3]);
   const [playlistsWithArtwork, setPlaylistsWithArtwork] = useState<Playlist[]>([]);
   const [isInsertingDisc, setIsInsertingDisc] = useState(false);
-  
+
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const widgetRef = useRef<SoundCloudWidget | null>(null);
   const hasAutoTriedRef = useRef(false);
   const unmuteOnFirstInteractionRef = useRef(true);
 
-  // Build iframe src with Widget parameters
   const playerSrc = React.useMemo(() => {
     const params = new URLSearchParams({
       url: playlistUrl,
-      color: 'ff5500',
+      color: '0054F9',
       auto_play: 'false',
       hide_related: 'true',
       show_comments: 'false',
@@ -217,7 +169,6 @@ export default function RadioPage() {
     return `https://w.soundcloud.com/player/?${params.toString()}`;
   }, [playlistUrl]);
 
-  // Convert SoundCloud track to our Track format
   const convertTrack = (scTrack: SoundCloudTrack): Track => ({
     id: String(scTrack.id),
     title: scTrack.title || 'Untitled',
@@ -230,24 +181,76 @@ export default function RadioPage() {
     streamUrl: scTrack.stream_url,
   });
 
-
-  // Fetch SoundCloud stats
   useEffect(() => {
     async function fetchStats() {
       try {
         setStatsLoading(true);
-        setStatsError(null);
-        
-        const response = await fetch('/api/soundcloud/stats');
-        
-        if (response.ok) {
-          const data = await response.json();
-          setStats(data);
-        } else {
-          setStatsError(`Failed to load stats (${response.status})`);
+        const baseRes = await fetch('/api/soundcloud/stats');
+        if (!baseRes.ok) return;
+        const base = await baseRes.json();
+        if (base.error) return;
+
+        const trackById = new Map<number, { id: number; title: string; permalink_url: string; artwork_url: string; playback_count: number; likes_count: number; reposts_count: number; duration: number }>();
+        for (const t of base.tracks || []) {
+          const existing = trackById.get(t.id);
+          if (!existing || (t.playback_count ?? 0) > (existing.playback_count ?? 0)) trackById.set(t.id, t);
         }
-      } catch (error) {
-        setStatsError('Network error loading stats');
+
+        const chunks = base.playlistChunks;
+        const totalChunks = chunks?.total ?? 1;
+        const allRemainingCompactIds = new Set<number>();
+        for (const id of base.remainingCompactIds || []) {
+          if (!trackById.has(id)) allRemainingCompactIds.add(id);
+        }
+        for (let i = 1; i < totalChunks; i++) {
+          const chunkRes = await fetch(`/api/soundcloud/stats?playlistChunk=${i}`);
+          if (!chunkRes.ok) continue;
+          const chunk = await chunkRes.json();
+          for (const t of chunk.tracks || []) {
+            const existing = trackById.get(t.id);
+            if (!existing || (t.playback_count ?? 0) > (existing.playback_count ?? 0)) trackById.set(t.id, t);
+          }
+          for (const id of chunk.remainingCompactIds || []) {
+            if (!trackById.has(id)) allRemainingCompactIds.add(id);
+          }
+        }
+        const idsToFetch = Array.from(allRemainingCompactIds);
+        for (let i = 0; i < idsToFetch.length; i += 100) {
+          const batch = idsToFetch.slice(i, i + 100);
+          const res = await fetch(`/api/soundcloud/stats?fetchTrackIds=${batch.join(',')}`);
+          if (!res.ok) continue;
+          const data = await res.json();
+          for (const t of data.tracks || []) {
+            const existing = trackById.get(t.id);
+            if (!existing || (t.playback_count ?? 0) > (existing.playback_count ?? 0)) trackById.set(t.id, t);
+          }
+        }
+
+        let totalPlays = 0;
+        let totalLikes = 0;
+        let totalReposts = 0;
+        for (const [, t] of trackById) {
+          totalPlays += t.playback_count || 0;
+          totalLikes += t.likes_count || 0;
+          totalReposts += t.reposts_count || 0;
+        }
+        if (base.directTotalPlays != null && base.directTotalPlays > totalPlays) totalPlays = base.directTotalPlays;
+        const topTracks = Array.from(trackById.values())
+          .map((t) => ({ ...t, score: (t.playback_count || 0) + (t.likes_count || 0) * 2 }))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 10);
+
+        setStats({
+          followers: base.stats?.followers ?? base.user?.followers_count ?? 0,
+          tracks: base.stats?.tracks ?? base.user?.track_count ?? 0,
+          playlists: base.stats?.playlists ?? base.user?.playlist_count ?? 0,
+          likes: totalLikes,
+          reposts: totalReposts,
+          totalPlays,
+          topTracks,
+        });
+      } catch {
+        // silent
       } finally {
         setStatsLoading(false);
       }
@@ -255,73 +258,57 @@ export default function RadioPage() {
     fetchStats();
   }, []);
 
-  // Fetch albums dynamically from SoundCloud API
   useEffect(() => {
     async function fetchPlaylists() {
       try {
         const response = await fetch('/api/soundcloud/playlists');
-        
         if (response.ok) {
           const data = await response.json();
-          
           if (data.playlists && Array.isArray(data.playlists)) {
-            // Convert API playlists to our Playlist format
-            const fetchedPlaylists: Playlist[] = data.playlists.map((p: any) => ({
+            const fetchedPlaylists: Playlist[] = data.playlists.map((p: { id: string | number; title?: string; permalink?: string; permalink_url?: string; trackCount?: number; track_count?: number; artwork?: string }) => ({
               id: String(p.id),
               title: p.title || 'Untitled Album',
               url: p.permalink || p.permalink_url || '',
               trackCount: p.trackCount || p.track_count || 0,
               artwork: p.artwork || undefined,
             }));
-            
             setPlaylistsWithArtwork(fetchedPlaylists);
-            
-            // Update selected playlist if it's the default (FUBAR)
-            const fubarPlaylist = fetchedPlaylists.find(p => 
-              p.url.includes('fubar') || p.title.toLowerCase().includes('fubar')
-            );
-            if (fubarPlaylist) {
-              setSelectedPlaylist(fubarPlaylist);
-              setPlaylistUrl(fubarPlaylist.url);
+            const fubar = fetchedPlaylists.find(p => p.url.includes('fubar') || p.title.toLowerCase().includes('fubar'));
+            if (fubar) {
+              setSelectedPlaylist(fubar);
+              setPlaylistUrl(fubar.url);
             } else if (fetchedPlaylists.length > 0) {
-              // Fallback to first playlist
               setSelectedPlaylist(fetchedPlaylists[0]);
               setPlaylistUrl(fetchedPlaylists[0].url);
             }
           }
         }
-      } catch (error) {
-        // Error fetching playlists
+      } catch {
+        // silent
       }
     }
     fetchPlaylists();
   }, []);
 
-  // Track all available tracks from the playlist
   const trackAllSounds = (sounds: SoundCloudTrack[]) => {
-    const tracks = sounds.map(convertTrack);
-    setAllTracks(tracks);
+    setAllTracks(sounds.map(convertTrack));
   };
 
-  // Initialize SoundCloud Widget
   useEffect(() => {
     let cancelled = false;
 
     function initWidget() {
       if (!iframeRef.current || !window.SC || !window.SC.Widget) return;
-      const widget = window.SC.Widget(iframeRef.current) as SoundCloudWidget;
+      const widget = window.SC.Widget(iframeRef.current) as unknown as SoundCloudWidget;
       widgetRef.current = widget;
 
       widget.bind(window.SC.Widget.Events.READY, () => {
         if (cancelled) return;
         setIsReady(true);
-        widget.setVolume(0); // Start muted for autoplay
-
-        // Load all tracks and build queue
+        widget.setVolume(0);
         widget.getSounds((sounds: SoundCloudTrack[]) => {
           if (!Array.isArray(sounds) || sounds.length === 0) return;
           const randomIndex = Math.floor(Math.random() * sounds.length);
-          
           widget.load(playlistUrl, {
             auto_play: true,
             visual: false,
@@ -332,18 +319,13 @@ export default function RadioPage() {
             show_teaser: false,
             start_track: randomIndex,
           });
-
           trackAllSounds(sounds);
         });
-
-        // Fallback autoplay attempt
         if (!hasAutoTriedRef.current) {
           hasAutoTriedRef.current = true;
           setTimeout(() => {
             widget.isPaused((paused: boolean) => {
-              if (paused) {
-                try { widget.play(); } catch {}
-              }
+              if (paused) { try { widget.play(); } catch { /* silent */ } }
             });
           }, 600);
         }
@@ -352,19 +334,11 @@ export default function RadioPage() {
       widget.bind(window.SC.Widget.Events.PLAY, () => {
         if (cancelled) return;
         setIsPlaying(true);
-        
-        // Update now playing
         widget.getCurrentSound((sound: SoundCloudTrack | null) => {
-          if (sound) {
-            setNowPlaying(convertTrack(sound));
-          }
+          if (sound) setNowPlaying(convertTrack(sound));
         });
-
-        // Update available tracks
         widget.getSounds((sounds: SoundCloudTrack[]) => {
-          if (Array.isArray(sounds) && sounds.length > 0) {
-            trackAllSounds(sounds);
-          }
+          if (Array.isArray(sounds) && sounds.length > 0) trackAllSounds(sounds);
         });
       });
 
@@ -373,21 +347,13 @@ export default function RadioPage() {
         setIsPlaying(false);
       });
 
-      widget.bind(window.SC.Widget.Events.FINISH, () => {
-        if (cancelled) return;
-        // Auto-advance handled by SoundCloud widget
-      });
-
-      // Unmute on first interaction
       const resumeFromGesture = () => {
         if (!unmuteOnFirstInteractionRef.current) return;
         unmuteOnFirstInteractionRef.current = false;
         try {
           widget.setVolume(volume);
-          widget.isPaused((paused: boolean) => {
-            if (paused) widget.play();
-          });
-        } catch {}
+          widget.isPaused((paused: boolean) => { if (paused) widget.play(); });
+        } catch { /* silent */ }
         window.removeEventListener('pointerdown', resumeFromGesture);
         window.removeEventListener('keydown', resumeFromGesture);
         window.removeEventListener('touchstart', resumeFromGesture);
@@ -399,15 +365,9 @@ export default function RadioPage() {
 
     function ensureScript() {
       const sc = window.SC;
-      if (sc && typeof sc.Widget === 'function') {
-        initWidget();
-        return;
-      }
+      if (sc && typeof sc.Widget === 'function') { initWidget(); return; }
       const existing = document.querySelector('script[data-sc-widget]') as HTMLScriptElement | null;
-      if (existing) {
-        existing.addEventListener('load', initWidget);
-        return;
-      }
+      if (existing) { existing.addEventListener('load', initWidget); return; }
       const script = document.createElement('script');
       script.src = 'https://w.soundcloud.com/player/api.js';
       script.async = true;
@@ -418,558 +378,541 @@ export default function RadioPage() {
     }
 
     ensureScript();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [volume, playlistUrl]);
 
-
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   const formatNumber = (num: number): string => {
-    if (num >= 1000000) {
-      return `${(num / 1000000).toFixed(1)}M`;
-    }
-    if (num >= 1000) {
-      return `${(num / 1000).toFixed(1)}K`;
-    }
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toString();
   };
 
+  const displayPlaylists = playlistsWithArtwork.length > 0 ? playlistsWithArtwork : AVAILABLE_PLAYLISTS;
+
+  const ArtistAvatar = ({ src, name }: { src: string; name: string }) => {
+    const [errored, setErrored] = React.useState(false);
+    if (errored) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Music className="w-10 h-10 text-hero-blue/30" />
+        </div>
+      );
+    }
+    return (
+      <Image
+        src={src}
+        alt={name}
+        fill
+        unoptimized
+        className="object-cover transition-transform duration-500 group-hover:scale-105"
+        onError={() => setErrored(true)}
+      />
+    );
+  };
+
   return (
-    <div className="min-h-screen jukebox-bg" style={{ color: 'var(--foreground)' }}>
+    <div className="min-h-screen" style={{ color: '#f5f5f5' }}>
       <Nav />
 
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-20 left-10 w-64 h-64 bg-ape-gold/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-hero-blue/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-ape-gold/3 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
-      </div>
+      {/* ── HERO ─────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden pt-32 pb-24">
+        {/* Blurred background glow */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-hero-blue/8 rounded-full blur-[120px]" />
+          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-hero-blue/5 rounded-full blur-[100px]" />
+        </div>
 
-      <div className="relative pt-24 pb-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
+        <div className="relative max-w-6xl mx-auto px-6">
           <motion.div
-            className="text-center mb-12"
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="flex flex-col items-center gap-4 mb-4">
-              <div className="relative">
-                <Disc3 className="w-16 h-16 text-ape-gold vinyl-spin" />
-                <div className="absolute inset-0 w-16 h-16 rounded-full pulse-glow"></div>
-              </div>
-              <h1 className="text-5xl md:text-7xl font-bold neon-text text-ape-gold">
-                JUKEBOX
-              </h1>
-              <div className="flex items-center gap-2 text-sm tracking-widest text-ape-gold/80">
-                <span className="w-8 h-0.5 bg-ape-gold/50"></span>
-                <span>APES ON APE MUSIC</span>
-                <span className="w-8 h-0.5 bg-ape-gold/50"></span>
-              </div>
+            {/* Label tag */}
+            <div className="inline-flex items-center gap-2 border border-hero-blue/30 bg-hero-blue/5 rounded-full px-4 py-1.5 mb-8">
+              <span className="w-1.5 h-1.5 rounded-full bg-hero-blue animate-pulse" />
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-hero-blue">AOA Records</span>
             </div>
-            <p className="text-lg max-w-3xl mx-auto text-center leading-relaxed" style={{ color: 'var(--ape-gray)' }}>
-              Select an album to insert into the jukebox
+
+            <h1 className="text-6xl md:text-8xl lg:text-9xl font-black leading-[0.9] tracking-tight text-white mb-8">
+              Make Music<br />
+              <span className="text-hero-blue">With Your</span><br />
+              Ape.
+            </h1>
+
+            <p className="text-lg md:text-xl text-white/50 max-w-xl mb-10 leading-relaxed font-light">
+              A label for Apes on Apechain. Hold an Ape, drop a record,
+              and plug your sound into the AOA catalogue.
             </p>
-          </motion.div>
 
-          {/* SoundCloud Stats */}
-          {statsLoading && (
-            <motion.div
-              className="mb-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.6 }}
-            >
-              <div className="glass-dark rounded-xl p-8 neon-border">
-                <div className="flex flex-col items-center gap-4">
-                  <Disc3 className="w-12 h-12 text-ape-gold vinyl-spin" />
-                  <div className="text-center">
-                    <div className="text-lg font-black text-ape-gold uppercase tracking-wider animate-pulse">Loading Stats...</div>
-                    <div className="text-xs text-ape-gold/60 mt-2 uppercase tracking-widest">Syncing with SoundCloud</div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-          
-          {statsError && !stats && (
-            <motion.div
-              className="mb-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.6 }}
-            >
-              <div className="glass-dark rounded-xl p-6 border-2 border-red-500/50">
-                <div className="text-center">
-                  <div className="text-lg font-bold text-red-400 mb-2">⚠️ {statsError}</div>
-                  <div className="text-sm text-gray-400">Check browser console for details</div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-          
-          {stats && (
-            <motion.div
-              className="mb-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.6 }}
-            >
-              <div className="glass-dark rounded-xl p-6 neon-border relative overflow-hidden">
-                {/* Animated background lines */}
-                <div className="absolute inset-0 opacity-10">
-                  <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-ape-gold to-transparent"></div>
-                  <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-ape-gold to-transparent"></div>
-                </div>
-                
-                <div className="relative flex items-center justify-center gap-2 mb-6">
-                  <SiSoundcloud className="w-6 h-6 text-orange-500 animate-pulse" />
-                  <h3 className="text-xl font-bold neon-text text-ape-gold tracking-wider">
-                    LIVE STATS
-                  </h3>
-                </div>
-                <div className="relative grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  <div className="group bg-gradient-to-br from-black/40 to-black/20 rounded-lg p-4 text-center border border-ape-gold/20 hover:border-ape-gold hover:shadow-lg hover:shadow-ape-gold/20 transition-all duration-300 transform hover:scale-105">
-                    <Heart className="w-7 h-7 mx-auto mb-2 text-blue-400 group-hover:scale-110 transition-transform" />
-                    <div className="text-3xl font-black text-white mb-1">
-                      {formatNumber(stats.followers)}
-                    </div>
-                    <div className="text-xs font-semibold tracking-wide text-ape-gold/70 uppercase">
-                      Followers
-                    </div>
-                  </div>
-                  
-                  <div className="group bg-gradient-to-br from-black/40 to-black/20 rounded-lg p-4 text-center border border-ape-gold/20 hover:border-ape-gold hover:shadow-lg hover:shadow-ape-gold/20 transition-all duration-300 transform hover:scale-105">
-                    <Music className="w-7 h-7 mx-auto mb-2 text-purple-400 group-hover:scale-110 transition-transform" />
-                    <div className="text-3xl font-black text-white mb-1">
-                      {formatNumber(stats.tracks)}
-                    </div>
-                    <div className="text-xs font-semibold tracking-wide text-ape-gold/70 uppercase">
-                      Tracks
-                    </div>
-                  </div>
-                  
-                  <div className="group bg-gradient-to-br from-black/40 to-black/20 rounded-lg p-4 text-center border border-ape-gold/20 hover:border-ape-gold hover:shadow-lg hover:shadow-ape-gold/20 transition-all duration-300 transform hover:scale-105">
-                    <ListMusic className="w-7 h-7 mx-auto mb-2 text-green-400 group-hover:scale-110 transition-transform" />
-                    <div className="text-3xl font-black text-white mb-1">
-                      {formatNumber(stats.playlists)}
-                    </div>
-                    <div className="text-xs font-semibold tracking-wide text-ape-gold/70 uppercase">
-                      Playlists
-                    </div>
-                  </div>
-                  
-                  <div className="group bg-gradient-to-br from-black/40 to-black/20 rounded-lg p-4 text-center border border-ape-gold/20 hover:border-ape-gold hover:shadow-lg hover:shadow-ape-gold/20 transition-all duration-300 transform hover:scale-105">
-                    <Heart className="w-7 h-7 mx-auto mb-2 text-red-400 group-hover:scale-110 transition-transform" />
-                    <div className="text-3xl font-black text-white mb-1">
-                      {formatNumber(stats.likes)}
-                    </div>
-                    <div className="text-xs font-semibold tracking-wide text-ape-gold/70 uppercase">
-                      Likes
-                    </div>
-                  </div>
-                  
-                  <div className="group bg-gradient-to-br from-black/40 to-black/20 rounded-lg p-4 text-center border border-ape-gold/20 hover:border-ape-gold hover:shadow-lg hover:shadow-ape-gold/20 transition-all duration-300 transform hover:scale-105">
-                    <Repeat2 className="w-7 h-7 mx-auto mb-2 text-yellow-400 group-hover:scale-110 transition-transform" />
-                    <div className="text-3xl font-black text-white mb-1">
-                      {formatNumber(stats.reposts)}
-                    </div>
-                    <div className="text-xs font-semibold tracking-wide text-ape-gold/70 uppercase">
-                      Reposts
-                    </div>
-                  </div>
-                  
-                  <div className="group bg-gradient-to-br from-black/40 to-black/20 rounded-lg p-4 text-center border border-ape-gold/20 hover:border-ape-gold hover:shadow-lg hover:shadow-ape-gold/20 transition-all duration-300 transform hover:scale-105">
-                    <Disc3 className="w-7 h-7 mx-auto mb-2 text-ape-gold group-hover:rotate-180 transition-transform duration-500" />
-                    <div className="text-3xl font-black text-white mb-1">
-                      {formatNumber(stats.totalPlays)}
-                    </div>
-                    <div className="text-xs font-semibold tracking-wide text-ape-gold/70 uppercase">
-                      Total Plays
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Main Content Grid */}
-          <div className="grid lg:grid-cols-[minmax(400px,_2fr)_3fr] gap-8">
-            {/* Album Selector - Left Column (wider) */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15, duration: 0.6 }}
-            >
-              <div className="glass-dark rounded-xl p-5 neon-border sticky top-24 h-[700px] flex flex-col relative overflow-hidden">
-                {/* Jukebox Panel Accent Lines */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-ape-gold to-transparent opacity-50"></div>
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-ape-gold to-transparent opacity-50"></div>
-                
-                <div className="flex items-center justify-between mb-5 flex-shrink-0">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <Disc3 className="w-5 h-5 text-ape-gold" />
-                      <h3 className="font-black text-ape-gold uppercase tracking-wider text-sm">Select Disc</h3>
-                    </div>
-                    <div className="text-xs text-ape-gold/60 uppercase tracking-widest">Choose Album</div>
-                  </div>
-                  <a
-                    href="https://soundcloud.com/apesonape"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-orange-400 hover:text-orange-300 transition-all hover:scale-110 transform"
-                  >
-                    <SiSoundcloud className="w-6 h-6" />
-                  </a>
-                </div>
-                
-                <div className="space-y-2 flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
-                  {playlistsWithArtwork.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full gap-4">
-                      <Disc3 className="w-16 h-16 text-ape-gold/30 vinyl-spin" />
-                      <p className="text-sm text-ape-gold/60 uppercase tracking-widest">Loading Albums...</p>
-                    </div>
-                  ) : (
-                    playlistsWithArtwork.map((playlist, index) => (
-                    <button
-                      key={playlist.id}
-                      onClick={() => {
-                        setIsInsertingDisc(true);
-                        setTimeout(() => {
-                          setSelectedPlaylist(playlist);
-                          setPlaylistUrl(playlist.url);
-                          setIsReady(false);
-                          setIsInsertingDisc(false);
-                        }, 800);
-                      }}
-                      className={`group relative rounded-xl overflow-hidden transition-all duration-300 w-full text-left ${
-                        selectedPlaylist.id === playlist.id
-                          ? 'ring-2 ring-ape-gold shadow-lg shadow-ape-gold/30'
-                          : 'hover:ring-1 hover:ring-ape-gold/50 hover:shadow-md hover:shadow-ape-gold/10'
-                      }`}
-                    >
-                      {/* Selection Number Badge */}
-                      <div className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black transition-all ${
-                        selectedPlaylist.id === playlist.id
-                          ? 'bg-ape-gold text-black'
-                          : 'bg-black/70 text-ape-gold border border-ape-gold/30'
-                      }`}>
-                        {index + 1}
-                      </div>
-                      
-                      <div className={`flex gap-4 p-3 ${
-                        selectedPlaylist.id === playlist.id 
-                          ? 'bg-gradient-to-r from-ape-gold/20 to-transparent' 
-                          : 'bg-black/30'
-                      }`}>
-                        {/* Vinyl Disc Visual - Back to larger size */}
-                        <div className="relative w-20 h-20 flex-shrink-0 rounded-full overflow-hidden bg-black border-2 border-ape-gold/30 group-hover:border-ape-gold/60 transition-all">
-                          {/* Vinyl grooves effect */}
-                          <div className="absolute inset-0 vinyl-groove"></div>
-                          
-                          {/* Album artwork in center */}
-                          <div className="absolute inset-3 rounded-full overflow-hidden">
-                            {playlist.artwork ? (
-                              <Image
-                                src={playlist.artwork}
-                                alt={playlist.title}
-                                fill
-                                sizes="56px"
-                                className={`object-cover ${selectedPlaylist.id === playlist.id ? 'vinyl-spin' : ''}`}
-                              />
-                            ) : (
-                              <div className={`absolute inset-0 bg-gradient-to-br ${getAlbumArtwork(playlist.id)}`}>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <Music className="w-4 h-4 text-white/50" />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* Center hole */}
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-6 h-6 rounded-full bg-black border-2 border-ape-gold/50"></div>
-                          </div>
-                          
-                          {/* Playing indicator */}
-                          {selectedPlaylist.id === playlist.id && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-full h-full rounded-full border-2 border-ape-gold pulse-glow"></div>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Album Info - Allow text wrapping */}
-                        <div className="flex-1 min-w-0 flex flex-col justify-center pr-2">
-                          <h4 className={`font-black text-sm uppercase tracking-wide transition-colors leading-snug break-words ${
-                            selectedPlaylist.id === playlist.id ? 'text-ape-gold' : 'text-white group-hover:text-ape-gold'
-                          }`}>
-                            {playlist.title}
-                          </h4>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-ape-gold/60 uppercase tracking-widest">
-                              {selectedPlaylist.id === playlist.id ? 'Now Playing' : 'Available'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  )))}
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-ape-gold/20 flex-shrink-0">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="flex items-center gap-2 text-xs text-ape-gold/60 uppercase tracking-widest">
-                      <span className="w-2 h-2 rounded-full bg-ape-gold animate-pulse"></span>
-                      <span>Jukebox Active</span>
-                    </div>
-                    <p className="text-xs text-center" style={{ color: 'var(--ape-gray)' }}>
-                      Powered by{' '}
-                      <a
-                        href="https://soundcloud.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-orange-400 hover:text-orange-300 transition-colors font-semibold"
-                      >
-                        SoundCloud
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Now Playing Section - Right Column */}
-            <div>
-              <div className="h-[700px]">
-              <motion.div
-                className="rounded-2xl overflow-hidden neon-border relative h-full flex flex-col"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2, duration: 0.6 }}
+            <div className="flex flex-wrap items-center gap-4">
+              <a
+                href="/music/create"
+                className="inline-flex items-center gap-2.5 bg-hero-blue text-white font-bold px-7 py-4 rounded-xl text-sm uppercase tracking-widest hover:bg-hero-blue-light transition-colors"
               >
-                {/* Album Artwork Background */}
-                {selectedPlaylist.artwork && (
-                  <div className="absolute inset-0 z-0">
-                    <Image
-                      src={selectedPlaylist.artwork}
-                      alt={selectedPlaylist.title}
-                      fill
-                      className="object-cover"
-                      priority
-                    />
-                    {/* Blur and darken overlay with animated gradient */}
-                    <div className="absolute inset-0 backdrop-blur-3xl bg-gradient-to-br from-black/80 via-black/70 to-black/80"></div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-ape-gold/10 via-transparent to-transparent opacity-50"></div>
-                  </div>
-                )}
-                {!selectedPlaylist.artwork && (
-                  <div className={`absolute inset-0 bg-gradient-to-br ${getAlbumArtwork(selectedPlaylist.id)}`}>
-                    <div className="absolute inset-0 backdrop-blur-3xl bg-black/80"></div>
-                  </div>
-                )}
-                
-                <div className="relative z-10 p-8 flex flex-col h-full">
-                  {/* Jukebox Display Header */}
-                  <div className="flex items-center justify-between mb-8 flex-shrink-0">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <Disc3 className={`w-8 h-8 text-ape-gold ${isPlaying ? 'vinyl-spin' : ''}`} />
-                        {isPlaying && <div className="absolute inset-0 rounded-full pulse-glow"></div>}
-                      </div>
-                      <div>
-                        <h2 className="text-3xl font-black text-ape-gold neon-text uppercase tracking-wider">Now Playing</h2>
-                        <div className="text-xs text-ape-gold/60 uppercase tracking-widest mt-1">Jukebox Active</div>
-                      </div>
-                    </div>
-                  </div>
+                <Music className="w-4 h-4" />
+                Start a Session
+              </a>
+              <a
+                href="https://soundcloud.com/apesonape"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2.5 border border-white/15 text-white/70 font-semibold px-7 py-4 rounded-xl text-sm uppercase tracking-widest hover:border-white/40 hover:text-white transition-colors"
+              >
+                <SiSoundcloud className="w-4 h-4 text-orange-400" />
+                SoundCloud
+              </a>
+            </div>
+          </motion.div>
+        </div>
+      </section>
 
-                  {/* Vinyl Disc Insertion Animation */}
-                  {isInsertingDisc && (
-                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-                      <div className="disc-insert">
-                        <div className="relative w-48 h-48">
-                          {/* Spinning vinyl */}
-                          <div className="absolute inset-0 rounded-full bg-black border-4 border-ape-gold vinyl-groove vinyl-spin">
-                            <div className="absolute inset-8 rounded-full overflow-hidden">
-                              {selectedPlaylist.artwork ? (
-                                <Image
-                                  src={selectedPlaylist.artwork}
-                                  alt={selectedPlaylist.title}
-                                  fill
-                                  className="object-cover"
-                                />
-                              ) : (
-                                <div className={`w-full h-full bg-gradient-to-br ${getAlbumArtwork(selectedPlaylist.id)}`}></div>
-                              )}
-                            </div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-12 h-12 rounded-full bg-black border-2 border-ape-gold"></div>
-                            </div>
-                          </div>
-                          <div className="absolute inset-0 rounded-full border-4 border-ape-gold pulse-glow"></div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Selected Album Info */}
-                  <div className="mb-8 text-center flex-shrink-0">
-                    <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-wide">{selectedPlaylist.title}</h3>
-                    <p className="text-sm font-semibold text-ape-gold/80 uppercase tracking-widest">
-                      Apes On Ape Records
-                    </p>
-                  </div>
-
-                  {/* SoundCloud Widget Player */}
-                  <div className="rounded-2xl overflow-hidden border-2 border-ape-gold/40 shadow-2xl flex-1 min-h-0 relative">
-                    {/* Decorative corner accents */}
-                    <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-ape-gold z-10"></div>
-                    <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-ape-gold z-10"></div>
-                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-ape-gold z-10"></div>
-                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-ape-gold z-10"></div>
-                    
-                    <iframe
-                      ref={iframeRef}
-                      title="SoundCloud Player"
-                      width="100%"
-                      height="100%"
-                      scrolling="no"
-                      frameBorder="no"
-                      allow="autoplay"
-                      src={playerSrc}
-                      className="w-full h-full"
-                    />
-                  </div>
-
-                  {/* Jukebox-styled SoundCloud Link */}
-                  <div className="flex-shrink-0 mt-6">
-                    <a
-                      href={selectedPlaylist.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group relative flex items-center justify-center gap-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-8 py-4 rounded-xl transition-all duration-300 w-full font-black uppercase tracking-wider text-sm overflow-hidden transform hover:scale-105 hover:shadow-lg hover:shadow-orange-500/50"
-                    >
-                      {/* Animated background shine */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                      
-                      <SiSoundcloud className="w-6 h-6 relative z-10" />
-                      <span className="relative z-10">Listen on SoundCloud</span>
-                    </a>
-                  </div>
+      {/* ── STATS BAR ────────────────────────────────────────────── */}
+      <section className="border-y border-white/8 bg-white/[0.02]">
+        <div className="max-w-6xl mx-auto px-6 py-5">
+          <div className="flex flex-wrap items-center gap-8 md:gap-16">
+            {statsLoading ? (
+              [...Array(4)].map((_, i) => (
+                <div key={i} className="flex flex-col gap-1">
+                  <div className="h-7 w-16 bg-white/10 rounded animate-pulse" />
+                  <div className="h-3 w-12 bg-white/5 rounded animate-pulse mt-1" />
                 </div>
-              </motion.div>
-              </div>
+              ))
+            ) : stats ? (
+              <>
+                <StatItem value={formatNumber(stats.followers)} label="Followers" />
+                <StatItem value={formatNumber(stats.tracks)} label="Tracks" />
+                <StatItem value={formatNumber(stats.playlists)} label="Releases" />
+                <StatItem value={formatNumber(stats.totalPlays)} label="Total Plays" />
+              </>
+            ) : (
+              <>
+                <StatItem value={String(displayPlaylists.length)} label="Releases" />
+                <StatItem value="—" label="Followers" />
+              </>
+            )}
+
+            {/* SC live dot */}
+            <div className="ml-auto hidden md:flex items-center gap-2 text-xs text-white/30 uppercase tracking-widest">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+              Live on SoundCloud
             </div>
           </div>
+        </div>
+      </section>
 
-          {/* Top Tracks Ranking */}
-          {stats && stats.topTracks && stats.topTracks.length > 0 && (
-            <motion.div
-              className="mt-8"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.6 }}
-            >
-              <div className="glass-dark rounded-xl p-6 neon-border relative overflow-hidden">
-                {/* Decorative accent line */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-ape-gold to-transparent opacity-50"></div>
-                
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="relative">
-                    <Music className="w-7 h-7 text-ape-gold" />
-                    <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-black text-ape-gold uppercase tracking-wider neon-text">Top Hits</h3>
-                    <p className="text-xs text-ape-gold/60 uppercase tracking-widest">Most played tracks</p>
-                  </div>
+      {/* ── PLAYER + CATALOGUE ───────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-6 py-16">
+        <div className="grid lg:grid-cols-[1fr_340px] gap-8 items-start">
+
+          {/* Player Column */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            {/* Now Playing header */}
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-white/30 mb-1">Now Playing</p>
+                <h2 className="text-2xl font-black text-white uppercase tracking-tight">
+                  {selectedPlaylist.title}
+                </h2>
+              </div>
+              <a
+                href={selectedPlaylist.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-orange-400 hover:text-orange-300 transition-colors text-sm font-semibold"
+              >
+                <SiSoundcloud className="w-5 h-5" />
+                <span className="hidden sm:inline">Open</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+
+            {/* Album art + player */}
+            <div className="relative rounded-2xl overflow-hidden bg-black border border-white/8 group">
+              {/* Artwork blur bg */}
+              {selectedPlaylist.artwork && (
+                <div className="absolute inset-0">
+                  <Image src={selectedPlaylist.artwork} alt="" fill className="object-cover scale-110" />
+                  <div className="absolute inset-0 bg-black/80 backdrop-blur-2xl" />
                 </div>
+              )}
+              {!selectedPlaylist.artwork && (
+                <div className={`absolute inset-0 bg-gradient-to-br ${getAlbumArtwork(selectedPlaylist.id)}`}>
+                  <div className="absolute inset-0 bg-black/75" />
+                </div>
+              )}
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {stats.topTracks.slice(0, 10).map((track, index) => (
-                    <a
-                      key={track.id}
-                      href={track.permalink_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group relative bg-gradient-to-br from-black/40 to-black/20 rounded-xl p-4 border border-ape-gold/20 hover:border-ape-gold hover:shadow-lg hover:shadow-ape-gold/20 transition-all duration-300 transform hover:scale-105"
-                    >
-                      {/* Rank Badge with Trophy for Top 3 */}
-                      <div className="absolute -top-2 -left-2 z-10">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm shadow-lg ${
-                          index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' :
-                          index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500' :
-                          index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
-                          'bg-ape-gold'
-                        }`}>
-                          {index < 3 ? (
-                            <Trophy className="w-4 h-4 text-white" />
-                          ) : (
-                            <span className="text-black">{index + 1}</span>
-                          )}
-                        </div>
-                        {index < 3 && (
-                          <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-black border border-ape-gold flex items-center justify-center">
-                            <span className="text-[10px] font-black text-ape-gold">{index + 1}</span>
-                          </div>
-                        )}
+              {/* Vinyl insertion overlay */}
+              <AnimatePresence>
+                {isInsertingDisc && (
+                  <motion.div
+                    className="absolute inset-0 z-50 flex items-center justify-center bg-black/90"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <div className="relative w-32 h-32">
+                      <div className="w-full h-full rounded-full border-4 border-hero-blue bg-black vinyl-groove vinyl-spin flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-black border-2 border-hero-blue" />
                       </div>
+                      <div className="absolute inset-0 rounded-full border-4 border-hero-blue pulse-glow" />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-                      {/* Track Artwork */}
-                      <div className="relative w-full aspect-square rounded-lg overflow-hidden mb-3 bg-black">
-                        {track.artwork_url ? (
-                          <Image
-                            src={track.artwork_url.replace('-large', '-t500x500')}
-                            alt={track.title}
-                            fill
-                            sizes="200px"
-                            className="object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
-                            <Music className="w-12 h-12 text-white/30" />
-                          </div>
-                        )}
-                        
-                        {/* Overlay on hover */}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center">
-                          <Play className="w-10 h-10 text-ape-gold opacity-0 group-hover:opacity-100 transition-opacity duration-300 fill-ape-gold" />
+              {/* Album art thumbnail + playing indicator */}
+              <div className="relative z-10 p-6 pb-0 flex items-center gap-4">
+                <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
+                  {selectedPlaylist.artwork ? (
+                    <Image src={selectedPlaylist.artwork} alt={selectedPlaylist.title} fill className="object-cover" />
+                  ) : (
+                    <div className={`w-full h-full bg-gradient-to-br ${getAlbumArtwork(selectedPlaylist.id)} flex items-center justify-center`}>
+                      <Music className="w-6 h-6 text-white/40" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Disc3 className={`w-4 h-4 text-hero-blue ${isPlaying ? 'vinyl-spin' : ''}`} />
+                    <span className="text-xs text-hero-blue uppercase tracking-widest font-semibold">
+                      {isPlaying ? 'Playing' : 'Paused'}
+                    </span>
+                  </div>
+                  {nowPlaying && (
+                    <p className="text-sm text-white/70 mt-0.5 truncate max-w-[240px]">{nowPlaying.title}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* SoundCloud iframe */}
+              <div className="relative z-10 p-4 pt-4" style={{ height: '400px' }}>
+                <iframe
+                  ref={iframeRef}
+                  title="SoundCloud Player"
+                  width="100%"
+                  height="100%"
+                  scrolling="no"
+                  frameBorder="no"
+                  allow="autoplay"
+                  src={playerSrc}
+                  className="w-full h-full rounded-xl overflow-hidden"
+                />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Catalogue sidebar */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-white/30 mb-1">Catalogue</p>
+                <h2 className="text-xl font-black text-white uppercase tracking-tight">All Releases</h2>
+              </div>
+              <span className="text-xs text-white/30 font-semibold">{displayPlaylists.length} albums</span>
+            </div>
+
+            <div className="space-y-1.5 max-h-[520px] overflow-y-auto custom-scrollbar pr-1">
+              {displayPlaylists.map((playlist, index) => {
+                const isSelected = selectedPlaylist.id === playlist.id;
+                return (
+                  <button
+                    key={playlist.id}
+                    onClick={() => {
+                      if (isSelected) return;
+                      setIsInsertingDisc(true);
+                      setTimeout(() => {
+                        setSelectedPlaylist(playlist);
+                        setPlaylistUrl(playlist.url);
+                        setIsReady(false);
+                        setIsInsertingDisc(false);
+                      }, 600);
+                    }}
+                    className={`group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left ${
+                      isSelected
+                        ? 'bg-hero-blue/10 border border-hero-blue/30'
+                        : 'border border-transparent hover:bg-white/5 hover:border-white/10'
+                    }`}
+                  >
+                    {/* Artwork */}
+                    <div className="relative w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 bg-black border border-white/10">
+                      {playlist.artwork ? (
+                        <Image src={playlist.artwork} alt={playlist.title} fill sizes="44px" className="object-cover" />
+                      ) : (
+                        <div className={`w-full h-full bg-gradient-to-br ${getAlbumArtwork(playlist.id)} flex items-center justify-center`}>
+                          <Music className="w-3 h-3 text-white/40" />
                         </div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-hero-blue/20 flex items-center justify-center">
+                          <Disc3 className="w-4 h-4 text-hero-blue vinyl-spin" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold truncate leading-tight ${isSelected ? 'text-hero-blue' : 'text-white group-hover:text-white'}`}>
+                        {playlist.title}
+                      </p>
+                      <p className="text-xs text-white/35 mt-0.5">
+                        {playlist.trackCount > 0 ? `${playlist.trackCount} tracks` : 'AOA Records'}
+                      </p>
+                    </div>
+
+                    {/* Index / play icon */}
+                    <div className="flex-shrink-0">
+                      {isSelected ? (
+                        <span className="text-xs font-black text-hero-blue">▶</span>
+                      ) : (
+                        <span className="text-xs text-white/20 group-hover:text-white/40 font-mono">
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── TOP HITS ─────────────────────────────────────────────── */}
+      {stats?.topTracks && stats.topTracks.length > 0 && (
+        <section className="border-t border-white/8 py-16">
+          <div className="max-w-6xl mx-auto px-6">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <div className="mb-10">
+                <p className="text-xs uppercase tracking-[0.2em] text-white/30 mb-2">Charts</p>
+                <h2 className="text-4xl md:text-5xl font-black text-white uppercase leading-tight">
+                  Top Hits
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {stats.topTracks.map((track, index) => (
+                  <a
+                    key={track.id}
+                    href={track.permalink_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative"
+                  >
+                    {/* Rank badge */}
+                    <div className={`absolute -top-2 -left-2 z-10 w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shadow-lg ${
+                      index === 0 ? 'bg-hero-blue text-white' :
+                      index === 1 ? 'bg-white/80 text-black' :
+                      index === 2 ? 'bg-orange-500 text-white' :
+                      'bg-white/10 text-white/60 border border-white/20'
+                    }`}>
+                      {index < 3 ? <Trophy className="w-3.5 h-3.5" /> : index + 1}
+                    </div>
+
+                    {/* Artwork */}
+                    <div className="relative aspect-square rounded-xl overflow-hidden bg-black border border-white/10 group-hover:border-white/25 transition-colors mb-3">
+                      {track.artwork_url ? (
+                        <Image
+                          src={track.artwork_url.replace('-large', '-t500x500')}
+                          alt={track.title}
+                          fill
+                          sizes="200px"
+                          className="object-cover group-hover:scale-105 transition-transform duration-400"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-white/0 flex items-center justify-center">
+                          <Music className="w-10 h-10 text-white/20" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                        <Play className="w-9 h-9 text-white fill-white opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
+                    </div>
 
-                      {/* Track Info */}
-                      <h4 className="font-black text-sm text-white mb-2 line-clamp-2 group-hover:text-ape-gold transition-colors leading-tight">
-                        {track.title}
-                      </h4>
+                    <h4 className="text-sm font-bold text-white line-clamp-2 leading-tight group-hover:text-hero-blue transition-colors mb-1.5">
+                      {track.title}
+                    </h4>
+                    <div className="flex items-center gap-3 text-xs text-white/35">
+                      <span className="flex items-center gap-1">
+                        <Play className="w-2.5 h-2.5" />
+                        {formatNumber(track.playback_count)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Heart className="w-2.5 h-2.5" />
+                        {formatNumber(track.likes_count)}
+                      </span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      )}
 
-                      {/* Stats */}
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1 text-blue-400">
-                          <Play className="w-3 h-3" />
-                          <span className="font-semibold">{formatNumber(track.playback_count)}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-red-400">
-                          <Heart className="w-3 h-3" />
-                          <span className="font-semibold">{formatNumber(track.likes_count)}</span>
-                        </div>
-                      </div>
-                    </a>
+      {/* ── JOIN THE LABEL ────────────────────────────────────────── */}
+      <section className="border-t border-white/8 py-20">
+        <div className="max-w-6xl mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="grid md:grid-cols-[1fr_auto] gap-10 items-start">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-white/30 mb-3">For Ape Holders</p>
+                  <h2 className="text-4xl md:text-5xl font-black text-white uppercase leading-tight mb-6">
+                  Drop a Record<br />
+                  <span className="text-hero-blue">On AOA.</span>
+                </h2>
+                <p className="text-white/50 max-w-lg leading-relaxed mb-10">
+                  Any Apes On Ape holder can publish under AOA Records.
+                  Release singles, EPs, and albums with your Ape as the face of the project.
+                </p>
+
+                <div className="grid sm:grid-cols-3 gap-4">
+                  {[
+                    {
+                      step: '01',
+                      title: 'Verify your Ape',
+                      body: 'Connect the wallet holding your AOA NFT to access Studio and Wardrobe.',
+                    },
+                    {
+                      step: '02',
+                      title: 'Release on SoundCloud',
+                      body: 'Upload your project to the AOA account or share from your own profile.',
+                    },
+                    {
+                      step: '03',
+                      title: 'Submit to the label',
+                      body: 'Use the Submit Track form to send your SoundCloud link directly for review.',
+                    },
+                  ].map(({ step, title, body }) => (
+                    <div key={step} className="border border-white/8 rounded-2xl p-5 bg-white/[0.02] hover:border-white/15 transition-colors">
+                      <div className="text-xs font-mono text-hero-blue/60 mb-3 tracking-widest">{step}</div>
+                      <div className="text-sm font-bold text-white mb-2">{title}</div>
+                      <p className="text-xs text-white/40 leading-relaxed">{body}</p>
+                    </div>
                   ))}
                 </div>
               </div>
-            </motion.div>
-          )}
+
+              {/* CTA block */}
+              <div className="flex flex-col gap-3 md:w-56 md:pt-16">
+                <a
+                  href="/music/create"
+                  className="flex items-center justify-between gap-2 bg-hero-blue text-white font-bold px-5 py-4 rounded-xl text-sm uppercase tracking-widest hover:bg-hero-blue-light transition-colors group"
+                >
+                  <span>Start Session</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </a>
+                <a
+                  href="/music/submit"
+                  className="flex items-center justify-between gap-2 border border-hero-blue/40 text-hero-blue font-semibold px-5 py-4 rounded-xl text-sm uppercase tracking-widest hover:border-hero-blue hover:bg-hero-blue/10 transition-colors group"
+                >
+                  <span>Submit Track</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </a>
+                <a
+                  href="https://discord.gg/gVmqW6SExU"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between gap-2 border border-white/15 text-white/60 font-semibold px-5 py-4 rounded-xl text-sm uppercase tracking-widest hover:border-white/30 hover:text-white transition-colors group"
+                >
+                  <span>Discord</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+          </motion.div>
         </div>
-      </div>
+      </section>
+
+      {/* ── MEET THE ARTISTS ──────────────────────────────────────── */}
+      <section className="py-20 border-t border-white/8">
+        <div className="max-w-6xl mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="mb-12"
+          >
+            <div className="inline-flex items-center gap-2 border border-hero-blue/30 bg-hero-blue/5 rounded-full px-4 py-1.5 mb-5">
+              <Users className="w-3.5 h-3.5 text-hero-blue" />
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-hero-blue">The Community</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight">
+              Meet the Apes
+            </h2>
+            <p className="text-white/40 mt-3 max-w-xl">
+              The artists, creators, and builders making noise on Apechain.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {ARTISTS.map((artist, i) => (
+              <motion.div
+                key={artist.slug}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.06 }}
+              >
+                <Link
+                  href={`/artist/${artist.slug}`}
+                  className="group block rounded-2xl overflow-hidden border border-white/8 bg-white/[0.02] hover:border-hero-blue/40 hover:bg-hero-blue/5 transition-all duration-300"
+                >
+                  {/* Avatar */}
+                  <div className="relative aspect-square overflow-hidden bg-white/5">
+                    {artist.avatar ? (
+                      <ArtistAvatar src={artist.avatar} name={artist.name} />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Music className="w-10 h-10 text-hero-blue/30" />
+                      </div>
+                    )}
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-hero-blue/0 group-hover:bg-hero-blue/10 transition-colors duration-300" />
+                    {/* Ape ID badge */}
+                    {artist.apeId && (
+                      <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-[10px] font-bold text-hero-blue">
+                        #{artist.apeId}
+                      </div>
+                    )}
+                  </div>
+                  {/* Info */}
+                  <div className="p-3">
+                    <div className="font-bold text-white text-sm truncate group-hover:text-hero-blue transition-colors">
+                      {artist.name}
+                    </div>
+                    <div className="text-[11px] text-white/40 truncate mt-0.5">{artist.role}</div>
+                    {artist.twitterUrl && (
+                      <div className="text-[10px] text-white/25 mt-1 truncate">
+                        @{artist.twitterUrl.split('/').pop()}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <Footer />
     </div>

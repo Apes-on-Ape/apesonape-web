@@ -952,7 +952,7 @@ export default function BannersPage() {
           <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-28 self-start">
             {/* Style & Colors */}
             <div className="glass-dark rounded-xl p-5">
-              <h2 className="font-semibold text-ape-gold mb-4 flex items-center gap-2"><Palette className="w-4 h-4"/> Style & Colors</h2>
+              <h2 className="font-semibold text-hero-blue mb-4 flex items-center gap-2"><Palette className="w-4 h-4"/> Style & Colors</h2>
 
               {/* Background */}
               <div className="mb-4">
@@ -1075,7 +1075,7 @@ export default function BannersPage() {
                   <label className="flex items-center gap-2 text-xs text-off-white/80">
                     <input type="checkbox" checked={settings.showBrandCorner}
                       onChange={(e) => setSettings((s) => ({ ...s, showBrandCorner: e.target.checked }))}
-                      className="accent-ape-gold" />
+                      className="accent-hero-blue" />
                     Show brand corner
                   </label>
                 </div>

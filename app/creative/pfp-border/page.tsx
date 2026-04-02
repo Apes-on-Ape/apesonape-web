@@ -249,7 +249,7 @@ export default function PfpBorderPage() {
 						</div>
 
 						<div className="glass-dark rounded-xl p-5 space-y-3">
-							<div className="font-semibold text-ape-gold flex items-center gap-2"><Badge className="w-4 h-4"/> Badge (optional)</div>
+							<div className="font-semibold text-hero-blue flex items-center gap-2"><Badge className="w-4 h-4"/> Badge (optional)</div>
 							<input
 								placeholder="e.g. AOA"
 								value={badgeText}

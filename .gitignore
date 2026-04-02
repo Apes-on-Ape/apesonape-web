@@ -49,6 +49,10 @@ next-env.d.ts
 
 /public/studio/
 
+# Arcade vendored tree — ignore nested deps and stray .git
+/public/arcade/**/node_modules/
+/public/arcade/.git/
+
 .next/
 out/
 dist/

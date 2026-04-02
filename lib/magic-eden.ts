@@ -47,7 +47,33 @@ class MagicEdenAPI {
   }
 
   private getApechainRpcUrl(): string {
-    return 'https://rpc.apechain.com/http';
+    return 'https://apechain.calderachain.xyz/http';
+  }
+
+  // Ordered list of fallback RPC endpoints — first healthy one wins
+  private readonly RPC_FALLBACKS = [
+    'https://apechain.calderachain.xyz/http',
+    'https://rpc.apechain.com/http',
+    'https://33139.rpc.thirdweb.com',
+  ];
+
+  private async rpcFetchWithFallback(body: object): Promise<{ result?: string; error?: unknown }> {
+    let lastErr: unknown;
+    for (const url of this.RPC_FALLBACKS) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr;
   }
 
   async getCollectionInfo(): Promise<MagicEdenCollection> {
@@ -452,63 +478,43 @@ class MagicEdenAPI {
   private async enumerateTokensViaRPC(
     contract: string,
     owner: string,
-    rpcUrl: string
+    _rpcUrl: string   // kept for signature compatibility; we now use rpcFetchWithFallback
   ): Promise<number[]> {
-    // balanceOf(address) selector: 0x70a08231
-    const balanceOfSelector = '0x70a08231';
     const ownerPadded = owner.slice(2).toLowerCase().padStart(64, '0');
-    const balanceOfData = balanceOfSelector + ownerPadded;
 
-    type RpcResponse = { jsonrpc: string; id: number; result?: string; error?: { code: number; message: string } };
-    const balanceCall: RpcResponse = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'eth_call',
-        params: [{ to: contract, data: balanceOfData }, 'latest'],
-      }),
-    }).then((r) => r.json());
+    // balanceOf(address) → 0x70a08231
+    const balanceCall = await this.rpcFetchWithFallback({
+      jsonrpc: '2.0', id: 1, method: 'eth_call',
+      params: [{ to: contract, data: `0x70a08231${ownerPadded}` }, 'latest'],
+    });
 
     if (!balanceCall.result || balanceCall.result === '0x') return [];
-    const balance = parseInt(balanceCall.result, 16);
-    if (balance === 0 || balance > 10000) return []; // Sanity check
+    const balance = parseInt(balanceCall.result as string, 16);
+    if (balance === 0 || balance > 10000) return [];
 
-    // tokenOfOwnerByIndex(address,uint256) selector: 0x2f745c59
-    const tokenOfOwnerByIndexSelector = '0x2f745c59';
+    // tokenOfOwnerByIndex(address,uint256) → 0x2f745c59  (batched in groups of 20)
     const tokenIds: number[] = [];
-    const batchSize = 10;
+    const batchSize = 20;
 
     for (let i = 0; i < balance; i += batchSize) {
-      const batch = Array.from({ length: Math.min(batchSize, balance - i) }, (_, j) => i + j);
-      const calls = batch.map((index) => {
-        const indexHex = BigInt(index).toString(16).padStart(64, '0');
-        const data = tokenOfOwnerByIndexSelector + ownerPadded + indexHex;
+      const end   = Math.min(i + batchSize, balance);
+      const calls = Array.from({ length: end - i }, (_, j) => {
+        const idx = BigInt(i + j).toString(16).padStart(64, '0');
         return {
-          jsonrpc: '2.0',
-          id: index + 2,
-          method: 'eth_call',
-          params: [{ to: contract, data }, 'latest'],
+          jsonrpc: '2.0', id: i + j + 2, method: 'eth_call',
+          params: [{ to: contract, data: `0x2f745c59${ownerPadded}${idx}` }, 'latest'],
         };
       });
 
       const responses = await Promise.all(
-        calls.map((call) =>
-          fetch(rpcUrl, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(call),
-          }).then((r) => r.json() as Promise<RpcResponse>)
-        )
+        calls.map(call => this.rpcFetchWithFallback(call).catch(() => ({ result: undefined })))
       );
 
       for (const res of responses) {
         if (res.result && res.result !== '0x') {
-          const tokenId = parseInt(res.result, 16);
-          if (!Number.isNaN(tokenId) && tokenId >= 0) {
-            tokenIds.push(tokenId);
-          }
+          const tokenId = parseInt(res.result as string, 16);
+          // Contract is 0-indexed; add 1 for the user-facing display ID
+          if (!Number.isNaN(tokenId) && tokenId >= 0) tokenIds.push(tokenId + 1);
         }
       }
     }

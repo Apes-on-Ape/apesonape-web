@@ -71,8 +71,8 @@ export default {
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
         pulseGlow: {
-          '0%, 100%': { boxShadow: '0 0 20px rgba(255, 215, 0, 0.3)' },
-          '50%': { boxShadow: '0 0 40px rgba(255, 215, 0, 0.6)' },
+          '0%, 100%': { boxShadow: '0 0 20px rgba(0, 84, 249, 0.3)' },
+          '50%': { boxShadow: '0 0 40px rgba(0, 84, 249, 0.6)' },
         },
         tilt: {
           '0%, 50%, 100%': { transform: 'rotate(0deg)' },

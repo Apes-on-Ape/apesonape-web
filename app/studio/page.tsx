@@ -37,6 +37,7 @@ export default function StudioExplorePage() {
 	const [search, setSearch] = useState('');
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [sortMode, setSortMode] = useState<'newest' | 'oldest'>('newest');
 
 	const loadFeed = async () => {
 		try {
@@ -162,9 +163,48 @@ export default function StudioExplorePage() {
 					</div>
 				)}
 
+				{/* Sort chips */}
+				{!loading && !error && creations.length > 0 && (
+					<div className="flex items-center justify-between gap-3 mb-6 text-xs md:text-sm">
+						<p className="text-muted">
+							Showing {creations.length} creation{creations.length !== 1 ? 's' : ''}.
+						</p>
+						<div className="inline-flex items-center gap-2 rounded-full bg-black/40 border border-white/10 px-2 py-1">
+							<button
+								type="button"
+								onClick={() => setSortMode('newest')}
+								className={`px-3 py-1.5 rounded-full transition-colors ${
+									sortMode === 'newest'
+										? 'bg-hero-blue text-black font-semibold'
+										: 'text-muted hover:text-hero-blue'
+								}`}
+							>
+								Newest
+							</button>
+							<button
+								type="button"
+								onClick={() => setSortMode('oldest')}
+								className={`px-3 py-1.5 rounded-full transition-colors ${
+									sortMode === 'oldest'
+										? 'bg-hero-blue text-black font-semibold'
+										: 'text-muted hover:text-hero-blue'
+								}`}
+							>
+								Oldest
+							</button>
+						</div>
+					</div>
+				)}
+
 				{/* Premium Creation Grid */}
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-					{creations.map((creation) => (
+					{[...creations]
+						.sort((a, b) =>
+							sortMode === 'newest'
+								? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+								: new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+						)
+						.map((creation) => (
 						<Link
 							key={creation.id}
 							href={`/studio/${creation.id}`}
@@ -175,6 +215,11 @@ export default function StudioExplorePage() {
 								<div className="absolute top-3 left-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs glass font-medium" style={{ borderColor: 'rgba(0, 84, 249, 0.3)' }}>
 									<ImageIcon className="w-3.5 h-3.5" />
 									<span>{typeLabels[creation.type]}</span>
+								</div>
+								<div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+									<span className="text-xs md:text-sm font-semibold text-off-white/90 px-3 py-1 rounded-full bg-black/60 border border-white/20">
+										View details
+									</span>
 								</div>
 							</div>
 							<div className="space-y-3 flex-1 flex flex-col">

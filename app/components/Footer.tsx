@@ -4,116 +4,77 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { SiSoundcloud } from 'react-icons/si';
+import { SiSoundcloud, SiDiscord, SiX } from 'react-icons/si';
 
 export default function Footer() {
-  const currentYear = 2024;
+  const currentYear = new Date().getFullYear();
 
-  const socialLinks = [
-    {
-      name: 'Discord',
-      href: 'https://discord.gg/gVmqW6SExU',
-      icon: '/discord-white.png',
-    },
-    {
-      name: 'X (Twitter)',
-      href: 'https://x.com/apesonape',
-      icon: '/x-white.png',
-    },
-  ];
-
-  const marketplaceLinks = [
-    {
-      name: 'Magic Eden',
-      href: 'https://magiceden.io/collections/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0',
-      icon: '/magiceden_icon.jpeg',
-    },
-    {
-      name: 'Mintify',
-      href: 'https://app.mintify.com/nft/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0',
-      icon: '/mintify_icon.jpeg',
-    },
-    {
-      name: 'OpenSea',
-      href: 'https://opensea.io/collection/apes-on-apechain',
-      icon: '/opensea-logo.webp',
-    },
-  ];
-
-  const creativeLinks = [
-    {
-      name: 'SoundCloud',
-      href: 'https://soundcloud.com/apesonape',
-      IconComponent: SiSoundcloud,
-    },
-  ];
-
-  const internalLinks = [
+  const exploreLinks = [
     { name: 'Collection', href: '/collection' },
-    { name: 'Sound', href: '/sound' },
+    { name: 'Rarity Explorer', href: '/rarity' },
+    { name: 'Music', href: '/music' },
+    { name: 'About', href: '/about' },
+  ];
+
+  const createLinks = [
     { name: 'Studio', href: '/studio' },
+    { name: 'Community Gallery', href: '/gallery' },
+    { name: 'Submit Track', href: '/music/submit' },
+    { name: 'Vote', href: '/vote' },
   ];
 
   return (
-    <footer className="relative bg-background-surface border-t mt-20 grain-texture" style={{ borderTopColor: 'rgba(0, 84, 249, 0.3)' }}>
-      <div className="relative container-premium py-16 md:py-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 md:gap-16">
+    <footer className="relative bg-background-surface border-t mt-20 grain-texture" style={{ borderTopColor: 'rgba(0, 84, 249, 0.2)' }}>
+      <div className="relative container-premium py-14 md:py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12">
+
           {/* Brand Column */}
-          <div className="space-y-6">
+          <div className="space-y-5 lg:col-span-1">
             <Link href="/" className="flex items-center gap-3 group">
-              <motion.div 
-                className="relative w-10 h-10"
+              <motion.div
+                className="relative w-9 h-9"
                 whileHover={{ scale: 1.1, rotate: 5 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 17 }}
               >
-                <Image
-                  src="/apechain.png"
-                  alt="Apechain Logo"
-                  fill
-                  className="object-contain transition-all duration-300"
-                />
+                <Image src="/apechain.png" alt="AOA Logo" fill className="object-contain" />
               </motion.div>
-              <span className="text-xl font-bold text-gradient">
-                Apes On Ape
-              </span>
+              <span className="text-lg font-bold text-gradient">Apes On Ape</span>
             </Link>
-            <p className="text-muted text-sm leading-relaxed max-w-xs">
-              A playground for musicians, artists, game devs, and builders. Make weird. Make loud. Make games.
+            <p className="text-muted text-sm leading-relaxed">
+              A creator-first playground for musicians, artists, and builders — native to ApeChain.
             </p>
-            <div className="flex gap-3">
-              {socialLinks.map((link) => (
+            {/* Social icons */}
+            <div className="flex gap-2">
+              {[
+                { label: 'X (Twitter)', href: 'https://x.com/apesonape', Icon: SiX },
+                { label: 'Discord', href: 'https://discord.gg/gVmqW6SExU', Icon: SiDiscord },
+                { label: 'SoundCloud', href: 'https://soundcloud.com/apesonape', Icon: SiSoundcloud },
+              ].map(({ label, href, Icon }) => (
                 <motion.a
-                  key={link.name}
-                  href={link.href}
+                  key={label}
+                  href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-11 h-11 flex items-center justify-center rounded-xl glass hover:border-hero-blue/50 transition-all duration-300"
-                  aria-label={link.name}
+                  aria-label={label}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl glass text-muted hover:text-hero-blue hover:border-hero-blue/40 transition-all duration-200"
                   whileHover={{ scale: 1.1, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <div className="relative w-5 h-5">
-                    <Image
-                      src={link.icon}
-                      alt={link.name}
-                      fill
-                      className="object-contain"
-                    />
-                  </div>
+                  <Icon className="w-4 h-4" />
                 </motion.a>
               ))}
             </div>
           </div>
 
-          {/* Navigation Column */}
+          {/* Explore Column */}
           <div>
-            <h3 className="text-hero-blue font-semibold mb-6 text-base">Navigate</h3>
-            <ul className="space-y-3">
-              {internalLinks.map((link) => (
+            <h3 className="text-xs font-bold uppercase tracking-widest text-hero-blue mb-5">Explore</h3>
+            <ul className="space-y-2.5">
+              {exploreLinks.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
-                    className="text-muted hover:text-hero-blue transition-colors duration-300 text-sm block py-1"
+                    className="text-muted hover:text-white transition-colors duration-200 text-sm"
                   >
                     {link.name}
                   </Link>
@@ -122,46 +83,41 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Marketplaces Column */}
+          {/* Create Column */}
           <div>
-            <h3 className="text-hero-blue font-semibold mb-6 text-base">Marketplaces</h3>
-            <ul className="space-y-3">
-              {marketplaceLinks.map((link) => (
+            <h3 className="text-xs font-bold uppercase tracking-widest text-hero-blue mb-5">Create</h3>
+            <ul className="space-y-2.5">
+              {createLinks.map((link) => (
                 <li key={link.name}>
-                  <a
+                  <Link
                     href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2.5 text-muted hover:text-hero-blue transition-colors duration-300 text-sm py-1 group"
+                    className="text-muted hover:text-white transition-colors duration-200 text-sm"
                   >
-                    <div className="relative w-4 h-4 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
-                      <Image
-                        src={link.icon}
-                        alt={link.name}
-                        fill
-                        className="object-contain"
-                      />
-                    </div>
                     {link.name}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Creative Hub Column */}
+          {/* Trade Column */}
           <div>
-            <h3 className="text-hero-blue font-semibold mb-6 text-base">Creative Hub</h3>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-hero-blue mb-5">Trade</h3>
             <ul className="space-y-3">
-              {creativeLinks.map((link) => (
+              {[
+                { name: 'OpenSea', href: 'https://opensea.io/collection/apes-on-apechain', icon: '/opensea-logo.webp' },
+                { name: 'Mintify', href: 'https://app.mintify.com/nft/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0', icon: '/mintify_icon.jpeg', rounded: true },
+              ].map((link) => (
                 <li key={link.name}>
                   <a
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2.5 text-muted hover:text-hero-blue transition-colors duration-300 text-sm py-1"
+                    className="flex items-center gap-2.5 text-muted hover:text-white transition-colors duration-200 text-sm group"
                   >
-                    <link.IconComponent className="w-4 h-4 flex-shrink-0" />
+                    <div className={`relative w-4 h-4 flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity ${link.rounded ? 'rounded' : ''}`}>
+                      <Image src={link.icon} alt={link.name} fill className={`object-contain ${link.rounded ? 'rounded' : ''}`} />
+                    </div>
                     {link.name}
                   </a>
                 </li>
@@ -171,21 +127,21 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-16 pt-8 border-t flex flex-col md:flex-row justify-between items-center gap-4" style={{ borderTopColor: 'rgba(0, 84, 249, 0.3)' }}>
-          <p className="text-muted text-sm">
+        <div className="mt-12 pt-6 border-t flex flex-col sm:flex-row justify-between items-center gap-3" style={{ borderTopColor: 'rgba(0, 84, 249, 0.15)' }}>
+          <p className="text-muted/60 text-xs">
             © {currentYear} Apes On Ape. All rights reserved.
           </p>
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-3 text-xs text-muted/60">
             <a
               href="https://apescan.io/address/0xa6babe18f2318d2880dd7da3126c19536048f8b0"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted hover:text-hero-blue transition-colors duration-300"
+              className="hover:text-hero-blue transition-colors duration-200"
             >
               Contract
             </a>
-            <span className="text-muted/30">•</span>
-            <span className="text-muted">Built on Apechain</span>
+            <span className="text-muted/20">·</span>
+            <span>Built on ApeChain</span>
           </div>
         </div>
       </div>

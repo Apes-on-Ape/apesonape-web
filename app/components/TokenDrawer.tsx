@@ -12,6 +12,8 @@ interface TokenDrawerProps {
 }
 
 export default function TokenDrawer({ nft, onClose }: TokenDrawerProps) {
+  const OPENSEA_COLLECTION_URL = 'https://opensea.io/collection/apes-on-apechain';
+
   const getRarityColor = (rarity: number) => {
     if (rarity <= 10) return 'text-red-400';
     if (rarity <= 50) return 'text-orange-400';
@@ -31,7 +33,7 @@ export default function TokenDrawer({ nft, onClose }: TokenDrawerProps) {
       navigator.share({
         title: nft.name,
         text: `Check out ${nft.name} from Apes On Ape!`,
-        url: nft.magicEdenUrl,
+        url: OPENSEA_COLLECTION_URL,
       });
     }
   };
@@ -119,13 +121,13 @@ export default function TokenDrawer({ nft, onClose }: TokenDrawerProps) {
 
                 <div className="flex gap-3">
                   <a
-                    href={nft.magicEdenUrl}
+                    href={OPENSEA_COLLECTION_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 btn-primary flex items-center justify-center gap-2"
                   >
                     <ExternalLink className="w-4 h-4" />
-                    View on Magic Eden
+                    View on OpenSea
                   </a>
                   <button
                     onClick={handleShare}

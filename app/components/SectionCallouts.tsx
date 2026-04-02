@@ -21,15 +21,15 @@ export default function SectionCallouts() {
       description: 'Showcase your work. Join a community that celebrates creativity and visual expression.',
       cta: 'View Collection',
       href: '/collection',
-      gradient: 'from-ape-gold to-yellow-600',
-      iconColor: 'text-ape-gold',
+      gradient: 'from-hero-blue-light to-hero-blue',
+      iconColor: 'text-hero-blue-light',
     },
     {
       icon: Gamepad2,
       title: 'Game Devs',
       description: 'Build experiences. Push boundaries. Play in our arcade and contribute your own games.',
       cta: 'Visit Arcade',
-      href: 'https://arcade.apesonape.io',
+      href: '/arcade',
       gradient: 'from-purple-500 to-purple-700',
       iconColor: 'text-purple-500',
     },
@@ -85,7 +85,7 @@ export default function SectionCallouts() {
                 <motion.div 
                   className={`inline-flex p-4 rounded-xl mb-6 shadow-lg ${
                     callout.iconColor === 'text-hero-blue' ? 'bg-hero-blue' : 
-                    callout.iconColor === 'text-ape-gold' ? 'bg-ape-gold' : 
+                    callout.iconColor === 'text-hero-blue-light' ? 'bg-hero-blue-light' : 
                     callout.iconColor === 'text-purple-500' ? 'bg-accent-purple' : 
                     'bg-accent-green'
                   }`}

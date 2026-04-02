@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+    <title>Neon Racer - Ape Arcade</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="../shared/css/arcade-viewport.css">
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Debug utility - must load first -->
+    <script src="../shared/js/debug.js"></script>
+    <script src="../shared/js/arcade-config.js"></script>
+    <script src="../shared/js/arcade-device.js"></script>
+    
+    <!-- Security and core systems -->
+    <script src="../shared/js/security.js"></script>
+    <!-- Loading Screen System -->
+    <script src="../shared/js/loading-screen.js"></script>
+    <!-- Secure Database Wrapper -->
+    <script src="../shared/js/secure-db.js"></script>
+    <!-- Web3.js for Ethereum interaction -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
+    <!-- ethers.js as an alternative library -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <!-- Supabase client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <!-- SoundCloud API -->
+    <script src="https://w.soundcloud.com/player/api.js"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <!-- Arcade profile bootstrap (no access guard) -->
+    <script src="../shared/js/wallet-guard.js?v=8"></script>
+    <!-- Game scripts have been moved to the end of body -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        html {
+            overflow: hidden;
+            height: 100%;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100dvh;
+            max-height: 100dvh;
+            background: #000000;
+            font-family: 'Press Start 2P', cursive, Arial, sans-serif;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(255, 0, 255, 0.08) 0%, transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(255, 0, 255, 0.08) 0%, transparent 25%);
+            overflow: hidden; /* Prevent all scrolling */
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Wrapper div to center the game container */
+        .game-container-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100dvh;
+            max-height: 100dvh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            z-index: 10;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            height: 600px;
+            max-height: 600px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            border: 3px solid #ff00ff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5),
+                        inset 0 0 20px rgba(255, 0, 255, 0.3);
+            aspect-ratio: 2/3;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+
+        #gameScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        #score {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #ff00ff;
+            font-size: 22px;
+            z-index: 5;
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.7);
+            margin: 10px 0;
+            font-family: 'Press Start 2P', cursive;
+            letter-spacing: 1px;
+        }
+
+        #points {
+            position: absolute;
+            top: 50px;
+            right: 20px;
+            color: #ffff00;
+            font-size: 22px;
+            z-index: 5;
+            text-shadow: 0 0 10px rgba(255, 255, 0, 0.7);
+            margin: 10px 0;
+            font-family: 'Press Start 2P', cursive;
+            letter-spacing: 1px;
+            display: none; /* Hide points display */
+        }
+
+
+
+        #menuScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            background-image: 
+                linear-gradient(0deg, transparent 24%, rgba(255, 0, 255, 0.05) 25%, rgba(255, 0, 255, 0.05) 26%, transparent 27%, transparent 74%, rgba(255, 0, 255, 0.05) 75%, rgba(255, 0, 255, 0.05) 76%, transparent 77%, transparent),
+                linear-gradient(90deg, transparent 24%, rgba(255, 0, 255, 0.05) 25%, rgba(255, 0, 255, 0.05) 26%, transparent 27%, transparent 74%, rgba(255, 0, 255, 0.05) 75%, rgba(255, 0, 255, 0.05) 76%, transparent 77%, transparent);
+            background-size: 50px 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 10px 20px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            pointer-events: auto;
+            box-sizing: border-box;
+            text-align: center;
+            border: 3px solid #ff00ff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5),
+                        inset 0 0 20px rgba(255, 0, 255, 0.3);
+        }
+
+        #menuScreen h1 {
+            color: #ffffff;
+            font-size: clamp(24px, 7vw, 46px);
+            margin-bottom: clamp(15px, 5dvh, 35px);
+            margin-top: clamp(0px, 2dvh, 10px);
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.7),
+                         0 0 20px rgba(255, 0, 255, 0.5),
+                         0 0 30px rgba(255, 0, 255, 0.3);
+            animation: titleGlow 2s ease-in-out infinite alternate;
+            line-height: 1.3;
+            text-align: center;
+            letter-spacing: 2px;
+            position: relative;
+            padding: 10px 20px;
+            font-family: 'Press Start 2P', cursive;
+            word-break: break-word;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            left: 0;
+            right: 0;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #menuScreen h1::before {
+            content: '';
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #ff00ff, transparent);
+        }
+
+        .menu-button {
+            background: rgba(0, 0, 0, 0.7);
+            color: #ff00ff;
+            border: 2px solid #ff00ff;
+            padding: clamp(8px, 3vw, 14px) clamp(15px, 5vw, 25px);
+            margin: clamp(5px, 1.5dvh, 10px) auto;
+            font-size: clamp(12px, 3vw, 16px);
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            text-shadow: 0 0 5px #ff00ff;
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.4),
+                        inset 0 0 5px rgba(255, 0, 255, 0.2);
+            width: clamp(180px, 60%, 280px);
+            max-width: 280px;
+            text-align: center;
+            display: block;
+            position: relative;
+            z-index: 1001;
+            pointer-events: auto;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            min-height: 44px;
+            min-width: 180px;
+            white-space: normal;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            hyphens: auto;
+            font-family: 'Press Start 2P', cursive;
+            letter-spacing: 1px;
+            line-height: 1.4;
+            overflow: visible;
+            box-sizing: border-box;
+            left: 0 !important;
+            right: 0 !important;
+        }
+
+        .menu-button::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 0, 255, 0.2), transparent);
+            transition: 0.5s;
+            z-index: -1;
+        }
+
+        .menu-button:hover::after {
+            left: 100%;
+        }
+
+        .menu-button:hover {
+            background: rgba(255, 0, 255, 0.15);
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.7),
+                        inset 0 0 10px rgba(255, 0, 255, 0.4);
+            transform: translateY(-2px);
+            border-color: #ffffff;
+        }
+
+        .menu-button:active {
+            background: rgba(255, 0, 255, 0.3);
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.7);
+            transform: translateY(1px);
+        }
+
+        #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            animation: fadeIn 0.5s ease-out;
+            overflow-y: auto;
+            border: 3px solid #ff00ff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5),
+                        inset 0 0 20px rgba(255, 0, 255, 0.3);
+        }
+
+        #gameOverScreen h2 {
+            color: #ff00ff;
+            font-size: clamp(28px, 6vw, 42px);
+            margin-bottom: clamp(10px, 3dvh, 20px);
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.7),
+                         0 0 20px rgba(255, 0, 255, 0.4);
+            font-family: 'Press Start 2P', cursive;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        #finalScore {
+            color: #ff00ff;
+            font-size: clamp(20px, 4vw, 32px);
+            margin-bottom: clamp(15px, 4dvh, 30px);
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+            font-family: 'Press Start 2P', cursive;
+            text-align: center;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes titleGlow {
+            from {
+                text-shadow: 0 0 10px rgba(255, 0, 255, 0.7),
+                             0 0 20px rgba(255, 0, 255, 0.5),
+                             0 0 30px rgba(255, 0, 255, 0.3);
+            }
+            to {
+                text-shadow: 0 0 15px rgba(255, 0, 255, 0.8),
+                             0 0 25px rgba(255, 0, 255, 0.6),
+                             0 0 35px rgba(255, 0, 255, 0.4);
+            }
+        }
+
+        /* Loading indicator */
+        #loadingOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            flex-direction: column;
+            backdrop-filter: blur(3px);
+        }
+        
+        .spinner {
+            border: 5px solid rgba(255, 0, 255, 0.1);
+            border-radius: 50%;
+            border-top: 5px solid #ff00ff;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.5);
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #loadingText {
+            color: #ff00ff;
+            margin-top: 20px;
+            font-size: 18px;
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.7);
+            font-family: 'Press Start 2P', cursive;
+            letter-spacing: 1px;
+        }
+
+        /* Shop styles */
+        #shopModal, #leaderboardModal, #carSelectionModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1500;
+            backdrop-filter: blur(3px);
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .leaderboard-content, .shop-content {
+            position: relative;
+            max-width: 90%;
+            margin: 0 auto;
+            background: #000;
+            padding: clamp(15px, 4vw, 25px);
+            border-radius: 10px;
+            color: #ff00ff;
+            border: 3px solid #ff00ff;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.6),
+                       0 0 30px rgba(255, 0, 255, 0.3),
+                       inset 0 0 10px rgba(255, 0, 255, 0.2);
+            z-index: 1501;
+            overflow-y: auto;
+            max-height: 85dvh;
+        }
+
+        .shop-container {
+            max-height: 50dvh;
+            overflow-y: auto;
+            margin: 20px 0;
+            padding-right: 10px;
+        }
+
+        .shop-info {
+            margin-top: 20px;
+            padding: 10px;
+            background: rgba(255, 0, 255, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 0, 255, 0.3);
+            font-size: 14px;
+            color: #ccc;
+        }
+
+        /* Level indicators for upgrades */
+        .shop-item-levels {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .level-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            border: 2px solid #ff00ff;
+            display: inline-block;
+        }
+
+        .level-indicator.filled {
+            background: #ff00ff;
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.7);
+        }
+
+        #shopHeader h2 {
+            color: #ff00ff;
+            margin: 0;
+            font-size: 28px;
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.7);
+            font-family: 'Press Start 2P', cursive;
+            letter-spacing: 1px;
+        }
+
+        .shop-close {
+            background: none;
+            border: none;
+            color: #ff00ff;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            text-shadow: 0 0 5px rgba(255, 0, 255, 0.7);
+            transition: all 0.3s ease;
+        }
+        
+        .shop-close:hover {
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.9);
+            transform: scale(1.1);
+        }
+
+        .shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px;
+            margin-bottom: 15px;
+            background: rgba(30, 30, 30, 0.8);
+            border: 2px solid #ff00ff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.3), 
+                        inset 0 0 5px rgba(255, 0, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .shop-item:hover {
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.5), 
+                        inset 0 0 8px rgba(255, 0, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .shop-item-info {
+            flex: 1;
+        }
+
+        .shop-item-name {
+            color: #fff;
+            font-size: 16px;
+            margin-bottom: 8px;
+            font-family: 'Press Start 2P', cursive;
+            text-shadow: 0 0 5px rgba(255, 0, 255, 0.5);
+        }
+
+        .shop-item-description {
+            color: #aaa;
+            font-size: 12px;
+            font-family: Arial, sans-serif;
+            line-height: 1.4;
+        }
+
+        .shop-item-cost {
+            color: #ffff00;
+            font-size: 16px;
+            margin-left: 15px;
+            display: flex;
+            align-items: center;
+            font-family: 'Press Start 2P', cursive;
+            text-shadow: 0 0 5px rgba(255, 255, 0, 0.5);
+        }
+
+        .shop-item-cost i {
+            margin-right: 5px;
+        }
+
+        .shop-item-button {
+            margin-left: 15px;
+            padding: 10px 15px;
+            border: none;
+            background: #ff00ff;
+            color: #000;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+        }
+        
+        .shop-item-button:hover {
+            background: #ff33ff;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.7);
+            transform: translateY(-2px);
+        }
+
+        .shop-item-button:disabled {
+            background: #555;
+            color: #999;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #userPoints {
+            color: #ffff00;
+            font-size: 20px;
+            margin-bottom: 25px;
+            text-align: center;
+            font-family: 'Press Start 2P', cursive;
+            text-shadow: 0 0 8px rgba(255, 255, 0, 0.5);
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 0, 0.3);
+        }
+
+        #notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            display: none;
+            z-index: 1100;
+            text-align: center;
+            max-width: 80%;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.5);
+            border: 1px solid #ff00ff;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 12px;
+            animation: notificationPulse 0.3s ease-out;
+        }
+        
+        @keyframes notificationPulse {
+            0% { transform: translateX(-50%) scale(0.9); opacity: 0; }
+            100% { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+
+        #leaderboardTitle {
+            color: #ff00ff;
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 24px;
+            letter-spacing: 1px;
+            position: relative;
+            padding-bottom: 15px;
+        }
+        
+        #leaderboardTitle::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #ff00ff, transparent);
+        }
+
+        .leaderboard-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 12px;
+        }
+
+        .leaderboard-content th {
+            background: rgba(255, 0, 255, 0.15);
+            color: #ff00ff;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #ff00ff;
+            text-shadow: 0 0 5px rgba(255, 0, 255, 0.5);
+        }
+
+        .leaderboard-content td {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 0, 255, 0.3);
+            color: #ff00ff;
+            text-shadow: 0 0 5px rgba(255, 0, 255, 0.3);
+        }
+
+        .leaderboard-content tr:hover {
+            background: rgba(255, 0, 255, 0.1);
+        }
+
+        /* Car selection styles */
+        .car-selection-content {
+            padding: clamp(15px, 4vw, 25px);
+            width: clamp(280px, 90%, 500px);
+            max-width: 95%;
+            max-height: 85dvh;
+        }
+
+        .car-detail-preview {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 0, 255, 0.1);
+            border: 1px solid rgba(255, 0, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        #selectedCarName {
+            color: #ff00ff;
+            font-size: 20px;
+            margin: 15px 0;
+            text-shadow: 0 0 8px rgba(255, 0, 255, 0.5);
+            font-family: 'Press Start 2P', cursive;
+            text-align: center;
+        }
+
+        #selectedCarStats {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .car-stat {
+            margin-bottom: 12px;
+        }
+
+        .stat-label {
+            color: #ffffff;
+            font-size: 12px;
+            margin-bottom: 5px;
+            display: block;
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        .stat-bar {
+            width: 100%;
+            height: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 0, 255, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .stat-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff00ff, #ff66ff);
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.7);
+            transition: width 0.5s ease;
+        }
+
+        .car-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .car-option {
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 0, 255, 0.5);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .car-option:hover {
+            border-color: #ff00ff;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.5);
+            transform: translateY(-5px);
+        }
+
+        .car-option.selected {
+            background: rgba(255, 0, 255, 0.2);
+            border-color: #ffffff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.7);
+        }
+
+        .car-image {
+            width: 100%;
+            height: auto;
+            max-height: 80px;
+            object-fit: contain;
+        }
+
+        .car-name {
+            color: #ffffff;
+            font-size: 12px;
+            margin-top: 8px;
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        /* Updated responsive design */
+        @media (max-width: 768px) {
+            #gameContainer {
+                width: 95%;
+                max-width: 90vw;
+                height: auto;
+                border: 3px solid #ff00ff;
+                border-radius: 8px;
+                aspect-ratio: 2/3;
+            }
+            
+            .car-grid {
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 10px;
+            }
+            
+            .leaderboard-content table {
+                font-size: 10px;
+            }
+            
+            .leaderboard-content th,
+            .leaderboard-content td {
+                padding: 8px;
+            }
+            
+            .shop-item {
+                flex-direction: column;
+                padding: 12px;
+            }
+            
+            .shop-item-info {
+                margin-bottom: 10px;
+            }
+            
+            .shop-item-cost,
+            .shop-item-button {
+                margin-left: 0;
+                margin-top: 10px;
+            }
+            
+            /* Improved button styling for smaller screens */
+            .menu-button {
+                font-size: clamp(10px, 2.5vw, 14px);
+                padding: 10px 15px;
+                width: clamp(150px, 75%, 200px);
+                overflow-wrap: break-word;
+                white-space: normal;
+                text-overflow: ellipsis;
+                line-height: 1.3;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #gameContainer {
+                width: 95%;
+                max-width: 95vw;
+                max-height: 80dvh;
+                border-radius: 5px;
+            }
+            
+            .shop-item-name {
+                font-size: 12px;
+            }
+            
+            .shop-item-description {
+                font-size: 10px;
+            }
+            
+            .shop-item-button {
+                padding: 8px 10px;
+                font-size: 10px;
+            }
+            
+            .car-option {
+                padding: 8px;
+            }
+            
+            #score, #points {
+                font-size: 14px;
+                right: 10px;
+            }
+            
+            #score {
+                top: 10px;
+            }
+            
+            #points {
+                top: 35px;
+            }
+            
+            .close-button {
+                font-size: 20px;
+                top: 5px;
+                right: 5px;
+            }
+            
+            /* Additional improvements for very small screens */
+            .menu-button {
+                font-size: clamp(8px, 2.2vw, 12px);
+                padding: 8px 12px;
+                min-height: 36px;
+                width: clamp(140px, 80%, 180px);
+                margin: 4px auto;
+            }
+        }
+
+        /* For very small screens */
+        @media (max-height: 600px) {
+            #menuScreen {
+                justify-content: flex-start;
+                padding-top: 10px;
+            }
+            
+            #menuScreen h1 {
+                font-size: clamp(20px, 5vw, 28px);
+            margin-bottom: 10px;
+            }
+            
+            .menu-button {
+                padding: 8px 15px;
+                margin: 4px;
+                min-height: 36px;
+            }
+        }
+
+        /* For landscape orientation on mobile */
+        @media (max-height: 500px) and (orientation: landscape) {
+            #gameContainer {
+                max-height: 95dvh;
+                max-width: 65dvh;
+                aspect-ratio: 2/3;
+            }
+            
+            #menuScreen {
+                justify-content: flex-start;
+                padding: 10px 5px;
+                overflow-y: auto;
+            }
+            
+            #menuScreen h1 {
+                font-size: clamp(18px, 5dvh, 24px);
+                margin: 5px 0 10px;
+            }
+            
+            .menu-button {
+                padding: 5px 15px;
+                margin: 3px auto;
+                font-size: 12px;
+                width: 180px;
+                min-height: 36px;
+            }
+            
+            .car-selection-content {
+                overflow-y: auto;
+                max-height: 90dvh;
+            }
+            
+            .car-detail-preview {
+                padding: 8px;
+            }
+        }
+
+        /* SoundCloud iframe styling */
+        #soundcloud-player {
+            position: fixed;
+            bottom: -200px;
+            left: 0;
+            width: 100%;
+            height: 166px;
+            z-index: -1;
+            border: none;
+            outline: none;
+        }
+
+        /* Desktop improvements - constrained to 400x600 max */
+        @media (min-width: 769px) {
+            #gameContainer {
+                max-width: 400px;
+                width: 400px;
+                height: 600px;
+                max-height: 600px;
+                border-width: 4px;
+                position: relative;
+                margin: auto;
+                top: 0;
+                left: 0;
+                transform: none;
+            }
+            
+            #menuScreen h1 {
+                font-size: clamp(28px, 5vw, 36px);
+                margin-bottom: 25px;
+            }
+            
+            .menu-button {
+                font-size: 14px;
+                padding: 12px 20px;
+                margin: 8px auto;
+                width: 250px;
+                max-width: 280px;
+                min-height: 50px;
+                line-height: 1.3;
+            }
+            
+            /* Game UI elements improvements for desktop */
+            #score, #points {
+                font-size: 22px;
+                right: 20px;
+                top: 20px;
+            }
+            
+            #score {
+                font-size: 22px;
+                right: 20px;
+                top: 20px;
+            }
+            
+            #points {
+                font-size: 22px;
+                right: 20px;
+                top: 50px;
+            }
+            
+
+            
+            .close-button {
+                font-size: 24px;
+                top: 10px;
+                right: 10px;
+            }
+            
+            /* Shop and car selection improvements for desktop */
+            .shop-content, 
+            .leaderboard-content {
+                width: 500px;
+                max-width: 80%;
+                padding: 30px;
+            }
+            
+            .shop-item {
+                padding: 25px;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+            }
+            
+            .shop-item-name {
+                font-size: 20px;
+                margin-bottom: 12px;
+            }
+            
+            .shop-item-description {
+                font-size: 14px;
+            }
+            
+            .shop-item-button {
+                padding: 12px 20px;
+                font-size: 14px;
+            }
+            
+            .car-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 30px;
+                margin-top: 30px;
+            }
+            
+            .car-option {
+                padding: 15px;
+            }
+            
+            .car-image {
+                max-height: 100px;
+            }
+            
+            .car-name {
+                font-size: 14px;
+                margin-top: 12px;
+            }
+            
+            .car-detail-preview {
+                padding: 25px;
+                margin-bottom: 30px;
+            }
+            
+            #selectedCarName {
+                font-size: 24px;
+                margin: 20px 0;
+            }
+            
+            .stat-label {
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+            
+            .stat-bar {
+                height: 18px;
+            }
+            
+            /* Game over screen improvements */
+            #gameOverScreen h2 {
+                font-size: 36px;
+                margin-bottom: 20px;
+            }
+            
+            #finalScore {
+                font-size: 24px;
+                margin-bottom: 25px;
+            }
+        }
+
+        #gameCanvas {
+            position: absolute;
+            background: #000;
+            display: block;
+            margin: 0;
+            max-width: 100%;
+            max-height: 100%;
+            touch-action: none;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        
+        /* Time Trial UI styles */
+        #gameUI {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            pointer-events: none;
+        }
+        
+        .time-container, .progress-container {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 5px;
+            padding: 8px 12px;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            left: 10px;
+            pointer-events: auto;
+            z-index: 2000;
+            width: 140px;
+            margin: 0;
+        }
+        
+        .time-container {
+            border: 2px solid #ff00ff;
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+            top: 10px;
+        }
+        
+        .progress-container {
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            top: 80px;
+        }
+        
+        .time-label, .progress-label {
+            font-size: 14px;
+            margin-bottom: 5px;
+            font-family: 'Press Start 2P', cursive;
+            text-align: center;
+        }
+        
+        .time-label {
+            color: #ff00ff;
+        }
+        
+        .progress-label {
+            color: #00ffff;
+        }
+        
+        .time-value {
+            font-size: 22px;
+            color: #fff;
+            font-family: 'Press Start 2P', cursive;
+            text-align: center;
+        }
+        
+        .time-value.warning {
+            color: #ff0000;
+            animation: blink 0.5s infinite alternate;
+        }
+        
+        .progress-bar-container {
+            height: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 5px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(to right, #00ffff, #1e90ff);
+            width: 0%;
+            transition: width 0.3s ease-out;
+        }
+        
+        .progress-percent {
+            font-size: 14px;
+            color: #fff;
+            text-align: center;
+            font-family: 'Press Start 2P', cursive;
+        }
+        
+        /* Best times table styles */
+        .best-times-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+            max-width: 300px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .best-times-container h3 {
+            color: #00ffff;
+            font-size: 18px;
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-align: center;
+            font-family: 'Press Start 2P', cursive;
+        }
+        
+        .best-times-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: #fff;
+            font-size: 14px;
+        }
+        
+        .best-times-table th, 
+        .best-times-table td {
+            padding: 8px;
+            text-align: center;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+        }
+        
+        .best-times-table th {
+            color: #00ffff;
+            font-size: 12px;
+        }
+        
+        @keyframes blink {
+            from { opacity: 1; }
+            to { opacity: 0.3; }
+        }
+
+        #mobileControls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            display: none;
+            z-index: 10;
+            touch-action: none;
+        }
+
+        #leftTouchArea, #rightTouchArea {
+            position: absolute;
+            bottom: 0;
+            width: 50%;
+            height: 100%;
+            opacity: 0.3;
+            touch-action: none;
+        }
+
+        #leftTouchArea {
+            left: 0;
+            background-color: #00ffff;
+        }
+
+        #rightTouchArea {
+            right: 0;
+            background-color: #ff00ff;
+        }
+
+        /* Enhanced Leaderboard Styles */
+        #leaderboardModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .leaderboard-container {
+            background-color: rgba(30, 30, 40, 0.85);
+            border: 2px solid #ff00ff;
+            border-radius: 10px;
+            padding: 20px;
+            width: 80%;
+            max-width: 600px;
+            max-height: 80dvh;
+            overflow-y: auto;
+            color: #ffffff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+        }
+
+        .leaderboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ff00ff;
+            padding-bottom: 10px;
+        }
+
+        .leaderboard-header h2 {
+            color: #ff00ff;
+            margin: 0;
+            font-size: 1.5rem;
+            text-shadow: 0 0 5px rgba(255, 0, 255, 0.3);
+        }
+
+        .leaderboard-close {
+            background: none;
+            border: none;
+            color: #ff00ff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        /* Enhanced Leaderboard Table Styles */
+        #leaderboardContent table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            background-color: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 0, 255, 0.2);
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.1);
+        }
+
+        #leaderboardContent th, #leaderboardContent td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 0, 255, 0.2);
+        }
+
+        #leaderboardContent th {
+            color: #ff00ff;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            background-color: rgba(255, 0, 255, 0.1);
+            text-align: center;
+        }
+
+        #leaderboardContent td {
+            font-size: 0.8rem;
+        }
+
+        #leaderboardContent tr:hover {
+            background-color: rgba(255, 0, 255, 0.05);
+        }
+
+        #leaderboardContent tr.current-user {
+            background-color: rgba(255, 0, 255, 0.15);
+        }
+
+        #leaderboardContent tr.current-user td {
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(255, 0, 255, 0.3);
+        }
+
+        .leaderboard-loading, .leaderboard-error, .leaderboard-message {
+            text-align: center;
+            padding: 20px;
+            color: #ff00ff;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+            margin: 20px 0;
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.1);
+        }
+
+        .leaderboard-error {
+            color: #ff4444;
+            border: 1px solid rgba(255, 68, 68, 0.3);
+        }
+
+        /* Responsive styles */
+        @media (max-width: 768px) {
+            .leaderboard-container {
+                width: 95%;
+                padding: 15px;
+            }
+
+            #leaderboardContent th, #leaderboardContent td {
+                padding: 6px;
+                font-size: 0.7rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hidden SoundCloud player -->
+    <iframe id="soundcloud-player" width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" 
+        src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fapeprofessore%2Fsets%2Farcade&color=%23ff00ff&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=true">
+    </iframe>
+    
+    <div class="game-container-wrapper">
+        <div id="gameContainer">
+            <div id="gameScreen" class="screen">
+                <canvas id="gameCanvas" width="400" height="600"></canvas>
+                <div id="gameUI"></div>
+            </div>
+            
+            <div id="score">Score: 0</div>
+            <div id="points">Points: 0</div>
+            
+            <div id="menuScreen" class="screen">
+                <h1>NEON RACER</h1>
+                <img id="neonMenuProfileAvatar" src="" alt="" width="48" height="48" style="display:none;margin:0 auto 12px;border-radius:50%;object-fit:cover;border:2px solid #ff00ff;box-shadow:0 0 8px rgba(255,0,255,0.5);" />
+                <button id="playButton" class="menu-button">Start Race</button>
+                <button id="shopButton" class="menu-button">Shop</button>
+                <button id="soundToggleButton" class="menu-button">Sound: ON</button>
+            </div>
+            
+            <div id="gameOverScreen">
+                <h2>GAME OVER</h2>
+                <div id="finalScore">Score: 0</div>
+                <button id="restartButton" class="menu-button">Race Again</button>
+                <button id="mainMenuButton" class="menu-button">Main Menu</button>
+            </div>
+            
+            <div id="shopModal">
+                <div class="shop-content">
+                    <button class="close-button shop-close">&times;</button>
+                        <h2 style="color: #ff00ff; margin-bottom: 20px; text-align: center; font-family: 'Press Start 2P', cursive; font-size: 24px; text-shadow: 0 0 10px rgba(255, 0, 255, 0.7);">UPGRADE SHOP</h2>
+                    <div id="userPoints">Your Points: 0</div>
+                    
+                    <!-- Car Selection Button -->
+                    <button id="shopCarSelectionButton" class="menu-button" style="margin: 15px auto 25px auto;">Select Car</button>
+                    
+                    <div id="shopContainer" class="shop-container">
+                <div id="shopItems">
+                    <!-- Shop items will be populated dynamically -->
+                        </div>
+                    </div>
+                    <div class="shop-info">
+                            <p style="text-align: center; font-family: 'Press Start 2P', cursive; font-size: 12px; color: #ccc;">Spend your points on upgrades and power-ups for your racer!</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="loadingOverlay">
+                <div class="spinner"></div>
+                <div id="loadingText">Loading game assets...</div>
+            </div>
+            
+            <div id="notification"></div>
+        </div>
+        
+        <div id="carSelectionModal">
+            <div class="leaderboard-content car-selection-content">
+                <button class="close-button">&times;</button>
+                <h2>Select Your Car</h2>
+                
+                <!-- Car preview section -->
+                <div class="car-detail-preview">
+                    <div id="selectedCarPreview">
+                        <img src="assets/cars/BlackOut.png" alt="Car Preview" id="carPreviewImg" class="car-preview-image">
+                    </div>
+                    <div class="selected-car-info">
+                        <h3 id="selectedCarName">Select a car</h3>
+                        <div id="selectedCarStats">
+                            <div class="car-stat">
+                                <span class="stat-label">Speed:</span>
+                                <div class="stat-bar">
+                                    <div class="stat-fill speed-stat" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="car-stat">
+                                <span class="stat-label">Handling:</span>
+                                <div class="stat-bar">
+                                    <div class="stat-fill handling-stat" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="car-stat">
+                                <span class="stat-label">Style:</span>
+                                <div class="stat-bar">
+                                    <div class="stat-fill style-stat" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="car-grid">
+                    <div class="car-option" data-car="BlackOut" data-speed="75" data-handling="65" data-style="80">
+                        <img src="assets/cars/BlackOut.png" alt="BlackOut" class="car-image" />
+                        <div class="car-name">Stealth Racer</div>
+                    </div>
+                    <div class="car-option" data-car="BlueStrip" data-speed="85" data-handling="75" data-style="70">
+                        <img src="assets/cars/BlueStrip.png" alt="BlueStrip" class="car-image" />
+                        <div class="car-name">Blue Lightning</div>
+                    </div>
+                        <div class="car-option" data-car="RedStrip" data-speed="80" data-handling="85" data-style="75">
+                            <img src="assets/cars/RedStrip.png" alt="RedStrip" class="car-image" />
+                            <div class="car-name">Fire Streak</div>
+                    </div>
+                        <div class="car-option" data-car="PinkStrip" data-speed="90" data-handling="70" data-style="85">
+                        <img src="assets/cars/PinkStrip.png" alt="PinkStrip" class="car-image" />
+                            <div class="car-name">Neon Pulse</div>
+                    </div>
+                        <div class="car-option" data-car="GreenStrip" data-speed="80" data-handling="90" data-style="75">
+                            <img src="assets/cars/GreenStrip.png" alt="GreenStrip" class="car-image" />
+                            <div class="car-name">Emerald Streak</div>
+                    </div>
+                        <div class="car-option" data-car="WhiteStrip" data-speed="95" data-handling="65" data-style="90">
+                        <img src="assets/cars/WhiteStrip.png" alt="WhiteStrip" class="car-image" />
+                        <div class="car-name">Ghost Rider</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Achievement System -->
+    <script src="../shared/js/arcade-url-glyph-seed.js"></script>
+    <script src="../shared/js/arcade-persist-wallet.js?v=8"></script>
+    <script src="../shared/js/achievements.js?v=8"></script>
+    <script src="../shared/js/game-score-utils.js?v=8"></script>
+    
+    <!-- Game scripts (moved to the end of body for proper DOM loading) -->
+    <script src="js/config.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/wallet.js"></script>
+    <script src="../shared/js/leaderboard-stub.js"></script>
+    <script src="js/shop.js"></script>
+    <script src="js/sound.js"></script>
+    <script src="js/track.js"></script>
+    <script src="js/obstacles.js"></script>
+    <script src="js/items.js"></script>
+    <script src="js/effects.js"></script>
+    <script src="js/decorations.js"></script>
+    <script src="js/environment.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        // Initialize the game when the page loads
+        window.addEventListener('load', function() {
+            // Initialize the game
+            MainGame.init();
+        });
+    </script>
+</body>
+</html> 
