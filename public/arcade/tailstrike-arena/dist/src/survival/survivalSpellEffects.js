@@ -1,5 +1,7 @@
-import Phaser from 'phaser';
 import GameScene from '../scenes/GameScene.js';
+
+// Tailstrike loads Phaser from CDN in dist/bundle.js, so use global runtime here.
+const Phaser = globalThis.Phaser;
 
 const SPELL_STYLE = {
   lightning: { color: 0xffff00, r: 9, speed: 520 },
