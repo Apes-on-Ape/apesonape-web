@@ -26,7 +26,7 @@ export async function GET() {
     
     const userResponse = await fetch(resolveUrl, {
       headers: { 'Accept': 'application/json' },
-      next: { revalidate: 3600 },
+      cache: 'no-store',
     });
 
     if (!userResponse.ok) {
@@ -36,34 +36,51 @@ export async function GET() {
 
     const user = await userResponse.json();
 
-    // Step 2: Fetch user's playlists using Widget API
-    const playlistsUrl = `https://api-widget.soundcloud.com/users/${user.id}/playlists?format=json&client_id=${clientId}&limit=50`;
-    
-    const playlistsResponse = await fetch(playlistsUrl, {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 3600 },
-    });
+    // Step 2: Fetch ALL playlists by following pagination cursors (next_href)
+    const allPlaylists: any[] = [];
+    let nextUrl: string | null =
+      `https://api-widget.soundcloud.com/users/${user.id}/playlists?format=json&client_id=${clientId}&limit=200`;
 
-    if (!playlistsResponse.ok) {
-      const errorText = await playlistsResponse.text();
-      return NextResponse.json({ error: 'Failed to fetch playlists', details: errorText }, { status: playlistsResponse.status });
+    while (nextUrl) {
+      const playlistsResponse = await fetch(nextUrl, {
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store',
+      });
+
+      if (!playlistsResponse.ok) {
+        const errorText = await playlistsResponse.text();
+        return NextResponse.json(
+          { error: 'Failed to fetch playlists', details: errorText },
+          { status: playlistsResponse.status }
+        );
+      }
+
+      const playlistsData = await playlistsResponse.json();
+
+      if (Array.isArray(playlistsData)) {
+        // Non-paginated legacy response — all data in one shot
+        allPlaylists.push(...playlistsData);
+        nextUrl = null;
+      } else {
+        // Paginated response: { collection: [...], next_href: "..." | null }
+        const page: any[] = playlistsData.collection || [];
+        allPlaylists.push(...page);
+        // next_href already contains the client_id from SC, just use it directly
+        nextUrl = playlistsData.next_href || null;
+      }
     }
 
-    const playlistsData = await playlistsResponse.json();
-    
-    // Handle different response formats (array or paginated object)
-    const playlists = Array.isArray(playlistsData) ? playlistsData : (playlistsData.collection || []);
-    
-    // Format playlists with high-quality artwork
-    const formattedPlaylists = playlists.map((playlist: any) => {
-      // Replace -large with -t500x500 for higher quality artwork
-      const artwork = playlist.artwork_url?.replace('-large.jpg', '-t500x500.jpg').replace('-large.png', '-t500x500.png') || '';
-      
+    // Format with high-quality artwork
+    const formattedPlaylists = allPlaylists.map((playlist: any) => {
+      const artwork =
+        playlist.artwork_url
+          ?.replace('-large.jpg', '-t500x500.jpg')
+          .replace('-large.png', '-t500x500.png') || '';
       return {
         id: String(playlist.id),
         title: playlist.title || 'Untitled',
         permalink: playlist.permalink_url || '',
-        artwork: artwork,
+        artwork,
         trackCount: playlist.track_count || 0,
       };
     });

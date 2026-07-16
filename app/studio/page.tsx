@@ -2,10 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePrivy } from '@privy-io/react-auth';
 import { Image as ImageIcon, Loader2, BadgeCheck, Search } from 'lucide-react';
 import Nav from '@/app/components/Nav';
 import Footer from '@/app/components/Footer';
 import SafeImage from '@/app/components/SafeImage';
+import DailyEngagementStudioSection from '@/app/components/engagement/DailyEngagementStudioSection';
 import { CreationRecord, CreationType } from '@/lib/studio/types';
 import { toGatewayUri } from '@/lib/studio/urls';
 
@@ -33,6 +35,9 @@ const typeLabels: Record<CreationType, string> = {
 };
 
 export default function StudioExplorePage() {
+	const { user } = (usePrivy() as unknown) as { user?: { id?: string } };
+	const privyUserId = user?.id?.trim() ?? null;
+
 	const [creations, setCreations] = useState<CreationRecord[]>([]);
 	const [search, setSearch] = useState('');
 	const [loading, setLoading] = useState(true);
@@ -135,6 +140,8 @@ export default function StudioExplorePage() {
 						</form>
 					</div>
 				</div>
+
+				<DailyEngagementStudioSection userId={privyUserId} />
 
 				{/* Loading State */}
 				{loading && (

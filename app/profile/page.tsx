@@ -16,7 +16,7 @@ import { motion } from 'framer-motion';
 import {
   Layers, ExternalLink, Twitter, Sparkles, ChevronRight, LogOut,
   Copy, Check, ArrowUpRight, Palette, Shirt, ChevronLeft, RefreshCw,
-  Gamepad2, Trophy, DoorOpen,
+  Gamepad2, Trophy, DoorOpen, Flame,
 } from 'lucide-react';
 
 const CDN_THUMB_BASE = 'https://bqcrbcpmimfojnjdhvrz.supabase.co/storage/v1/object/public/collection/collection-thumbs';
@@ -275,6 +275,29 @@ export default function ProfilePage() {
   const [arcadePayload, setArcadePayload] = useState<{ found: boolean; merged: ArcadeMerged | null } | null>(null);
   const [arcadeLoading, setArcadeLoading] = useState(false);
   const [arcadeRefreshNonce, setArcadeRefreshNonce] = useState(0);
+  const [engagementStrip, setEngagementStrip] = useState<{ streak: number; best: number } | null>(null);
+
+  useEffect(() => {
+    if (!privyUserId) {
+      setEngagementStrip(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/profile/summary?userId=${encodeURIComponent(privyUserId)}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json: { engagement?: { streak_current?: number; streak_best?: number } }) => {
+        if (cancelled) return;
+        const streak = json?.engagement?.streak_current ?? 0;
+        const best = json?.engagement?.streak_best ?? 0;
+        setEngagementStrip({ streak, best });
+      })
+      .catch(() => {
+        if (!cancelled) setEngagementStrip(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [privyUserId]);
 
   // Load creations
 	useEffect(() => {
@@ -555,6 +578,31 @@ export default function ProfilePage() {
         <div className="mb-8">
 					<ProfileBadges addresses={walletAddresses} showRefresh />
 				</div>
+
+        {privyUserId && engagementStrip !== null && (
+          <div className="mb-8 flex flex-wrap items-center gap-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-5 py-4">
+            <div className="flex items-center gap-2 text-amber-200">
+              <Flame className="w-5 h-5 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-white">
+                  {engagementStrip.streak} day visit streak
+                  {engagementStrip.best > engagementStrip.streak ? (
+                    <span className="text-white/45 font-normal"> · personal best {engagementStrip.best}</span>
+                  ) : null}
+                </p>
+                <p className="text-xs text-white/45 mt-0.5">
+                  Visit the studio mosaic or publish to keep it going (UTC days).
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/studio"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-hero-blue/15 border border-hero-blue/30 px-4 py-2 text-sm font-semibold text-hero-blue hover:bg-hero-blue/25 transition-colors"
+            >
+              Open studio <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+        )}
 
         {/* Tab switcher — higher contrast on dark bg */}
 							{walletAddress && (

@@ -36,7 +36,7 @@ export default function StudioPublishPage() {
 		authenticated?: boolean;
 		login?: () => Promise<void>;
 	};
-	const privy = (usePrivy() as unknown) as { user?: PrivyUser | null };
+	const privy = (usePrivy() as unknown) as { user?: (PrivyUser & { id?: string }) | null };
 	const router = useRouter();
 
 	const type: CreationType = 'visual';
@@ -54,6 +54,7 @@ export default function StudioPublishPage() {
 	const xHandle = privy?.user?.twitter?.username || '';
 	const glyphVerified = !!glyph?.user?.hasTwitter || !!glyph?.user?.hasProfile;
 	const glyphId = glyph?.user?.id || '';
+	const privyUserId = privy?.user?.id || '';
 	const canPublish = isConnected && !!address;
 	const linkedWallets = glyph?.user?.linkedWallets || [];
 
@@ -121,6 +122,7 @@ export default function StudioPublishPage() {
 			form.append('linkedWallets', JSON.stringify(linkedWallets));
 		}
 		if (glyphId) form.append('glyphId', glyphId);
+		if (privyUserId) form.append('privyUserId', privyUserId);
 		if (xHandle) form.append('xHandle', xHandle);
 		form.append('glyphVerified', glyphVerified ? 'true' : 'false');
 		if (artifact) {

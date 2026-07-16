@@ -19,7 +19,9 @@ export async function GET(req: NextRequest) {
     // 1. Get user profile (bananas) — maybeSingle: row may not exist yet for new Glyph users
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('bananas, avatar_url, display_name, x_username')
+      .select(
+        'bananas, avatar_url, display_name, x_username, engagement_streak_current, engagement_streak_best, engagement_last_active_date',
+      )
       .eq('glyph_user_id', userId)
       .maybeSingle();
 
@@ -91,19 +93,46 @@ export async function GET(req: NextRequest) {
       .select('quest_code, title, description, quest_icon, bananas_reward, category, target_count')
       .order('category', { ascending: true });
 
-    // Get completed quest codes to filter them out
-    const { data: completedQuests } = await supabase
+    const todayUtc = new Date().toISOString().slice(0, 10);
+
+    const { data: userQuestRows } = await supabase
       .from('gamify_user_quests')
-      .select('quest_code')
-      .eq('glyph_user_id', userId)
-      .eq('status', 'completed');
-    
-    const completedQuestCodes = new Set((completedQuests || []).map(q => q.quest_code));
+      .select('quest_code, status, progress, last_daily_period_utc')
+      .eq('glyph_user_id', userId);
+
+    const catalogByCode = new Map((allQuests || []).map((q) => [q.quest_code, q]));
+
+    const completedQuestCodes = new Set(
+      (userQuestRows || [])
+        .filter((r) => {
+          if (r.status !== 'completed') return false;
+          const meta = catalogByCode.get(r.quest_code);
+          if (meta?.category === 'daily' && r.last_daily_period_utc && r.last_daily_period_utc < todayUtc) {
+            return false;
+          }
+          return true;
+        })
+        .map((r) => r.quest_code),
+    );
+
+    const userQuestByCode = new Map((userQuestRows || []).map((r) => [r.quest_code, r]));
 
     const quests = (allQuests || [])
-      .filter(q => !completedQuestCodes.has(q.quest_code)) // Hide completed quests
-      .map(quest => {
-        const userQuest = (activeQuests || []).find(uq => uq.quest_code === quest.quest_code);
+      .filter((q) => !completedQuestCodes.has(q.quest_code))
+      .map((quest) => {
+        const userQuest = (activeQuests || []).find((uq) => uq.quest_code === quest.quest_code);
+        const row = userQuestByCode.get(quest.quest_code);
+        let progress = userQuest?.progress ?? row?.progress ?? 0;
+        let status: string = userQuest?.status || row?.status || 'not_started';
+        if (
+          quest.category === 'daily' &&
+          row?.status === 'completed' &&
+          row.last_daily_period_utc &&
+          row.last_daily_period_utc < todayUtc
+        ) {
+          progress = 0;
+          status = 'active';
+        }
         return {
           quest_code: quest.quest_code,
           title: quest.title,
@@ -111,9 +140,9 @@ export async function GET(req: NextRequest) {
           quest_icon: quest.quest_icon,
           bananas_reward: quest.bananas_reward,
           category: quest.category,
-          progress: userQuest?.progress || 0,
+          progress,
           target: quest.target_count,
-          status: userQuest?.status || 'not_started'
+          status,
         };
       });
 
@@ -124,8 +153,13 @@ export async function GET(req: NextRequest) {
       profile: {
         avatar_url: profile?.avatar_url,
         display_name: profile?.display_name,
-        x_username: profile?.x_username
-      }
+        x_username: profile?.x_username,
+      },
+      engagement: {
+        streak_current: profile?.engagement_streak_current ?? 0,
+        streak_best: profile?.engagement_streak_best ?? 0,
+        last_active_date: profile?.engagement_last_active_date ?? null,
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

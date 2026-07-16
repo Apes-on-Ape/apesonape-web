@@ -90,6 +90,44 @@ function supabaseClient() {
 	return svc;
 }
 
+function isStudioDbAvailable(): boolean {
+	return getSupabaseServiceClient() !== null;
+}
+
+/** Read-only listing from data/studio-creations.json when service role is unset (local dev). */
+async function localListCreations(options: ListOptions): Promise<ListResult> {
+	const limit = Math.min(Math.max(options.limit || 20, 1), 50);
+	let items = await readStore();
+	if (options.type && options.type !== 'all') {
+		items = items.filter((c) => c.type === options.type);
+	}
+	if (options.creator) {
+		const c = options.creator.toLowerCase();
+		items = items.filter(
+			(row) =>
+				row.creatorAddress.toLowerCase().includes(c) ||
+				(row.glyphProfile?.xHandle && row.glyphProfile.xHandle.toLowerCase().includes(c)),
+		);
+	}
+	if (options.search) {
+		const term = options.search.toLowerCase();
+		items = items.filter(
+			(row) =>
+				row.title.toLowerCase().includes(term) ||
+				(row.description || '').toLowerCase().includes(term) ||
+				row.creatorAddress.toLowerCase().includes(term) ||
+				(row.glyphProfile?.xHandle && row.glyphProfile.xHandle.toLowerCase().includes(term)),
+		);
+	}
+	items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+	return { items: items.slice(0, limit), nextCursor: null };
+}
+
+async function localGet(id: string): Promise<CreationRecord | null> {
+	const creations = await readStore();
+	return creations.find((c) => c.id === id) ?? null;
+}
+
 async function dbCreate(record: CreationRecord): Promise<CreationRecord> {
 	const svc = supabaseClient();
 	const payload = {
@@ -200,6 +238,9 @@ export async function createCreation(record: CreationRecord): Promise<CreationRe
 }
 
 export async function getCreation(id: string): Promise<CreationRecord | null> {
+	if (!isStudioDbAvailable()) {
+		return localGet(id);
+	}
 	return dbGet(id);
 }
 
@@ -208,6 +249,9 @@ export async function deleteCreation(id: string): Promise<boolean> {
 }
 
 export async function listCreations(options: ListOptions = {}): Promise<ListResult> {
+	if (!isStudioDbAvailable()) {
+		return localListCreations(options);
+	}
 	return dbList(options);
 }
 

@@ -318,6 +318,28 @@ export const ARTISTS: Artist[] = [
     twitterUrl: 'https://x.com/MetaLineman',
     apesonapeHolder: true,
   },
+  {
+    slug: 'jeysuhns',
+    name: 'Jeysuhns',
+    handle: 'jeysuhns',
+    avatar: '/artists/jeysuhns.png',
+    bio: 'Royal energy on Apechain — a proud Ape in regal form, building with the AOA community.',
+    role: 'Community / Holder',
+    genres: ['Culture', 'Vibes'],
+    twitterUrl: 'https://x.com/jeysuhns',
+    apesonapeHolder: true,
+  },
+  {
+    slug: 'bo0t3d',
+    name: 'BO0T3D',
+    handle: 'BO0T3D',
+    avatar: '/artists/bo0t3d.png',
+    bio: 'Laser-focused on Apechain — a holder bringing serious energy to the AOA community.',
+    role: 'Community / Holder',
+    genres: ['Culture', 'Vibes'],
+    twitterUrl: 'https://x.com/BO0T3D',
+    apesonapeHolder: true,
+  },
 ];
 
 export function getArtist(slug: string): Artist | undefined {

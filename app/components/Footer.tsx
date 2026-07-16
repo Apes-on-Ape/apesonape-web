@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { SiSoundcloud, SiDiscord, SiX } from 'react-icons/si';
+import { SiSoundcloud, SiDiscord, SiX, SiSpotify } from 'react-icons/si';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -49,6 +49,7 @@ export default function Footer() {
                 { label: 'X (Twitter)', href: 'https://x.com/apesonape', Icon: SiX },
                 { label: 'Discord', href: 'https://discord.gg/gVmqW6SExU', Icon: SiDiscord },
                 { label: 'SoundCloud', href: 'https://soundcloud.com/apesonape', Icon: SiSoundcloud },
+                { label: 'Spotify', href: 'https://open.spotify.com/artist/5jWLGE3ZNCyau37PWs20AP', Icon: SiSpotify },
               ].map(({ label, href, Icon }) => (
                 <motion.a
                   key={label}

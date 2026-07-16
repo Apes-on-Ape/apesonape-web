@@ -5,6 +5,7 @@ import { uploadArtifact, uploadMetadata } from '@/lib/studio/storage';
 import { createCreation, listCreations } from '@/lib/studio/persistence';
 import { CreationRecord, CreationType, GlyphProfile } from '@/lib/studio/types';
 import { addExperience } from '@/lib/studio/xp';
+import { getSupabaseServerClient } from '@/lib/supabase';
 
 const TITLE_LIMIT = 80;
 const TAG_LIMIT = 5;
@@ -90,6 +91,8 @@ export async function POST(req: NextRequest) {
 		const prompt = cleanText(String(form.get('prompt') || ''), PROMPT_LIMIT);
 		const creatorAddress = cleanText(String(form.get('creatorAddress') || ''), 200);
 		const glyphId = cleanText(String(form.get('glyphId') || ''), 120) || undefined;
+		const privyUserId = cleanText(String(form.get('privyUserId') || ''), 120) || undefined;
+		const gamifyUserId = privyUserId || glyphId;
 		const xHandle = cleanText(String(form.get('xHandle') || ''), 50) || undefined;
 		const glyphVerifiedRaw = form.get('glyphVerified');
 		const glyphVerified = glyphVerifiedRaw === 'true' || glyphVerifiedRaw === '1';
@@ -161,6 +164,22 @@ export async function POST(req: NextRequest) {
 
 		await createCreation(record);
 		await addExperience(creatorAddress, type);
+
+		if (gamifyUserId) {
+			try {
+				const supabase = getSupabaseServerClient();
+				await supabase.rpc('progress_quest', {
+					p_glyph_user_id: gamifyUserId,
+					p_quest_code: 'daily_studio_publish',
+					p_increment: 1,
+				});
+				await supabase.rpc('touch_engagement_streak', {
+					p_glyph_user_id: gamifyUserId,
+				});
+			} catch (gamifyErr) {
+				console.error('studio creation gamify:', gamifyErr);
+			}
+		}
 
 		return NextResponse.json(
 			{

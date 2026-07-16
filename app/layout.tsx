@@ -7,6 +7,7 @@ import GlyphClientProvider from "./components/GlyphClientProvider";
 import GlyphArcadeWalletSync from "./components/GlyphArcadeWalletSync";
 import NotificationToast from "./components/NotificationToast";
 import ApeBackground from "./components/ApeBackground";
+import PWAManager from "./components/PWAManager";
 
 const raleway = Raleway({
   variable: "--font-raleway",
@@ -67,8 +68,13 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#000000" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="AoA Music" />
         <link rel="icon" href="/favicon.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/apechain.png" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <link rel="manifest" href="/manifest.webmanifest" />
         {/* Speed up first connections to IPFS gateways used in collection */}
         <link rel="preconnect" href="https://moccasin-brilliant-silkworm-382.mypinata.cloud" crossOrigin="" />
         <link rel="dns-prefetch" href="https://moccasin-brilliant-silkworm-382.mypinata.cloud" />
@@ -98,6 +104,7 @@ export default function RootLayout({
               <NotificationToast />
             </GlyphClientProvider>
             <SoundCloudPlayer />
+            <PWAManager />
           </ThemeProvider>
         </div>
       </body>
