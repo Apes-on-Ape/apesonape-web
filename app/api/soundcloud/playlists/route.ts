@@ -42,7 +42,7 @@ export async function GET() {
       `https://api-widget.soundcloud.com/users/${user.id}/playlists?format=json&client_id=${clientId}&limit=200`;
 
     while (nextUrl) {
-      const playlistsResponse = await fetch(nextUrl, {
+      const playlistsResponse: Response = await fetch(nextUrl, {
         headers: { 'Accept': 'application/json' },
         cache: 'no-store',
       });

@@ -8,6 +8,7 @@ import GlyphArcadeWalletSync from "./components/GlyphArcadeWalletSync";
 import NotificationToast from "./components/NotificationToast";
 import ApeBackground from "./components/ApeBackground";
 import PWAManager from "./components/PWAManager";
+import InstallPWA from "./components/InstallPWA";
 
 const raleway = Raleway({
   variable: "--font-raleway",
@@ -105,6 +106,7 @@ export default function RootLayout({
             </GlyphClientProvider>
             <SoundCloudPlayer />
             <PWAManager />
+            <InstallPWA />
           </ThemeProvider>
         </div>
       </body>

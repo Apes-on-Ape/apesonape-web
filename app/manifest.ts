@@ -36,7 +36,6 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/AoA-placeholder-apecoinblue.jpg',
         sizes: '1200x630',
         type: 'image/jpeg',
-        // @ts-expect-error — form_factor is valid per spec but not yet in Next.js types
         form_factor: 'wide',
         label: 'AOA Records Music Player',
       },
