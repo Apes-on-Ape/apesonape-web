@@ -11,16 +11,12 @@ export default function Footer() {
 
   const exploreLinks = [
     { name: 'Collection', href: '/collection' },
-    { name: 'Rarity Explorer', href: '/rarity' },
     { name: 'Music', href: '/music' },
     { name: 'About', href: '/about' },
   ];
 
   const createLinks = [
     { name: 'Studio', href: '/studio' },
-    { name: 'Community Gallery', href: '/gallery' },
-    { name: 'Submit Track', href: '/music/submit' },
-    { name: 'Vote', href: '/vote' },
   ];
 
   return (

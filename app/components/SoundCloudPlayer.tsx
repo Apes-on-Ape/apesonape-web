@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 /** SoundCloud may omit `title` for tail tracks until metadata resolves */
 type SCTrack = {
   title?: string;
+  artwork_url?: string;
   user?: { username?: string; permalink?: string };
   permalink_url?: string;
 };
@@ -71,6 +72,7 @@ export default function SoundCloudPlayer() {
   const [position,      setPosition]      = useState(0);
   const [expanded,      setExpanded]      = useState(false);
   const [trackList,     setTrackList]     = useState<string[]>([]);
+  const [artwork,       setArtwork]       = useState<string>('');
 
   // ── Step 1: fetch latest playlist URL from our API ────────────────────────
   useEffect(() => {
@@ -210,6 +212,9 @@ export default function SoundCloudPlayer() {
             widget.getCurrentSound((s) => {
               const t = s?.title?.trim();
               setCurrentTitle(t || formatTrackLabel(s || {}, idx));
+              if (s?.artwork_url) {
+                setArtwork(s.artwork_url.replace('-large', '-t200x200'));
+              }
             });
           });
           startPoll();
@@ -371,7 +376,7 @@ export default function SoundCloudPlayer() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Hidden iframe — only mounted once we have a playlist URL */}
+      {/* Hidden iframe */}
       {playerSrc && (
         <iframe
           ref={iframeRef}
@@ -383,142 +388,222 @@ export default function SoundCloudPlayer() {
       )}
 
       <motion.div
-        initial={{ y: 100, opacity: 0 }}
+        initial={{ y: 120, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 1.5, duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+        transition={{ delay: 1.5, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         className="fixed bottom-4 right-4 z-50"
-        style={{ maxWidth: expanded ? '340px' : '320px' }}
+        style={{ width: 'min(340px, calc(100vw - 32px))' }}
       >
         <div
-          className="rounded-2xl border border-hero-blue/25 shadow-2xl shadow-hero-blue/10 overflow-hidden"
-          style={{ background: 'rgba(8,8,16,0.92)', backdropFilter: 'blur(20px)' }}
+          className={`rounded-2xl overflow-hidden transition-shadow duration-500 ${
+            isPlaying
+              ? 'shadow-[0_8px_40px_rgba(0,84,249,0.35),0_2px_12px_rgba(0,0,0,0.6)]'
+              : 'shadow-[0_4px_24px_rgba(0,0,0,0.5)]'
+          }`}
+          style={{
+            background: 'linear-gradient(160deg, rgba(10,14,30,0.97) 0%, rgba(6,8,20,0.97) 100%)',
+            backdropFilter: 'blur(24px)',
+            border: isPlaying ? '1px solid rgba(0,84,249,0.45)' : '1px solid rgba(255,255,255,0.10)',
+          }}
         >
-          {/* Playlist panel */}
+          {/* ── Playlist drawer ──────────────────────────────────── */}
           <AnimatePresence>
             {expanded && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="border-b border-white/10 overflow-hidden"
+                transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+                className="overflow-hidden"
               >
-                <div className="p-3 max-h-52 overflow-y-auto">
-                  <div className="text-[10px] uppercase tracking-widest text-white/30 font-bold px-2 mb-1">
-                    {albumTitle}
+                <div className="px-3 pt-3 pb-2 max-h-48 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+                  {/* Playlist header */}
+                  <div className="flex items-center justify-between mb-2 px-1">
+                    <span className="text-[10px] uppercase tracking-widest text-white/30 font-bold truncate">{albumTitle}</span>
+                    {totalTracks > 0 && (
+                      <span className="text-[10px] text-white/20 font-mono tabular-nums ml-2 flex-shrink-0">{totalTracks} tracks</span>
+                    )}
                   </div>
-                  {trackList.length === 0 && (
-                    <p className="text-[11px] text-white/30 px-2 py-2">Loading tracks…</p>
-                  )}
-                  {trackList.map((track, i) => (
-                    <button
-                      key={i}
-                      onClick={() => jumpToTrack(i)}
-                      className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-all flex items-center gap-2
-                        ${i === currentIndex
-                          ? 'bg-hero-blue/20 text-hero-blue font-bold'
-                          : 'text-white/50 hover:bg-white/5 hover:text-white'
+                  {trackList.length === 0 ? (
+                    <div className="flex items-center gap-2 px-2 py-3">
+                      <div className="w-3 h-3 rounded-full border-2 border-hero-blue/40 border-t-hero-blue animate-spin" />
+                      <p className="text-[11px] text-white/30">Loading tracks…</p>
+                    </div>
+                  ) : (
+                    trackList.map((track, i) => (
+                      <button
+                        key={i}
+                        onClick={() => jumpToTrack(i)}
+                        className={`w-full text-left px-2.5 py-2 rounded-xl text-xs transition-all flex items-center gap-2.5 group ${
+                          i === currentIndex
+                            ? 'bg-hero-blue/18 text-hero-blue'
+                            : 'text-white/45 hover:bg-white/6 hover:text-white'
                         }`}
-                    >
-                      {i === currentIndex && isPlaying
-                        ? <span className="w-3 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-hero-blue animate-pulse" /></span>
-                        : <span className="w-3 text-white/25 text-[10px]">{i + 1}</span>
-                      }
-                      <span className="truncate">{track}</span>
-                    </button>
-                  ))}
+                      >
+                        <div className="w-4 flex-shrink-0 flex items-center justify-center">
+                          {i === currentIndex && isPlaying ? (
+                            <span className="flex gap-[2px] items-end h-3">
+                              <span className="w-[3px] bg-hero-blue rounded-sm animate-[musicBar1_0.8s_ease-in-out_infinite]" style={{ height: '50%' }} />
+                              <span className="w-[3px] bg-hero-blue rounded-sm animate-[musicBar2_0.8s_ease-in-out_infinite_0.2s]" style={{ height: '100%' }} />
+                              <span className="w-[3px] bg-hero-blue rounded-sm animate-[musicBar1_0.8s_ease-in-out_infinite_0.4s]" style={{ height: '70%' }} />
+                            </span>
+                          ) : (
+                            <span className={`text-[10px] font-mono tabular-nums ${i === currentIndex ? 'text-hero-blue' : 'text-white/20'}`}>
+                              {String(i + 1).padStart(2, '0')}
+                            </span>
+                          )}
+                        </div>
+                        <span className="truncate font-semibold">{track}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+
+                {/* Volume + shuffle row */}
+                <div className="px-3 py-2 flex items-center gap-2 border-t border-white/8">
+                  <button onClick={toggleMute} className="p-1 text-white/35 hover:text-white transition-colors flex-shrink-0">
+                    {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                  </button>
+                  <input
+                    type="range" min={0} max={100} value={isMuted ? 0 : volume}
+                    onChange={e => handleVolume(parseInt(e.target.value))}
+                    className="flex-1 h-1 accent-hero-blue cursor-pointer"
+                  />
+                  <button
+                    onClick={shuffle}
+                    disabled={!isReady || !totalTracks}
+                    className="p-1 text-white/30 hover:text-hero-blue transition-colors disabled:opacity-20 flex-shrink-0"
+                  >
+                    <Shuffle className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Seek bar */}
-          <div className="h-1 bg-white/10 cursor-pointer relative group" onClick={handleSeek}>
+          {/* ── Progress bar ─────────────────────────────────────── */}
+          <div
+            className="relative h-[3px] bg-white/8 cursor-pointer group"
+            onClick={handleSeek}
+          >
             <div
-              className="absolute left-0 top-0 h-full bg-gradient-to-r from-hero-blue to-accent-cyan"
+              className="absolute left-0 top-0 h-full bg-gradient-to-r from-hero-blue to-hero-blue-light"
               style={{ width: `${progress}%`, transition: 'width 0.5s linear' }}
             />
+            {/* Scrubber dot */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow opacity-0 group-hover:opacity-100 pointer-events-none"
-              style={{ left: `calc(${progress}% - 6px)` }}
+              className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+              style={{ left: `${progress}%`, transform: 'translate(-50%, -50%)' }}
             />
           </div>
 
-          {/* Main controls row */}
-          <div className="px-4 py-3 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-hero-blue/15 flex items-center justify-center flex-shrink-0 relative">
-              <Music2 className="w-5 h-5 text-hero-blue" />
+          {/* ── Main bar ─────────────────────────────────────────── */}
+          <div className="px-3 py-2.5 flex items-center gap-3">
+            {/* Album art / icon */}
+            <div className="relative flex-shrink-0">
+              <div className={`w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
+                isPlaying ? 'ring-1 ring-hero-blue/60 shadow-lg shadow-hero-blue/25' : 'ring-1 ring-white/10'
+              }`}>
+                {artwork ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={artwork} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-hero-blue/20 flex items-center justify-center">
+                    <Music2 className={`w-4 h-4 text-hero-blue ${isPlaying ? 'animate-pulse' : ''}`} />
+                  </div>
+                )}
+              </div>
+              {/* Live dot */}
               {isPlaying && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border border-black" />
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-[#0a0e1e]" />
               )}
             </div>
 
+            {/* Track info */}
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-white truncate leading-tight">{displayTitle}</div>
-              <div className="text-[10px] text-white/35 mt-0.5">
-                {duration > 0
-                  ? `${fmt(position)} / ${fmt(duration)}`
-                  : `AOA Records · Track ${currentIndex + 1}${totalTracks ? ` of ${totalTracks}` : ''}`
-                }
+              <p className="text-xs font-bold text-white truncate leading-snug">
+                {displayTitle}
+              </p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] text-white/35 font-mono tabular-nums">
+                  {duration > 0 ? `${fmt(position)} / ${fmt(duration)}` : isReady ? 'Ready' : 'Loading…'}
+                </span>
+                {totalTracks > 0 && (
+                  <>
+                    <span className="text-white/15 text-[10px]">·</span>
+                    <span className="text-[10px] text-white/25 tabular-nums">{currentIndex + 1}/{totalTracks}</span>
+                  </>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Playback controls */}
+            <div className="flex items-center gap-0.5 flex-shrink-0">
               <button
                 onClick={prevTrack}
                 disabled={!isReady}
-                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-30"
+                className="p-1.5 rounded-lg hover:bg-white/8 transition-colors disabled:opacity-25 text-white/50 hover:text-white"
               >
-                <SkipBack className="w-3.5 h-3.5 text-white/60" />
+                <SkipBack className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={togglePlay}
                 disabled={!isReady}
-                className="w-9 h-9 rounded-xl bg-hero-blue hover:bg-hero-blue-light transition-colors flex items-center justify-center disabled:opacity-40 shadow-lg shadow-hero-blue/30"
+                className="w-9 h-9 rounded-xl bg-hero-blue hover:bg-hero-blue-light active:scale-95 transition-all flex items-center justify-center disabled:opacity-40 shadow-lg shadow-hero-blue/30"
               >
                 {isPlaying
                   ? <Pause className="w-4 h-4 text-white" />
-                  : <Play  className="w-4 h-4 text-white ml-0.5" />
+                  : <Play className="w-4 h-4 text-white ml-0.5" />
                 }
               </button>
               <button
                 onClick={nextTrack}
                 disabled={!isReady}
-                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-30"
+                className="p-1.5 rounded-lg hover:bg-white/8 transition-colors disabled:opacity-25 text-white/50 hover:text-white"
               >
-                <SkipForward className="w-3.5 h-3.5 text-white/60" />
+                <SkipForward className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Volume (desktop only) + expand */}
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <div className="hidden sm:flex items-center gap-0.5">
+                <button onClick={toggleMute} className="p-1.5 text-white/30 hover:text-white transition-colors rounded-lg hover:bg-white/8">
+                  {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                </button>
+                <input
+                  type="range" min={0} max={100} value={isMuted ? 0 : volume}
+                  onChange={e => handleVolume(parseInt(e.target.value))}
+                  className="w-14 h-1 accent-hero-blue cursor-pointer"
+                />
+              </div>
+              <button
+                onClick={() => setExpanded(e => !e)}
+                className={`p-1.5 rounded-lg transition-all ${
+                  expanded
+                    ? 'bg-hero-blue/20 text-hero-blue'
+                    : 'text-white/25 hover:text-white hover:bg-white/8'
+                }`}
+                title={expanded ? 'Collapse' : 'Show playlist'}
+              >
+                {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
               </button>
             </div>
           </div>
-
-          {/* Volume + shuffle + expand */}
-          <div className="px-4 pb-3 flex items-center gap-2">
-            <button onClick={toggleMute} className="p-1 text-white/40 hover:text-white transition-colors">
-              {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-            </button>
-            <input
-              type="range" min={0} max={100} value={isMuted ? 0 : volume}
-              onChange={e => handleVolume(parseInt(e.target.value))}
-              className="flex-1 h-1 accent-hero-blue cursor-pointer opacity-60 hover:opacity-100 transition-opacity"
-            />
-            <button
-              onClick={shuffle}
-              disabled={!isReady || !totalTracks}
-              className="p-1 text-white/30 hover:text-hero-blue transition-colors disabled:opacity-20"
-              title="Shuffle"
-            >
-              <Shuffle className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => setExpanded(e => !e)}
-              className="p-1 text-white/30 hover:text-hero-blue transition-colors"
-              title={expanded ? 'Collapse' : 'Show playlist'}
-            >
-              {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-            </button>
-          </div>
         </div>
       </motion.div>
+
+      {/* Keyframes for the music bar equaliser animation */}
+      <style>{`
+        @keyframes musicBar1 {
+          0%, 100% { transform: scaleY(0.4); }
+          50% { transform: scaleY(1); }
+        }
+        @keyframes musicBar2 {
+          0%, 100% { transform: scaleY(1); }
+          50% { transform: scaleY(0.3); }
+        }
+      `}</style>
     </>
   );
 }

@@ -2,13 +2,12 @@ import type { Metadata } from "next";
 import { Raleway } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
-import SoundCloudPlayer from "./components/SoundCloudPlayer";
 import GlyphClientProvider from "./components/GlyphClientProvider";
 import GlyphArcadeWalletSync from "./components/GlyphArcadeWalletSync";
 import NotificationToast from "./components/NotificationToast";
 import ApeBackground from "./components/ApeBackground";
 import PWAManager from "./components/PWAManager";
-import InstallPWA from "./components/InstallPWA";
+import ClientOnlyGlobals from "./components/ClientOnlyGlobals";
 
 const raleway = Raleway({
   variable: "--font-raleway",
@@ -104,9 +103,8 @@ export default function RootLayout({
               </div>
               <NotificationToast />
             </GlyphClientProvider>
-            <SoundCloudPlayer />
+            <ClientOnlyGlobals />
             <PWAManager />
-            <InstallPWA />
           </ThemeProvider>
         </div>
       </body>

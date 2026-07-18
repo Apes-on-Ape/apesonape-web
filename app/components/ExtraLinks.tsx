@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGlyph, useGlyphTokenGate } from '@use-glyph/sdk-react';
-import { ChevronDown, Vote, ImageIcon, Gamepad2, Wrench, Wand2, Crown, Palette } from 'lucide-react';
+import { ChevronDown, Gamepad2, Wrench, Wand2, Palette } from 'lucide-react';
 
 export default function ExtraLinks() {
 	const glyph = (useGlyph() as unknown) as {
@@ -46,11 +46,7 @@ export default function ExtraLinks() {
 	const pathname = usePathname();
 	const isActive = (href: string) => pathname?.startsWith(href);
 
-	const communityLinks = [
-		{ href: '/rarity',   icon: Crown,     label: 'Rarity',          desc: 'Explore rarity rankings' },
-		{ href: '/gallery',  icon: ImageIcon, label: 'Gallery',         desc: 'Community creations' },
-		{ href: '/vote',     icon: Vote,      label: 'Vote',            desc: 'Community governance' },
-	];
+	const communityLinks: { href: string; label: string; desc: string }[] = [];
 
 	const holderLinks = hasAccess ? [
 		{ href: '/studio',                   icon: Wand2,    label: 'Studio',          desc: 'AI music & creation' },
@@ -80,7 +76,8 @@ export default function ExtraLinks() {
 						className="absolute top-full right-0 mt-2 w-64 rounded-2xl border border-white/15 shadow-2xl shadow-black/50 overflow-hidden z-50"
 						style={{ background: 'rgba(8,8,20,0.97)', backdropFilter: 'blur(20px)' }}
 					>
-						{/* Community section */}
+					{/* Community section — only rendered when there are links */}
+					{communityLinks.length > 0 && (
 						<div className="px-3 pt-3 pb-1">
 							<div className="text-[10px] uppercase tracking-widest text-white/25 font-bold px-2 mb-1">Community</div>
 							{communityLinks.map(({ href, icon: Icon, label, desc }) => (
@@ -102,8 +99,9 @@ export default function ExtraLinks() {
 								</Link>
 							))}
 						</div>
+					)}
 
-						{/* Holder section */}
+					{/* Holder section */}
 						{holderLinks.length > 0 && (
 							<div className="px-3 pb-3 border-t border-white/8 mt-2 pt-2">
 								<div className="text-[10px] uppercase tracking-widest text-hero-blue/50 font-bold px-2 mb-1">Holder Perks</div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Music, Heart, Disc3, Trophy, ExternalLink, ChevronRight, Download, Smartphone } from 'lucide-react';
+import { Play, Music, Heart, Disc3, Trophy, ExternalLink, Download } from 'lucide-react';
 import { SiSoundcloud } from 'react-icons/si';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
@@ -179,6 +179,20 @@ export default function RadioPage() {
   const [isInsertingDisc, setIsInsertingDisc] = useState(false);
   const [selectedArtist, setSelectedArtist] = useState<(typeof ARTISTS)[0] | null>(null);
   const [sidebarTab, setSidebarTab] = useState<'releases' | 'queue'>('releases');
+
+  // Offline detection
+  const [isOffline, setIsOffline] = useState(false);
+  useEffect(() => {
+    setIsOffline(!navigator.onLine);
+    const goOffline = () => setIsOffline(true);
+    const goOnline  = () => setIsOffline(false);
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online',  goOnline);
+    return () => {
+      window.removeEventListener('offline', goOffline);
+      window.removeEventListener('online',  goOnline);
+    };
+  }, []);
 
   // PWA install prompt (Android/Chrome/Edge)
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -424,6 +438,13 @@ export default function RadioPage() {
         setIsPlaying(false);
       });
 
+      // Explicitly advance to next track on FINISH so playback continues
+      // when the screen is locked (browser may throttle the widget's own timer)
+      widget.bind(window.SC.Widget.Events.FINISH, () => {
+        if (cancelled) return;
+        try { widget.next(); } catch { /* end of playlist — stay on last track */ }
+      });
+
       const resumeFromGesture = () => {
         if (!unmuteOnFirstInteractionRef.current) return;
         unmuteOnFirstInteractionRef.current = false;
@@ -570,44 +591,80 @@ export default function RadioPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ color: '#f5f5f5' }}>
+    <div className="min-h-screen relative" style={{ color: '#f5f5f5' }}>
+      {/* Ambient blue glow — fixed at top so it stays as you scroll */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 -z-10"
+        style={{
+          background:
+            'radial-gradient(900px 500px at 50% -60px, rgba(0,84,249,0.18), transparent 70%), radial-gradient(600px 400px at 10% 20%, rgba(0,84,249,0.07), transparent 60%), linear-gradient(180deg, #070b18 0%, #080808 30%)',
+        }}
+      />
       <Nav />
 
-      {/* ── COMPACT HERO ─────────────────────────────────────────── */}
-      <section className="relative overflow-hidden pt-28 pb-10">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-[500px] h-[400px] bg-hero-blue/6 rounded-full blur-[100px]" />
-        </div>
-        <div className="relative max-w-6xl mx-auto px-6">
+      {/* ── OFFLINE BANNER ───────────────────────────────────────── */}
+      <AnimatePresence>
+        {isOffline && (
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-red-950/80 border-b border-red-500/30 overflow-hidden"
+          >
+            <div className="max-w-6xl mx-auto px-6 py-3 flex items-center gap-3">
+              <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+              <p className="text-sm text-red-200 font-semibold">You&apos;re offline — music playback requires an internet connection.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── APP HEADER ───────────────────────────────────────────── */}
+      <section className="pt-24 pb-8 border-b border-white/8" style={{ background: 'linear-gradient(180deg, rgba(0,84,249,0.10) 0%, transparent 100%)' }}>
+        <div className="max-w-6xl mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.5 }}
             className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6"
           >
-            <div>
-              <div className="inline-flex items-center gap-2 border border-hero-blue/30 bg-hero-blue/5 rounded-full px-3 py-1 mb-4">
-                <span className="w-1.5 h-1.5 rounded-full bg-hero-blue animate-pulse" />
-                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-hero-blue">AOA Records</span>
+            {/* Left: title */}
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 rounded-3xl bg-hero-blue flex items-center justify-center flex-shrink-0 shadow-2xl shadow-hero-blue/40"
+                style={{ boxShadow: '0 0 0 1px rgba(255,255,255,0.12) inset, 0 8px 32px rgba(0,84,249,0.5)' }}>
+                <Music className="w-7 h-7 text-white" />
               </div>
-              <h1 className="text-4xl md:text-6xl font-black leading-[0.95] tracking-tight text-white">
-                The Sound of<br />
-                <span className="text-hero-blue">Apechain.</span>
-              </h1>
-              <p className="text-white/40 mt-3 text-sm max-w-md">
-                Music made by Ape holders — tap an artist to play their catalogue.
-              </p>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.3em] text-hero-blue/70 font-bold mb-0.5">AOA Records</p>
+                <h1 className="text-3xl font-black text-white leading-tight tracking-tight">Music</h1>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <div className="flex items-center gap-1.5 bg-orange-500/15 border border-orange-500/25 rounded-full px-2.5 py-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+                    <span className="text-[10px] text-orange-300 font-bold uppercase tracking-wider">Live</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2.5 sm:flex-shrink-0">
-              <a href="https://soundcloud.com/apesonape" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-hero-blue text-white font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-widest hover:bg-hero-blue-light transition-colors">
+
+            {/* Right: actions */}
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="https://soundcloud.com/apesonape"
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-[#ff5500] text-white font-bold px-4 py-2.5 rounded-xl text-[11px] uppercase tracking-widest hover:opacity-90 transition-opacity shadow-lg shadow-orange-600/20"
+              >
                 <SiSoundcloud className="w-4 h-4" />
-                Listen on SoundCloud
+                SoundCloud
               </a>
-              <a href="https://open.spotify.com/artist/5jWLGE3ZNCyau37PWs20AP" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 border border-white/15 text-white/60 px-4 py-2.5 rounded-xl text-xs uppercase tracking-widest hover:border-[#1DB954]/40 hover:text-[#1DB954] transition-colors font-semibold">
+              <a
+                href="https://open.spotify.com/artist/5jWLGE3ZNCyau37PWs20AP"
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-white/6 border border-white/10 text-white/60 px-4 py-2.5 rounded-xl text-[11px] uppercase tracking-widest hover:border-[#1DB954]/50 hover:text-[#1DB954] hover:bg-[#1DB954]/8 transition-all font-bold"
+              >
                 <svg className="w-3.5 h-3.5 fill-current" style={{ color: '#1DB954' }} viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
                 Spotify
               </a>
-              {/* Install PWA button — only shown when browser supports it and not yet installed */}
               {installPrompt && !pwaInstalled && (
                 <button
                   onClick={async () => {
@@ -616,7 +673,7 @@ export default function RadioPage() {
                     if (outcome === 'accepted') setPwaInstalled(true);
                     setInstallPrompt(null);
                   }}
-                  className="inline-flex items-center gap-2 border border-hero-blue/40 text-hero-blue px-4 py-2.5 rounded-xl text-xs uppercase tracking-widest hover:bg-hero-blue/10 hover:border-hero-blue transition-colors font-bold"
+                  className="inline-flex items-center gap-2 bg-hero-blue/15 border border-hero-blue/40 text-hero-blue px-4 py-2.5 rounded-xl text-[11px] uppercase tracking-widest hover:bg-hero-blue/25 transition-all font-bold"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Install App
@@ -628,48 +685,51 @@ export default function RadioPage() {
       </section>
 
       {/* ── STATS BAR ────────────────────────────────────────────── */}
-      <section className="border-y border-white/8 bg-white/[0.02]">
+      <section className="border-b border-white/8" style={{ background: 'rgba(0,84,249,0.04)' }}>
         <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex flex-wrap items-center gap-8 md:gap-14">
+          <div className="flex flex-wrap items-center gap-8 md:gap-12">
             {statsLoading ? (
               [...Array(4)].map((_, i) => (
                 <div key={i} className="flex flex-col gap-1">
-                  <div className="h-6 w-14 bg-white/10 rounded animate-pulse" />
-                  <div className="h-2.5 w-10 bg-white/5 rounded animate-pulse mt-1" />
+                  <div className="h-5 w-10 bg-white/8 rounded animate-pulse" />
+                  <div className="h-3 w-14 bg-white/4 rounded animate-pulse" />
                 </div>
               ))
             ) : stats ? (
               <>
-                <StatItem value={formatNumber(stats.followers)} label="Followers" />
-                <StatItem value={formatNumber(stats.tracks)} label="Tracks" />
-                <StatItem value={formatNumber(stats.playlists)} label="Releases" />
-                <StatItem value={formatNumber(stats.totalPlays)} label="Total Plays" />
+                {[
+                  { value: formatNumber(stats.followers), label: 'Followers' },
+                  { value: formatNumber(stats.tracks), label: 'Tracks' },
+                  { value: formatNumber(stats.playlists), label: 'Releases' },
+                  { value: formatNumber(stats.totalPlays), label: 'Total Plays' },
+                ].map(({ value, label }) => (
+                  <div key={label} className="flex flex-col">
+                    <span className="text-lg font-black text-white leading-none tabular-nums">{value}</span>
+                    <span className="text-[10px] uppercase tracking-wider text-white/30 font-semibold mt-0.5">{label}</span>
+                  </div>
+                ))}
               </>
             ) : (
-              <StatItem value={String(displayPlaylists.length)} label="Releases" />
+              <div className="flex flex-col">
+                <span className="text-lg font-black text-white leading-none">{displayPlaylists.length}</span>
+                <span className="text-[10px] uppercase tracking-wider text-white/30 font-semibold mt-0.5">Releases</span>
+              </div>
             )}
-            <div className="ml-auto hidden md:flex items-center gap-2 text-xs text-white/25 uppercase tracking-widest">
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-              Live on SoundCloud
-            </div>
           </div>
         </div>
       </section>
 
-      {/* ── ARTISTS — click to play ───────────────────────────────── */}
+      {/* ── ARTISTS ──────────────────────────────────────────────── */}
       <section className="max-w-6xl mx-auto px-6 pt-10 pb-4">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-white/30 mb-1">AOA Records</p>
-            <h2 className="text-xl font-black text-white uppercase tracking-tight">Artists</h2>
+            <h2 className="text-lg font-black text-white tracking-tight">Artists</h2>
+            <p className="text-[11px] text-white/30 font-semibold mt-0.5 uppercase tracking-wider">Select an artist to play their music</p>
           </div>
-          <span className="text-xs text-white/25 font-semibold">{musicArtists.length} artists</span>
+          <span className="text-xs text-white/20 font-bold tabular-nums bg-white/5 px-2.5 py-1 rounded-full border border-white/8">{musicArtists.length}</span>
         </div>
 
-        <div
-          className="flex gap-4 overflow-x-auto pb-2"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
           {musicArtists.map((artist) => {
             const isActive = selectedArtist?.slug === artist.slug;
             const isSinglesOnly = SINGLES_ARTIST_SLUGS.has(artist.slug);
@@ -678,49 +738,57 @@ export default function RadioPage() {
               <motion.button
                 key={artist.slug}
                 onClick={() => handleArtistClick(artist)}
-                title={isSinglesOnly ? `View ${artist.name} on X` : `Play ${artist.name}'s playlist`}
-                className="flex flex-col items-center gap-2.5 flex-shrink-0 group outline-none"
-                whileHover={{ y: -4 }}
-                whileTap={{ scale: 0.95 }}
+                title={isSinglesOnly ? `View ${artist.name} on X` : `Play ${artist.name}`}
+                whileTap={{ scale: 0.96 }}
+                className={`group relative flex flex-col items-center gap-2.5 p-3 rounded-2xl outline-none transition-all duration-200 ${
+                  isActive
+                    ? 'bg-hero-blue/15 ring-1 ring-hero-blue/50 shadow-lg shadow-hero-blue/15'
+                    : 'bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-white/10'
+                }`}
               >
                 {/* Avatar */}
-                <div className={`relative w-[72px] h-[72px] rounded-2xl overflow-hidden transition-all duration-300 ${
+                <div className={`relative w-full aspect-square rounded-xl overflow-hidden transition-all duration-300 ${
                   isActive
-                    ? 'ring-2 ring-hero-blue ring-offset-2 ring-offset-black shadow-xl shadow-hero-blue/30 scale-105'
-                    : isSinglesOnly
-                      ? 'ring-1 ring-white/8 hover:ring-white/20 opacity-75 hover:opacity-100'
-                      : 'ring-1 ring-white/10 hover:ring-hero-blue/40'
+                    ? 'shadow-xl shadow-hero-blue/30 ring-2 ring-hero-blue/50'
+                    : isSinglesOnly ? 'opacity-55 group-hover:opacity-80' : 'ring-1 ring-white/8 group-hover:ring-white/20'
                 }`}>
                   <ArtistAvatar src={artist.avatar} name={artist.name} />
+                  {/* Playing overlay */}
                   {isActive && isPlaying && (
-                    <div className="absolute inset-0 bg-hero-blue/30 flex items-center justify-center">
-                      <Disc3 className="w-6 h-6 text-white vinyl-spin drop-shadow-lg" />
+                    <div className="absolute inset-0 bg-hero-blue/30 flex items-center justify-center backdrop-blur-[1px]">
+                      <Disc3 className="w-8 h-8 text-white vinyl-spin drop-shadow-lg" />
                     </div>
                   )}
-                  {!isActive && (
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-hero-blue/10 transition-colors duration-200" />
+                  {/* Hover play hint */}
+                  {!isActive && !isSinglesOnly && (
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-all duration-200">
+                      <div className="w-10 h-10 rounded-full bg-hero-blue shadow-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 scale-75 group-hover:scale-100">
+                        <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                      </div>
+                    </div>
                   )}
-                  {/* Singles-only badge */}
+                  {/* Singles badge */}
                   {isSinglesOnly && (
-                    <div className="absolute bottom-1 right-1 bg-black/70 rounded-md px-1 py-0.5">
-                      <span className="text-[8px] font-bold text-white/50 uppercase tracking-wide">singles</span>
+                    <div className="absolute bottom-1 right-1 bg-black/80 backdrop-blur-sm rounded-md px-1.5 py-0.5">
+                      <span className="text-[8px] font-bold text-white/45 uppercase tracking-wide">singles</span>
                     </div>
                   )}
                 </div>
-                {/* Name + label */}
-                <div className="text-center w-[72px]">
-                  <p className={`text-[11px] font-bold truncate leading-tight transition-colors ${
-                    isActive ? 'text-white' : 'text-white/50 group-hover:text-white/80'
+
+                {/* Name + meta */}
+                <div className="text-center w-full">
+                  <p className={`text-[11px] font-bold leading-tight truncate transition-colors ${
+                    isActive ? 'text-white' : 'text-white/55 group-hover:text-white'
                   }`}>
                     {artist.name}
                   </p>
-                  <p className={`text-[10px] font-semibold mt-0.5 transition-colors ${
-                    isActive ? 'text-hero-blue'
-                    : isSinglesOnly ? 'text-white/20 group-hover:text-white/35'
-                    : 'text-white/20 group-hover:text-white/35'
+                  <p className={`text-[10px] mt-0.5 font-semibold transition-colors ${
+                    isActive && isPlaying ? 'text-hero-blue'
+                    : isSinglesOnly ? 'text-white/20'
+                    : 'text-white/20 group-hover:text-white/40'
                   }`}>
                     {isActive && isPlaying ? '▶ playing'
-                      : isSinglesOnly ? 'on X ↗'
+                      : isSinglesOnly ? 'X ↗'
                       : `${albumCount} album${albumCount !== 1 ? 's' : ''}`}
                   </p>
                 </div>
@@ -735,22 +803,25 @@ export default function RadioPage() {
         {selectedArtist && (artistAlbumsMap[selectedArtist.slug]?.length ?? 0) > 0 && (
           <motion.section
             key={selectedArtist.slug}
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.25 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
             className="max-w-6xl mx-auto px-6 pb-8"
           >
+            {/* Divider */}
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-hero-blue/25 to-transparent mb-6" />
+
             {/* Header row */}
-            <div className="flex items-center gap-3 mb-5">
-              <div className="relative w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-hero-blue/40">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="relative w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 ring-2 ring-hero-blue/60 shadow-lg shadow-hero-blue/20">
                 <ArtistAvatar src={selectedArtist.avatar} name={selectedArtist.name} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-hero-blue/70 font-semibold">Discography</p>
-                <p className="text-base font-black text-white leading-tight">{selectedArtist.name}</p>
+                <p className="text-[10px] uppercase tracking-[0.25em] text-hero-blue/80 font-bold">Discography</p>
+                <p className="text-xl font-black text-white leading-tight">{selectedArtist.name}</p>
               </div>
-              <span className="text-xs text-white/25 font-semibold tabular-nums">
+              <span className="text-xs text-white/30 font-bold tabular-nums bg-white/5 px-2.5 py-1 rounded-full border border-white/8">
                 {artistAlbumsMap[selectedArtist.slug].length} album{artistAlbumsMap[selectedArtist.slug].length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -855,7 +926,7 @@ export default function RadioPage() {
       </AnimatePresence>
 
       {/* ── PLAYER + CATALOGUE ───────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-6 pb-16">
+      <section className="max-w-6xl mx-auto px-6 pb-16 pt-2">
         <div className="grid lg:grid-cols-[1fr_340px] gap-8 items-start">
 
           {/* Player column */}
@@ -865,11 +936,12 @@ export default function RadioPage() {
             transition={{ duration: 0.6, delay: 0.1 }}
           >
             {/* Now Playing header */}
-            <div className="flex items-center gap-3 mb-4 min-w-0">
+            <div className="flex items-center gap-4 mb-5 min-w-0 p-4 rounded-2xl"
+              style={{ background: 'linear-gradient(135deg, rgba(0,84,249,0.10), rgba(0,84,249,0.04))' }}>
               {/* Album art thumbnail */}
-              <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 ring-1 ring-white/10">
+              <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-hero-blue/40 shadow-lg shadow-hero-blue/20">
                 {selectedPlaylist.artwork ? (
-                  <Image src={selectedPlaylist.artwork} alt={selectedPlaylist.title} fill sizes="56px" className="object-cover" />
+                  <Image src={selectedPlaylist.artwork} alt={selectedPlaylist.title} fill sizes="64px" className="object-cover" />
                 ) : (
                   <div className={`w-full h-full bg-gradient-to-br ${getAlbumArtwork(selectedPlaylist.id)} flex items-center justify-center`}>
                     <Music className="w-5 h-5 text-white/30" />
@@ -879,27 +951,23 @@ export default function RadioPage() {
 
               {/* Text info */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  {selectedArtist && (
-                    <span className="text-[11px] font-bold text-hero-blue uppercase tracking-wider truncate">
-                      {selectedArtist.name}
-                    </span>
-                  )}
-                  {!selectedArtist && (
-                    <span className="text-[11px] text-white/30 uppercase tracking-wider">AOA Records</span>
-                  )}
-                  {isPlaying && (
-                    <Disc3 className="w-3 h-3 text-hero-blue vinyl-spin flex-shrink-0" />
-                  )}
-                </div>
-                <p className="text-base font-black text-white leading-tight truncate">
+                <p className="text-[10px] uppercase tracking-[0.25em] text-hero-blue/70 font-bold mb-0.5">
+                  {isPlaying ? '▶ Now Playing' : 'Up Next'}
+                </p>
+                <p className="text-lg font-black text-white leading-tight truncate">
                   {selectedPlaylist.title.replace(/\s+by\s+.+$/i, '').trim()}
                 </p>
-                {nowPlaying && (
-                  <p className="text-xs text-white/40 truncate mt-0.5">
-                    ♪ {nowPlaying.title}
-                  </p>
-                )}
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-white/45 font-semibold truncate">
+                    {selectedArtist ? selectedArtist.name : 'AOA Records'}
+                  </span>
+                  {isPlaying && nowPlaying && (
+                    <>
+                      <span className="text-white/20 text-[10px]">·</span>
+                      <span className="text-xs text-white/35 truncate">♪ {nowPlaying.title}</span>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Open on SoundCloud */}
@@ -908,15 +976,15 @@ export default function RadioPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 title="Open on SoundCloud"
-                className="flex-shrink-0 flex items-center gap-1.5 text-orange-400 hover:text-orange-300 transition-colors text-xs font-semibold"
+                className="flex-shrink-0 flex items-center gap-1.5 bg-[#ff5500]/10 hover:bg-[#ff5500]/20 border border-[#ff5500]/20 hover:border-[#ff5500]/40 text-orange-400 hover:text-orange-300 transition-all px-3 py-1.5 rounded-xl text-xs font-bold"
               >
-                <SiSoundcloud className="w-5 h-5" />
+                <SiSoundcloud className="w-4 h-4" />
                 <ExternalLink className="w-3 h-3" />
               </a>
             </div>
 
             {/* Player card */}
-            <div className="relative rounded-2xl overflow-hidden bg-black border border-white/8">
+            <div className="relative rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl shadow-black/50">
               {selectedPlaylist.artwork ? (
                 <div className="absolute inset-0">
                   <Image src={selectedPlaylist.artwork} alt="" fill className="object-cover scale-110" />
@@ -974,13 +1042,13 @@ export default function RadioPage() {
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             {/* Tab bar */}
-            <div className="flex items-center gap-1 mb-4 bg-white/4 rounded-xl p-1">
+            <div className="flex items-center gap-1 mb-4 bg-white/[0.04] rounded-2xl p-1 border border-white/6">
               <button
                 onClick={() => setSidebarTab('queue')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 ${
                   sidebarTab === 'queue'
-                    ? 'bg-hero-blue text-white shadow-lg'
-                    : 'text-white/40 hover:text-white/70'
+                    ? 'bg-hero-blue text-white shadow-lg shadow-hero-blue/30'
+                    : 'text-white/40 hover:text-white/70 hover:bg-white/4'
                 }`}
               >
                 <Music className="w-3.5 h-3.5" />
@@ -1135,12 +1203,14 @@ export default function RadioPage() {
 
       {/* ── TOP HITS ─────────────────────────────────────────────── */}
       {stats?.topTracks && stats.topTracks.length > 0 && (
-        <section className="border-t border-white/8 py-14">
+        <section className="border-t border-white/8 py-14" style={{ background: 'linear-gradient(180deg, rgba(0,84,249,0.04), transparent)' }}>
           <div className="max-w-6xl mx-auto px-6">
             <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
-              <div className="mb-8">
-                <p className="text-xs uppercase tracking-[0.2em] text-white/30 mb-2">Charts</p>
-                <h2 className="text-3xl md:text-4xl font-black text-white uppercase">Top Hits</h2>
+              <div className="mb-8 flex items-end gap-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.25em] text-hero-blue/70 font-bold mb-1">Charts</p>
+                  <h2 className="text-2xl font-black text-white">Top Hits</h2>
+                </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {stats.topTracks.map((track, index) => (
@@ -1173,70 +1243,23 @@ export default function RadioPage() {
         </section>
       )}
 
-      {/* ── SPOTIFY ─────────────────────────────────────────────── */}
-      <section className="border-t border-white/8 py-14">
+      {/* ── RELEASE YOUR MUSIC ───────────────────────────────────── */}
+      <section className="border-t border-white/8 py-12">
         <div className="max-w-6xl mx-auto px-6">
-          <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-white/30 mb-1">Streaming</p>
-                <h2 className="text-2xl font-black text-white">Also on <span style={{ color: '#1DB954' }}>Spotify</span></h2>
-              </div>
-              <a
-                href="https://open.spotify.com/artist/5jWLGE3ZNCyau37PWs20AP?si=oQJnFe1vTGubcBK7_1K1zg"
-                target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 font-bold px-4 py-2.5 rounded-full text-sm text-black flex-shrink-0 hover:scale-105 transition-transform"
-                style={{ backgroundColor: '#1DB954' }}
-              >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-                Follow on Spotify
+          <div className="rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6"
+            style={{ background: 'linear-gradient(135deg, rgba(0,84,249,0.12), rgba(0,84,249,0.04))' }}>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.25em] text-hero-blue/70 font-bold mb-1">For Ape Holders</p>
+              <h2 className="text-xl font-black text-white">Release under AOA Records</h2>
+              <p className="text-white/40 text-sm mt-1.5">Any AOA NFT holder can publish under the label.</p>
+            </div>
+            <div className="flex flex-wrap gap-2 flex-shrink-0">
+              <a href="https://discord.gg/gVmqW6SExU" target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-hero-blue text-white font-bold px-5 py-2.5 rounded-xl text-xs uppercase tracking-widest hover:opacity-90 transition-opacity shadow-lg shadow-hero-blue/30">
+                <ExternalLink className="w-3.5 h-3.5" />Join Discord
               </a>
             </div>
-            <iframe ref={spotifyIframeRef} style={{ borderRadius: '12px' }} src="https://open.spotify.com/embed/artist/5jWLGE3ZNCyau37PWs20AP?utm_source=generator&si=1db3da1165cb4d14" width="100%" height="352" frameBorder="0" allowFullScreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" />
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── JOIN THE LABEL ────────────────────────────────────────── */}
-      <section className="border-t border-white/8 py-14">
-        <div className="max-w-6xl mx-auto px-6">
-          <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
-            <div className="grid md:grid-cols-[1fr_auto] gap-8 items-start">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-white/30 mb-3">For Ape Holders</p>
-                <h2 className="text-3xl md:text-4xl font-black text-white uppercase leading-tight mb-4">
-                  Drop a Record <span className="text-hero-blue">On AOA.</span>
-                </h2>
-                <p className="text-white/45 max-w-lg text-sm leading-relaxed mb-8">
-                  Any Apes On Ape holder can publish under AOA Records. Release singles, EPs, and albums with your Ape as the face of the project.
-                </p>
-                <div className="grid sm:grid-cols-3 gap-3">
-                  {[
-                    { step: '01', title: 'Verify your Ape', body: 'Connect the wallet holding your AOA NFT to access Studio.' },
-                    { step: '02', title: 'Release on SoundCloud', body: 'Upload your project to the AOA account or your own profile.' },
-                    { step: '03', title: 'Submit to the label', body: 'Use the Submit Track form to send your SoundCloud link for review.' },
-                  ].map(({ step, title, body }) => (
-                    <div key={step} className="border border-white/8 rounded-xl p-4 bg-white/[0.02] hover:border-white/15 transition-colors">
-                      <div className="text-xs font-mono text-hero-blue/50 mb-2 tracking-widest">{step}</div>
-                      <div className="text-sm font-bold text-white mb-1">{title}</div>
-                      <p className="text-xs text-white/35 leading-relaxed">{body}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-col gap-2.5 md:w-52 md:pt-12">
-                <a href="/music/create" className="flex items-center justify-between gap-2 bg-hero-blue text-white font-bold px-5 py-3.5 rounded-xl text-xs uppercase tracking-widest hover:bg-hero-blue-light transition-colors group">
-                  <span>Start Session</span><ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                </a>
-                <a href="/music/submit" className="flex items-center justify-between gap-2 border border-hero-blue/40 text-hero-blue font-semibold px-5 py-3.5 rounded-xl text-xs uppercase tracking-widest hover:border-hero-blue hover:bg-hero-blue/10 transition-colors group">
-                  <span>Submit Track</span><ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                </a>
-                <a href="https://discord.gg/gVmqW6SExU" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-2 border border-white/12 text-white/50 font-semibold px-5 py-3.5 rounded-xl text-xs uppercase tracking-widest hover:border-white/25 hover:text-white transition-colors group">
-                  <span>Discord</span><ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 

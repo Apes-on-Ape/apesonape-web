@@ -12,6 +12,16 @@ export default function PWAManager() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
 
+    // Never register the SW in development — it caches old JS bundles and
+    // causes "module factory not available" HMR ghosts in the browser.
+    if (process.env.NODE_ENV !== 'production') {
+      // In dev, unregister any previously installed SW so stale caches are cleared.
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(reg => reg.unregister());
+      });
+      return;
+    }
+
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })
       .then((reg) => {

@@ -10,7 +10,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 const AuthNavControls = dynamic(() => import('./AuthNavControls'), { ssr: false });
-const ExtraLinks = dynamic(() => import('./ExtraLinks'), { ssr: false });
+
 const NotificationBell = dynamic(() => import('./NotificationBell'), { ssr: false });
 
 export default function Nav() {
@@ -127,7 +127,6 @@ export default function Nav() {
                 </Link>
               );
             })}
-            <ExtraLinks />
             <NotificationBell />
             <AuthNavControls />
           </div>
@@ -184,7 +183,6 @@ export default function Nav() {
                 );
               })}
               <div className="flex flex-col gap-3 pt-4 border-t" style={{ borderTopColor: 'rgba(0, 84, 249, 0.3)' }}>
-                <ExtraLinks />
                 <div className="flex justify-center">
                   <AuthNavControls />
                 </div>

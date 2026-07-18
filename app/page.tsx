@@ -248,20 +248,20 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════════════
           STATS BAR
       ════════════════════════════════════════════════ */}
-      <section className="border-y border-white/8 bg-white/[0.025]">
+      <section className="border-y border-hero-blue/15" style={{ background: 'linear-gradient(90deg, rgba(0,84,249,0.08) 0%, rgba(0,84,249,0.04) 50%, rgba(0,84,249,0.08) 100%)' }}>
         <div className="container-premium py-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/8">
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/10">
             {STATS.map((s, i) => (
               <motion.div
                 key={s.label}
-                className="flex flex-col items-center gap-1 px-6 py-4 text-center"
+                className="flex flex-col items-center gap-1.5 px-6 py-4 text-center"
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1, duration: 0.6 }}
               >
                 <span className="text-3xl md:text-4xl font-black text-white tabular-nums">{s.value}</span>
-                <span className="text-xs uppercase tracking-[0.18em] text-white/35 font-semibold">{s.label}</span>
+                <span className="text-[11px] uppercase tracking-[0.2em] text-white/40 font-bold">{s.label}</span>
               </motion.div>
             ))}
           </div>
@@ -319,7 +319,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════════════
           THE COLLECTION — editorial two-col
       ════════════════════════════════════════════════ */}
-      <section className="border-t border-white/8 py-24 md:py-32">
+      <section className="border-t border-white/10 py-24 md:py-32" style={{ background: 'linear-gradient(180deg, rgba(0,84,249,0.04) 0%, transparent 40%)' }}>
         <div className="container-premium">
           <div className="grid md:grid-cols-2 gap-16 lg:gap-24 items-center">
 
@@ -406,9 +406,9 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════════════
           WHAT YOUR APE UNLOCKS — perk grid
       ════════════════════════════════════════════════ */}
-      <section className="border-t border-white/8 py-24 md:py-32 overflow-hidden relative">
+      <section className="border-t border-white/10 py-24 md:py-32 overflow-hidden relative">
         {/* Ambient orb */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-hero-blue/6 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-hero-blue/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="container-premium relative">
           <motion.div
@@ -433,21 +433,24 @@ export default function HomePage() {
             {PERKS.map((perk, i) => (
               <motion.div
                 key={perk.title}
-                className="group relative rounded-2xl p-7 border border-white/8 bg-white/[0.025] hover:border-hero-blue/35 transition-all duration-400 overflow-hidden"
+                className="group relative rounded-2xl p-7 border border-white/10 hover:border-hero-blue/40 transition-all duration-300 overflow-hidden"
+                style={{ background: 'linear-gradient(135deg, rgba(16,18,30,0.95), rgba(12,14,24,0.90))' }}
                 initial={{ opacity: 0, y: 32 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08, duration: 0.6 }}
                 whileHover={{ y: -4 }}
               >
+                {/* Corner accent line */}
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-hero-blue/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 {/* Hover glow */}
-                <div className="absolute inset-0 bg-gradient-to-br from-hero-blue/0 to-hero-blue/8 opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
+                <div className="absolute inset-0 bg-gradient-to-br from-hero-blue/0 to-hero-blue/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="relative">
-                  <div className="w-12 h-12 rounded-xl bg-hero-blue/10 border border-hero-blue/20 flex items-center justify-center mb-5 group-hover:bg-hero-blue/20 group-hover:border-hero-blue/40 transition-colors">
+                  <div className="w-12 h-12 rounded-xl bg-hero-blue/12 border border-hero-blue/25 flex items-center justify-center mb-5 group-hover:bg-hero-blue/22 group-hover:border-hero-blue/50 group-hover:shadow-lg group-hover:shadow-hero-blue/20 transition-all">
                     <perk.icon className="w-5 h-5 text-hero-blue" />
                   </div>
                   <h3 className="text-xl font-bold text-white mb-2">{perk.title}</h3>
-                  <p className="text-white/45 text-sm leading-relaxed">{perk.desc}</p>
+                  <p className="text-white/50 text-sm leading-relaxed">{perk.desc}</p>
                 </div>
               </motion.div>
             ))}
@@ -458,8 +461,10 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════════════
           ECOSYSTEM FEATURE CARDS
       ════════════════════════════════════════════════ */}
-      <section className="border-t border-white/8 py-24 md:py-32">
-        <div className="container-premium">
+      <section className="border-t border-white/10 py-24 md:py-32 relative overflow-hidden">
+        {/* Section ambient glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[300px] bg-hero-blue/6 rounded-full blur-3xl pointer-events-none" />
+        <div className="container-premium relative">
           <motion.div
             className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-16"
             initial={{ opacity: 0, y: 24 }}
@@ -487,7 +492,8 @@ export default function HomePage() {
                 href={item.href}
                 target={item.external ? '_blank' : undefined}
                 rel={item.external ? 'noopener noreferrer' : undefined}
-                className="group relative rounded-2xl p-8 border border-white/8 bg-white/[0.025] overflow-hidden hover:border-hero-blue/40 transition-all duration-300 nft-card-shine"
+                className="group relative rounded-2xl p-8 border border-white/10 overflow-hidden hover:border-hero-blue/45 transition-all duration-300 nft-card-shine"
+              style={{ background: 'linear-gradient(135deg, rgba(16,18,30,0.96), rgba(12,14,24,0.92))' }}
                 initial={{ opacity: 0, y: 32 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -588,7 +594,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════════════
           COMMUNITY MEMBERS — real holder spotlight
       ════════════════════════════════════════════════ */}
-      <section className="border-t border-white/8 py-24 md:py-28 overflow-hidden">
+      <section className="border-t border-white/10 py-24 md:py-28 overflow-hidden">
         <div className="container-premium mb-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -600,7 +606,7 @@ export default function HomePage() {
             <h2 className="text-4xl md:text-5xl font-black text-white">
               Meet the Apes
             </h2>
-            <p className="text-white/40 mt-3 text-lg">The holders building the culture.</p>
+            <p className="text-white/45 mt-3 text-lg">The holders building the culture.</p>
           </motion.div>
         </div>
 
@@ -657,11 +663,11 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════════════
           COMMUNITY / DISCORD CTA
       ════════════════════════════════════════════════ */}
-      <section className="border-t border-white/8 py-24 md:py-32 relative overflow-hidden">
+      <section className="border-t border-white/10 py-24 md:py-32 relative overflow-hidden">
         {/* BG treatment */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute bottom-0 left-1/4 w-[700px] h-[400px] bg-hero-blue/8 rounded-full blur-[100px]" />
-          <div className="absolute top-0 right-1/4 w-[500px] h-[300px] bg-hero-blue/5 rounded-full blur-[80px]" />
+          <div className="absolute bottom-0 left-1/4 w-[700px] h-[400px] bg-hero-blue/12 rounded-full blur-[100px]" />
+          <div className="absolute top-0 right-1/4 w-[500px] h-[300px] bg-hero-blue/8 rounded-full blur-[80px]" />
         </div>
 
         <div className="container-premium relative">
@@ -737,11 +743,11 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════════════
           MARKETPLACE CTA
       ════════════════════════════════════════════════ */}
-      <section className="border-t border-white/8 py-16">
+      <section className="border-t border-white/10 py-16">
         <div className="container-premium">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-white/30 mb-2">Available on</p>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-hero-blue/60 font-bold mb-2">Available on</p>
               <h3 className="text-3xl font-black text-white">Trade Your Ape</h3>
             </div>
             <div className="flex flex-wrap gap-4">
@@ -762,7 +768,8 @@ export default function HomePage() {
                   href={m.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-5 py-3.5 rounded-xl border border-white/10 bg-white/[0.03] hover:border-hero-blue/40 hover:bg-hero-blue/5 transition-all duration-300 group"
+                  className="flex items-center gap-3 px-5 py-3.5 rounded-xl border border-white/12 hover:border-hero-blue/45 hover:bg-hero-blue/6 transition-all duration-300 group"
+                  style={{ background: 'rgba(16,18,28,0.8)' }}
                 >
                   <div className="relative w-7 h-7 rounded-lg overflow-hidden flex-shrink-0">
                     <Image src={m.icon} alt={m.name} fill sizes="28px" className="object-contain" />

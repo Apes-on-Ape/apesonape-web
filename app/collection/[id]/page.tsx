@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 
 type TierIcon = React.ComponentType<{ className?: string }>;
 import { motion } from 'framer-motion';
-import { Crown, Zap, Star, Shield, Circle, ArrowLeft, ExternalLink, Trophy, Layers } from 'lucide-react';
+import { Crown, Zap, Star, Shield, Circle, ArrowLeft, ExternalLink, Trophy, Layers, Wallet, Copy, Check } from 'lucide-react';
 import Nav from '@/app/components/Nav';
 import Footer from '@/app/components/Footer';
 import Link from 'next/link';
@@ -43,6 +43,11 @@ export default function ApeDetailPage() {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [prevNext, setPrevNext] = useState<{ prev?: RarityEntry; next?: RarityEntry }>({});
 
+  type OwnerData = { owner: string; apescanUrl: string; openseaProfileUrl: string };
+  const [ownerData, setOwnerData] = useState<OwnerData | null>(null);
+  const [ownerLoading, setOwnerLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     if (!id) return;
     setLoading(true);
@@ -76,18 +81,55 @@ export default function ApeDetailPage() {
     })();
   }, [id]);
 
-  // Fetch token metadata from CDN for full-res image fallback
-  const [tokenMeta, setTokenMeta] = useState<{ image?: string } | null>(null);
+  // Fallback image sources: CDN thumb first, then IPFS gateway if needed
+  const [imgSrc, setImgSrc] = useState<string>(thumbUrl(id));
   useEffect(() => {
-    if (!id) return;
+    setImgSrc(thumbUrl(id));
+    setImgLoaded(false);
+  }, [id]);
+
+  function handleImgError() {
+    // Try fetching the IPFS URL from the CDN token index as a fallback
     fetch(`${CDN_BASE}/tokens.json`, { cache: 'force-cache' })
       .then(r => r.json())
       .then((tokens: Array<{ id: number; image?: string }>) => {
         const t = tokens.find(t => t.id === id);
-        if (t) setTokenMeta(t);
+        if (!t?.image) return;
+        const raw = t.image;
+        // Normalise ipfs:// and bare CIDs to an HTTP gateway URL
+        const http = raw.startsWith('ipfs://')
+          ? raw.replace('ipfs://', 'https://cloudflare-ipfs.com/ipfs/')
+          : /^https?:\/\//.test(raw)
+            ? raw
+            : `https://cloudflare-ipfs.com/ipfs/${raw}`;
+        setImgSrc(http);
       })
       .catch(() => {});
+  }
+
+  // Fetch on-chain owner from Apechain RPC
+  useEffect(() => {
+    if (!id) return;
+    setOwnerLoading(true);
+    setOwnerData(null);
+    fetch(`/api/nft/owner/${id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((d) => { if (d?.owner) setOwnerData(d); })
+      .catch(() => {})
+      .finally(() => setOwnerLoading(false));
   }, [id]);
+
+  function copyAddress() {
+    if (!ownerData) return;
+    navigator.clipboard.writeText(ownerData.owner).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  function shortAddr(addr: string) {
+    return addr.slice(0, 6) + '…' + addr.slice(-4);
+  }
 
   const cfg = rarity ? TIER_CONFIG[rarity.tier] : TIER_CONFIG['Common'];
   const TierIcon = cfg.icon;
@@ -135,12 +177,13 @@ export default function ApeDetailPage() {
                 )}
                 <div className="relative aspect-square">
                   <Image
-                    src={tokenMeta?.image || thumbUrl(id)}
+                    src={imgSrc}
                     alt={`Ape #${id}`}
                     fill
                     sizes="(max-width: 768px) 100vw, 50vw"
                     className={`object-cover transition-opacity duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
                     onLoad={() => setImgLoaded(true)}
+                    onError={handleImgError}
                     unoptimized
                     priority
                   />
@@ -215,6 +258,48 @@ export default function ApeDetailPage() {
                   <div className="text-2xl font-black text-white">{rarity.traits.length}</div>
                   <div className="text-[11px] text-white/40 uppercase tracking-wider">Traits</div>
                 </div>
+              </div>
+
+              {/* Owner Card */}
+              <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Wallet className="w-4 h-4 text-hero-blue" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-white/40">Current Owner</span>
+                </div>
+                {ownerLoading ? (
+                  <div className="h-8 rounded-lg bg-white/10 animate-pulse w-48" />
+                ) : ownerData ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-sm text-white font-semibold tracking-tight">
+                      {shortAddr(ownerData.owner)}
+                    </span>
+                    <button
+                      onClick={copyAddress}
+                      title="Copy address"
+                      className="p-1 rounded-md hover:bg-white/10 transition-colors text-white/40 hover:text-white"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    <a
+                      href={ownerData.apescanUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-hero-blue hover:text-hero-blue-light transition-colors"
+                    >
+                      Apescan <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <a
+                      href={ownerData.openseaProfileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-white/40 hover:text-white transition-colors"
+                    >
+                      OpenSea <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                ) : (
+                  <span className="text-xs text-white/30">Could not load owner</span>
+                )}
               </div>
 
               {/* Rarity percentile bar */}
@@ -293,7 +378,7 @@ export default function ApeDetailPage() {
 
               {/* Links */}
               <div className="flex gap-4 text-xs text-white/30">
-                <Link href="/rarity" className="hover:text-hero-blue transition-colors flex items-center gap-1">
+                <Link href="/collection" className="hover:text-hero-blue transition-colors flex items-center gap-1">
                   <Trophy className="w-3 h-3" /> Rarity Rankings
                 </Link>
                 <Link href="/collection" className="hover:text-hero-blue transition-colors">

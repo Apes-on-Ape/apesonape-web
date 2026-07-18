@@ -1091,7 +1091,7 @@ export default function WardrobePage() {
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
           background:
-            'radial-gradient(1200px 600px at 20% 10%, rgba(0,255,200,0.06), transparent 60%), radial-gradient(1000px 500px at 80% 20%, rgba(0,200,255,0.04), transparent 60%), linear-gradient(180deg, #02060B 0%, #070B12 50%, #0B0F17 100%)'
+            'radial-gradient(1200px 600px at 20% 10%, rgba(0, 84, 249, 0.12), transparent 60%), radial-gradient(1000px 500px at 80% 20%, rgba(0, 180, 255, 0.08), transparent 60%), radial-gradient(800px 400px at 50% 80%, rgba(0, 84, 249, 0.07), transparent 60%), linear-gradient(180deg, #030a1e 0%, #050d22 50%, #070f26 100%)'
         }}
       />
       <Nav />
@@ -1480,14 +1480,14 @@ export default function WardrobePage() {
         
         /* RPG Card Styles */
         :global(.rpg-card) {
-          background: linear-gradient(135deg, rgba(4, 8, 20, 0.95), rgba(4, 8, 22, 0.9));
+          background: linear-gradient(135deg, rgba(8, 16, 44, 0.92), rgba(6, 12, 36, 0.88));
           border: 2px solid;
-          border-image: linear-gradient(135deg, #0054F9 0%, #0041C4 50%, #0054F9 100%) 1;
+          border-image: linear-gradient(135deg, #0054F9 0%, #2266ff 50%, #0054F9 100%) 1;
           border-radius: 8px;
           box-shadow: 
-            0 4px 20px rgba(0, 0, 0, 0.5),
-            inset 0 1px 0 rgba(0, 84, 249, 0.2),
-            0 0 40px rgba(0, 84, 249, 0.1);
+            0 4px 24px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(0, 84, 249, 0.35),
+            0 0 48px rgba(0, 84, 249, 0.15);
           position: relative;
         }
         
@@ -1505,9 +1505,9 @@ export default function WardrobePage() {
         }
         
         :global(.rpg-card-header) {
-          background: linear-gradient(180deg, rgba(0, 84, 249, 0.28), rgba(0, 55, 200, 0.18));
+          background: linear-gradient(180deg, rgba(0, 84, 249, 0.50), rgba(0, 55, 200, 0.32));
           padding: 16px 20px;
-          border-bottom: 2px solid rgba(0, 84, 249, 0.5);
+          border-bottom: 2px solid rgba(0, 84, 249, 0.7);
           position: relative;
         }
         
@@ -1542,10 +1542,10 @@ export default function WardrobePage() {
         /* RPG Buttons */
         :global(.rpg-button) {
           padding: 12px 18px;
-          background: linear-gradient(135deg, rgba(5, 8, 20, 0.9), rgba(4, 8, 20, 0.95));
-          border: 2px solid rgba(0, 55, 200, 0.5);
+          background: linear-gradient(135deg, rgba(8, 18, 52, 0.88), rgba(6, 14, 44, 0.92));
+          border: 2px solid rgba(0, 84, 249, 0.55);
           border-radius: 8px;
-          color: #0054F9;
+          color: #6699ff;
           font-size: 13px;
           font-weight: 700;
           text-transform: uppercase;
@@ -1575,8 +1575,8 @@ export default function WardrobePage() {
         }
         
         :global(.rpg-button):hover:not(:disabled) {
-          background: linear-gradient(135deg, rgba(8, 12, 28, 0.95), rgba(5, 8, 20, 1));
-          border-color: rgba(0, 84, 249, 0.8);
+          background: linear-gradient(135deg, rgba(12, 24, 64, 0.95), rgba(8, 18, 52, 1));
+          border-color: rgba(0, 84, 249, 0.9);
           box-shadow: 
             0 6px 16px rgba(0, 84, 249, 0.3),
             inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -1604,10 +1604,10 @@ export default function WardrobePage() {
         
         :global(.rpg-button-small) {
           padding: 10px 16px;
-          background: linear-gradient(135deg, rgba(5, 8, 20, 0.9), rgba(4, 8, 20, 0.95));
-          border: 2px solid rgba(0, 55, 200, 0.5);
+          background: linear-gradient(135deg, rgba(8, 18, 52, 0.88), rgba(6, 14, 44, 0.92));
+          border: 2px solid rgba(0, 84, 249, 0.55);
           border-radius: 6px;
-          color: #0054F9;
+          color: #6699ff;
           font-size: 12px;
           font-weight: 700;
           cursor: pointer;
@@ -1616,15 +1616,11 @@ export default function WardrobePage() {
         }
         
         :global(.rpg-button-small):hover:not(:disabled) {
-          background: linear-gradient(135deg, rgba(8, 12, 28, 0.95), rgba(5, 8, 20, 1));
-          border-color: rgba(0, 84, 249, 0.7);
-          box-shadow: 0 4px 12px rgba(0, 84, 249, 0.3);
+          background: linear-gradient(135deg, rgba(12, 24, 64, 0.95), rgba(8, 18, 52, 1));
+          border-color: rgba(0, 84, 249, 0.9);
+          box-shadow: 0 4px 12px rgba(0, 84, 249, 0.35);
           transform: translateY(-1px);
-        }
-        
-        :global(.rpg-button-small):hover:not(:disabled) {
-          background: linear-gradient(180deg, rgba(15, 30, 70, 0.9), rgba(8, 20, 55, 0.9));
-          border-color: rgba(0, 84, 249, 0.7);
+          color: #c8d8ff;
         }
         
         :global(.rpg-button-primary) {
@@ -1663,7 +1659,7 @@ export default function WardrobePage() {
         }
         
         :global(.rpg-button-primary):hover:not(:disabled) {
-          background: linear-gradient(135deg, rgba(0, 84, 249, 1), rgba(160, 120, 25, 1));
+          background: linear-gradient(135deg, rgba(40, 110, 255, 1), rgba(0, 68, 220, 1));
           box-shadow: 
             0 8px 30px rgba(0, 84, 249, 0.7),
             0 0 0 1px rgba(255, 255, 255, 0.2) inset,
@@ -1729,18 +1725,19 @@ export default function WardrobePage() {
           width: 100%;
           aspect-ratio: 1;
           background: 
-            radial-gradient(ellipse at 30% 30%, rgba(0, 84, 249, 0.08), transparent 50%),
-            radial-gradient(ellipse at center, rgba(30, 20, 10, 0.7), rgba(10, 5, 0, 0.95));
+            radial-gradient(ellipse at 30% 30%, rgba(0, 84, 249, 0.18), transparent 55%),
+            radial-gradient(ellipse at 70% 80%, rgba(0, 150, 255, 0.10), transparent 50%),
+            radial-gradient(ellipse at center, rgba(6, 12, 36, 0.85), rgba(4, 8, 28, 0.95));
           border: 4px solid transparent;
           background-clip: padding-box;
           border-radius: 12px;
           overflow: hidden;
           box-shadow: 
-            0 12px 48px rgba(0, 0, 0, 0.8),
-            0 0 0 2px rgba(0, 84, 249, 0.6),
-            0 0 40px rgba(0, 84, 249, 0.3),
-            inset 0 0 80px rgba(0, 0, 0, 0.5),
-            inset 0 4px 20px rgba(0, 84, 249, 0.1);
+            0 12px 48px rgba(0, 0, 0, 0.6),
+            0 0 0 2px rgba(0, 84, 249, 0.7),
+            0 0 50px rgba(0, 84, 249, 0.35),
+            inset 0 0 60px rgba(0, 0, 0, 0.3),
+            inset 0 4px 20px rgba(0, 84, 249, 0.15);
           position: relative;
         }
         

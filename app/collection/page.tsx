@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ExternalLink, ShoppingBag, X, Search, Filter, Sparkles, Link2, ChevronDown, ChevronUp } from 'lucide-react';
+import { ExternalLink, ShoppingBag, X, Search, Filter, Sparkles, Link2, ChevronDown, Crown, Zap, Star, Shield, Circle, Trophy, ChevronLeft, ChevronRight, ArrowUpDown, Users, Layers, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
 import Nav from '../components/Nav';
 import Image from 'next/image';
 import SafeImage from '../components/SafeImage';
@@ -13,6 +14,27 @@ import ScrollToTopButton from '../components/ScrollToTopButton';
 
 // Exclude specific trait types from the filter UI
 const EXCLUDED_TRAIT_TYPES = new Set(['Background', 'BG', 'Background Color', 'BackgroundColor']);
+
+// ─── Rarity types & config ────────────────────────────────────────────────────
+type Tier = 'Legendary' | 'Epic' | 'Rare' | 'Uncommon' | 'Common';
+type TierIcon = React.ComponentType<{ className?: string }>;
+type RarityEntry = {
+  id: number;
+  rank: number;
+  score: number;
+  tier: Tier;
+  traits: Array<{ name: string; value: string; count: number; rarity: number }>;
+};
+const TIER_CONFIG: Record<Tier, { icon: TierIcon; color: string; bg: string; border: string; glow: string }> = {
+  Legendary: { icon: Crown,  color: 'text-amber-400',   bg: 'bg-amber-500/10',  border: 'border-amber-500/40',  glow: 'shadow-amber-500/20'  },
+  Epic:      { icon: Zap,    color: 'text-purple-400',  bg: 'bg-purple-500/10', border: 'border-purple-500/40', glow: 'shadow-purple-500/20' },
+  Rare:      { icon: Star,   color: 'text-hero-blue',   bg: 'bg-hero-blue/10',  border: 'border-hero-blue/40',  glow: 'shadow-hero-blue/20'  },
+  Uncommon:  { icon: Shield, color: 'text-accent-cyan', bg: 'bg-accent-cyan/10',border: 'border-accent-cyan/40',glow: 'shadow-accent-cyan/20' },
+  Common:    { icon: Circle, color: 'text-white/50',    bg: 'bg-white/5',       border: 'border-white/15',      glow: ''                     },
+};
+const TIERS: Tier[] = ['Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
+const CDN_THUMB_RARITY = 'https://bqcrbcpmimfojnjdhvrz.supabase.co/storage/v1/object/public/collection/collection-thumbs';
+const RARITY_LIMIT = 24;
 
 // Fixed collection: only this metadata CID is used
 const DEFAULT_METADATA_CID = process.env.NEXT_PUBLIC_DEFAULT_METADATA_CID || 'bafybeiaizsmuaj5ubnsh6mtb53ngqffyhrqus7kdqihfbtbafq4c75gjny';
@@ -59,6 +81,8 @@ export default function CollectionPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [modalItem, setModalItem] = useState<DriveItem | null>(null);
+  const [modalRarity, setModalRarity] = useState<RarityEntry | null>(null);
+  const [modalRarityLoading, setModalRarityLoading] = useState(false);
   // Total count for the collection; avoid keeping 10k items in memory at once
   const [totalCount, setTotalCount] = useState<number>(0);
   // Track last token id we've planned into driveItems (absolute token id, not index). -1 means none.
@@ -84,6 +108,20 @@ export default function CollectionPage() {
   // Local search input for token ID
   const [idQuery, setIdQuery] = useState<string>('');
   const OPENSEA_COLLECTION_URL = 'https://opensea.io/collection/apes-on-apechain';
+
+  // ── View mode: browse vs rarity ───────────────────────────────────────────
+  const [viewMode, setViewMode] = useState<'browse' | 'rarity'>('browse');
+
+  // ── Rarity state ──────────────────────────────────────────────────────────
+  const [rarityEntries, setRarityEntries] = useState<RarityEntry[]>([]);
+  const [rarityTotal, setRarityTotal] = useState(0);
+  const [rarityPage, setRarityPage] = useState(1);
+  const [rarityPages, setRarityPages] = useState(1);
+  const [rarityLoading, setRarityLoading] = useState(false);
+  const [raritySearch, setRaritySearch] = useState('');
+  const [rarityDebouncedSearch, setRarityDebouncedSearch] = useState('');
+  const [rarityActiveTier, setRarityActiveTier] = useState<Tier | ''>('');
+  const [tierCounts, setTierCounts] = useState<Record<Tier, number>>({} as Record<Tier, number>);
 
   // Dynamic trait types discovered from metadata
   const [traitTypes, setTraitTypes] = useState<string[]>([]);
@@ -272,6 +310,7 @@ export default function CollectionPage() {
   }, [searchParams]);
 
   // Helper: parse attributes into internal trait shape and update caches/sets
+  // Stable callback — uses functional updater so it never needs availableValuesByType in deps.
   const applyTraitsToCaches = useCallback((tokenId: string, attributes: Array<Record<string, unknown>>) => {
     type RawAttr = { trait_type?: unknown; type?: unknown; name?: unknown; value?: unknown; trait_value?: unknown };
     const traits = (attributes || [])
@@ -286,20 +325,33 @@ export default function CollectionPage() {
       .filter(Boolean) as { name: string; value: string; rarity: number }[];
     if (traits.length === 0) return;
     traitsCacheRef.current[tokenId] = traits;
-    // update available values and types
-    const nextValues: Record<string, Set<string>> = { ...availableValuesByType };
+
+    // Discover new trait types
+    let newTypeFound = false;
     for (const t of traits) {
       if (EXCLUDED_TRAIT_TYPES.has(t.name)) continue;
       if (!seenTraitTypesRef.current.has(t.name)) {
         seenTraitTypesRef.current.add(t.name);
-        setTraitTypes(Array.from(seenTraitTypesRef.current).sort());
+        newTypeFound = true;
       }
-      if (!nextValues[t.name]) nextValues[t.name] = new Set<string>();
-      nextValues[t.name].add(t.value);
     }
-    setAvailableValuesByType(nextValues);
+    if (newTypeFound) {
+      setTraitTypes(Array.from(seenTraitTypesRef.current).sort());
+    }
+
+    // Use functional updater — no dependency on availableValuesByType state
+    setAvailableValuesByType(prev => {
+      const next: Record<string, Set<string>> = { ...prev };
+      let changed = false;
+      for (const t of traits) {
+        if (EXCLUDED_TRAIT_TYPES.has(t.name)) continue;
+        if (!next[t.name]) { next[t.name] = new Set<string>(); changed = true; }
+        if (!next[t.name].has(t.value)) { next[t.name] = new Set(next[t.name]); next[t.name].add(t.value); changed = true; }
+      }
+      return changed ? next : prev; // Return same ref if nothing changed
+    });
     setTraitsVersion(v => v + 1);
-  }, [availableValuesByType]);
+  }, []); // Stable — no external state deps
 
   // In CID mode, lazily fetch metadata for currently displayed items that are missing image URLs and traits
   useEffect(() => {
@@ -682,6 +734,44 @@ export default function CollectionPage() {
     updateURL();
   }, [updateURL]);
 
+  // ── Rarity effects ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const t = setTimeout(() => setRarityDebouncedSearch(raritySearch), 400);
+    return () => clearTimeout(t);
+  }, [raritySearch]);
+
+  const fetchRarity = useCallback(async () => {
+    if (viewMode !== 'rarity') return;
+    setRarityLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(rarityPage), limit: String(RARITY_LIMIT) });
+      if (rarityActiveTier) params.set('tier', rarityActiveTier);
+      const res = await fetch(`/api/rarity?${params}`);
+      const data = await res.json();
+      setRarityEntries(data.entries || []);
+      setRarityTotal(data.total || 0);
+      setRarityPages(data.pages || 1);
+      if (data.tierCounts) setTierCounts(data.tierCounts);
+    } finally {
+      setRarityLoading(false);
+    }
+  }, [viewMode, rarityPage, rarityActiveTier]);
+
+  useEffect(() => { fetchRarity(); }, [fetchRarity]);
+
+  const handleRarityTierChange = (tier: Tier | '') => {
+    setRarityActiveTier(tier);
+    setRarityPage(1);
+  };
+
+  // Client-side search filter within loaded rarity entries
+  const displayedRarityEntries = rarityDebouncedSearch
+    ? rarityEntries.filter(e =>
+        String(e.id).includes(rarityDebouncedSearch) ||
+        e.traits.some(t => t.value.toLowerCase().includes(rarityDebouncedSearch.toLowerCase()))
+      )
+    : rarityEntries;
+
   const toggleTraitValue = (type: string, value: string) => {
     setSelectedByType(prev => {
       const next = { ...prev };
@@ -756,6 +846,17 @@ export default function CollectionPage() {
     };
   }, [modalItem, displayedItems, driveItems, traitsVersion]);
 
+  // Fetch rarity data when a modal is opened
+  useEffect(() => {
+    if (!modalItem?.tokenId) { setModalRarity(null); return; }
+    setModalRarityLoading(true);
+    fetch(`/api/rarity?id=${modalItem.tokenId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setModalRarity(d?.entry || null))
+      .catch(() => setModalRarity(null))
+      .finally(() => setModalRarityLoading(false));
+  }, [modalItem?.tokenId]);
+
   const modalImageSrcs = useMemo(() => {
     if (!modalResolved?.tokenId) return [];
     const t = modalResolved.tokenId;
@@ -774,17 +875,17 @@ export default function CollectionPage() {
     <div className="min-h-screen" style={{ color: 'var(--foreground)' }}>
       <Nav />
 
-      <div className="pt-24 pb-20 relative">
+      <div className="pt-24 pb-20 relative" suppressHydrationWarning>
         {/* Subtle gradient backdrop */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-hero-blue/8 rounded-full blur-3xl" />
           <div className="absolute top-40 right-0 w-[400px] h-[300px] bg-hero-blue/5 rounded-full blur-3xl" />
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative" suppressHydrationWarning>
           {/* Hero header */}
           <motion.div
-            className="mb-16 text-center"
+            className="mb-10 text-center"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -792,84 +893,217 @@ export default function CollectionPage() {
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-hero-blue via-hero-blue-light to-accent-cyan">
               Apes on Apechain
             </h1>
-            <p className="text-lg text-ape-gray max-w-2xl mx-auto">
-              10,000 unique collectible Apes living on Apechain. Explore, filter, and find your perfect Ape.
+            <p className="text-base text-white/50 max-w-2xl mx-auto mb-6">
+              10,000 unique collectible Apes on Apechain. Explore, filter by traits, discover rarity.
             </p>
+
+            {/* Collection stats pill row */}
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+              {[
+                { icon: Layers, label: 'Supply', value: '10,000' },
+                { icon: Users, label: 'Owners', value: '1,492' },
+                { icon: TrendingUp, label: 'Floor', value: '94.99 APE' },
+              ].map(({ icon: Icon, label, value }) => (
+                <div key={label} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/10 text-sm">
+                  <Icon className="w-3.5 h-3.5 text-hero-blue" />
+                  <span className="text-white/40">{label}</span>
+                  <span className="text-white font-bold">{value}</span>
+                </div>
+              ))}
+              {/* Marketplaces inline */}
+              <a href={OPENSEA_COLLECTION_URL} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-hero-blue/10 border border-hero-blue/30 hover:bg-hero-blue/20 transition-all text-sm text-hero-blue font-semibold">
+                <Image src="/opensea-logo.webp" alt="OpenSea" width={16} height={16} className="w-4 h-4 object-contain" />
+                OpenSea
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <a href="https://app.mintify.com/nft/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0" target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] transition-all text-sm text-white/60 hover:text-white font-medium">
+                <Image src="/mintify_icon.jpeg" alt="Mintify" width={16} height={16} className="w-4 h-4 rounded" />
+                Mintify
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
+            {/* View mode tabs */}
+            <div className="inline-flex items-center gap-1 bg-white/[0.04] border border-white/10 rounded-2xl p-1">
+              <button
+                onClick={() => setViewMode('browse')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 ${
+                  viewMode === 'browse'
+                    ? 'bg-hero-blue text-white shadow-lg shadow-hero-blue/30'
+                    : 'text-white/40 hover:text-white/70'
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                Browse
+              </button>
+              <button
+                onClick={() => setViewMode('rarity')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 ${
+                  viewMode === 'rarity'
+                    ? 'bg-hero-blue text-white shadow-lg shadow-hero-blue/30'
+                    : 'text-white/40 hover:text-white/70'
+                }`}
+              >
+                <Trophy className="w-4 h-4" />
+                Rarity
+              </button>
+            </div>
           </motion.div>
 
-          {/* Marketplace Links */}
-          <motion.section
-            className="mb-16"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-          >
-            <div className="flex items-center justify-center gap-3 mb-6">
-              <div className="h-px flex-1 max-w-[120px] bg-gradient-to-r from-transparent to-hero-blue/50" />
-              <h2 className="text-xl font-semibold flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
-                <ShoppingBag className="w-5 h-5 text-hero-blue" />
-                Trade on Marketplaces
-              </h2>
-              <div className="h-px flex-1 max-w-[120px] bg-gradient-to-l from-transparent to-hero-blue/50" />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
-              {/* OpenSea — primary */}
-              <a
-                href={OPENSEA_COLLECTION_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="glass-dark rounded-2xl p-6 flex items-center justify-between group border border-white/10 hover:border-hero-blue/50 transition-all duration-300 hover:shadow-xl hover:shadow-hero-blue/20 hover:scale-[1.02] relative overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-hero-blue/0 to-hero-blue/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="flex items-center gap-4 relative z-10">
-                  <div className="w-12 h-12 rounded-xl bg-hero-blue/10 flex items-center justify-center overflow-hidden group-hover:bg-hero-blue/20 transition-colors">
-                    <Image
-                      src="/opensea-logo.webp"
-                      alt="OpenSea"
-                      width={32}
-                      height={32}
-                      className="w-8 h-8 object-contain"
-                    />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg" style={{ color: 'var(--foreground)' }}>
-                      OpenSea
-                    </h3>
-                  </div>
-                </div>
-                <ExternalLink className="w-5 h-5 text-hero-blue opacity-0 group-hover:opacity-100 transition-opacity relative z-10" />
-              </a>
+          {/* ── RARITY VIEW ──────────────────────────────────────── */}
+          {viewMode === 'rarity' && (
+            <div>
+              {/* Tier Stats Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+                {TIERS.map((tier, i) => {
+                  const cfg = TIER_CONFIG[tier];
+                  const Icon = cfg.icon;
+                  const count = tierCounts[tier] || 0;
+                  return (
+                    <motion.button
+                      key={tier}
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.06 }}
+                      onClick={() => handleRarityTierChange(rarityActiveTier === tier ? '' : tier)}
+                      className={`relative p-4 rounded-xl border transition-all duration-200 text-left cursor-pointer ${
+                        rarityActiveTier === tier
+                          ? `${cfg.bg} ${cfg.border} shadow-lg ${cfg.glow}`
+                          : 'bg-white/[0.03] border-white/10 hover:border-white/25'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Icon className={`w-4 h-4 ${cfg.color}`} />
+                        <span className={`text-xs font-bold uppercase tracking-wider ${cfg.color}`}>{tier}</span>
+                      </div>
+                      <div className="text-2xl font-black text-white">{count.toLocaleString()}</div>
+                      <div className="text-xs text-white/40">
+                        {rarityTotal ? ((count / rarityTotal) * 100).toFixed(1) : '—'}%
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
 
-              {/* Mintify */}
-              <a
-                href="https://app.mintify.com/nft/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="glass-dark rounded-2xl p-6 flex items-center justify-between group border border-white/10 hover:border-hero-blue/50 transition-all duration-300 hover:shadow-xl hover:shadow-hero-blue/20 hover:scale-[1.02] relative overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-hero-blue/0 to-hero-blue/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="flex items-center gap-4 relative z-10">
-                  <div className="w-12 h-12 rounded-xl bg-hero-blue/10 flex items-center justify-center group-hover:bg-hero-blue/20 transition-colors">
-                    <Image
-                      src="/mintify_icon.jpeg"
-                      alt="Mintify"
-                      width={32}
-                      height={32}
-                      className="w-8 h-8 rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg" style={{ color: 'var(--foreground)' }}>
-                      Mintify
-                    </h3>
-                  </div>
+              {/* Search + clear */}
+              <div className="flex gap-3 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                  <input
+                    value={raritySearch}
+                    onChange={e => setRaritySearch(e.target.value)}
+                    placeholder="Search by Ape ID or trait…"
+                    className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/12 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-hero-blue/50 focus:ring-2 focus:ring-hero-blue/20 transition-all text-sm"
+                  />
                 </div>
-                <ExternalLink className="w-5 h-5 text-hero-blue opacity-0 group-hover:opacity-100 transition-opacity relative z-10" />
-              </a>
-            </div>
-          </motion.section>
+                {rarityActiveTier && (
+                  <button
+                    onClick={() => handleRarityTierChange('')}
+                    className="px-5 py-3 rounded-xl bg-white/5 border border-white/12 text-white/60 hover:text-white hover:border-white/25 transition-all text-sm font-semibold"
+                  >
+                    Clear filter
+                  </button>
+                )}
+              </div>
 
-          {/* Live listings and recent activity sections removed (Magic Eden-based) */}
+              {/* Rarity count */}
+              {!rarityLoading && (
+                <p className="text-sm text-white/40 mb-4">
+                  {rarityTotal.toLocaleString()} Apes
+                  {rarityActiveTier && <span className="text-hero-blue ml-1">· {rarityActiveTier}</span>}
+                </p>
+              )}
+
+              {/* Rarity Grid */}
+              {rarityLoading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {Array.from({ length: RARITY_LIMIT }).map((_, i) => (
+                    <div key={i} className="aspect-square rounded-xl bg-white/5 animate-pulse" />
+                  ))}
+                </div>
+              ) : displayedRarityEntries.length === 0 ? (
+                <div className="text-center py-24 text-white/40">No Apes found.</div>
+              ) : (
+                <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  <AnimatePresence>
+                    {displayedRarityEntries.map((entry, i) => {
+                      const cfg = TIER_CONFIG[entry.tier];
+                      const Icon = cfg.icon;
+                      return (
+                        <motion.div
+                          key={entry.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ delay: i * 0.02, duration: 0.25 }}
+                        >
+                          <Link href={`/collection/${entry.id}`}>
+                            <div className={`relative group rounded-xl border overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+                              entry.tier !== 'Common' ? `${cfg.border} ${cfg.bg}` : 'border-white/10 bg-white/[0.03]'
+                            }`}>
+                              <div className="aspect-square relative overflow-hidden">
+                                <Image
+                                  src={`${CDN_THUMB_RARITY}/${entry.id}.webp`}
+                                  alt={`Ape #${entry.id}`}
+                                  fill
+                                  sizes="(max-width: 768px) 50vw, 16vw"
+                                  className="object-cover transition-transform duration-500 group-hover:scale-110"
+                                  unoptimized
+                                />
+                                {/* Tier badge */}
+                                <div className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm border ${cfg.bg} ${cfg.color} ${cfg.border}`}>
+                                  <Icon className="w-2.5 h-2.5" />
+                                  {entry.tier}
+                                </div>
+                                {/* Rank badge */}
+                                <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-black/60 text-[10px] font-bold text-white/80 backdrop-blur-sm">
+                                  #{entry.rank}
+                                </div>
+                              </div>
+                              <div className="p-2.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-bold text-white">#{entry.id}</span>
+                                  <span className="text-[10px] text-white/35 tabular-nums">{entry.score.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                </div>
+                                <div className="text-[10px] text-white/35 mt-0.5">{entry.traits.length} traits</div>
+                              </div>
+                            </div>
+                          </Link>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </motion.div>
+              )}
+
+              {/* Pagination */}
+              {!rarityDebouncedSearch && rarityPages > 1 && (
+                <div className="flex items-center justify-center gap-4 mt-10">
+                  <button
+                    onClick={() => setRarityPage(p => Math.max(1, p - 1))}
+                    disabled={rarityPage === 1}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 border border-white/12 hover:border-hero-blue/40 hover:bg-hero-blue/10 transition-all disabled:opacity-30 disabled:pointer-events-none text-sm font-semibold"
+                  >
+                    <ChevronLeft className="w-4 h-4" /> Prev
+                  </button>
+                  <span className="text-sm text-white/50">Page {rarityPage} of {rarityPages}</span>
+                  <button
+                    onClick={() => setRarityPage(p => Math.min(rarityPages, p + 1))}
+                    disabled={rarityPage === rarityPages}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 border border-white/12 hover:border-hero-blue/40 hover:bg-hero-blue/10 transition-all disabled:opacity-30 disabled:pointer-events-none text-sm font-semibold"
+                  >
+                    Next <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── BROWSE VIEW ──────────────────────────────────────── */}
+          {viewMode === 'browse' && (<>
 
           {/* Divider */}
           <div className="flex items-center gap-4 mb-8">
@@ -930,7 +1164,16 @@ export default function CollectionPage() {
                         className="inline-flex items-center gap-2 px-4 py-3 rounded-xl border border-hero-blue/40 bg-hero-blue/10 text-hero-blue hover:bg-hero-blue/20 hover:border-hero-blue/60 transition-all text-sm font-medium"
                       >
                         <Sparkles className="w-4 h-4" />
-                        Surprise me
+                        Surprise
+                      </button>
+                      {/* Sort toggle */}
+                      <button
+                        onClick={() => setSortBy(s => s === 'token-asc' ? 'token-desc' : 'token-asc')}
+                        className="inline-flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 hover:border-white/25 bg-white/[0.03] hover:bg-white/[0.06] transition-all text-sm text-white/60 hover:text-white"
+                        title={sortBy === 'token-asc' ? 'ID: Low → High' : 'ID: High → Low'}
+                      >
+                        <ArrowUpDown className="w-4 h-4" />
+                        {sortBy === 'token-asc' ? '0→9' : '9→0'}
                       </button>
                       <button
                         className="px-4 py-3 rounded-xl border border-white/10 text-sm hover:border-hero-blue/50 hover:bg-white/5 transition-all"
@@ -1267,47 +1510,62 @@ export default function CollectionPage() {
               ) : (
               <>
                   {/* 4 columns on desktop */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
                     {displayedItems.map((item, idx) => (
                       <motion.div
                         key={item.id}
-                        className="glass-dark rounded-xl overflow-hidden border border-white/10 cursor-pointer group hover:border-hero-blue/30 transition-all duration-300"
+                        className="glass-dark rounded-2xl overflow-hidden border border-white/10 cursor-pointer group hover:border-hero-blue/40 transition-all duration-300 hover:shadow-lg hover:shadow-hero-blue/10"
                         onClick={() => openModal(item)}
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: Math.min(idx * 0.02, 0.3) }}
-                        whileHover={{ scale: 1.02, y: -2 }}
+                        whileHover={{ scale: 1.02, y: -3 }}
                       >
+                        {/* Image */}
                         <div className="relative aspect-square overflow-hidden">
-                      {item.tokenId ? (
-                        <FallbackImage
-                          srcs={[
-                            `${THUMBS_BASE}/${item.tokenId}.webp`,
-                            ...(item.imageUrls && item.imageUrls.length > 0
-                              ? item.imageUrls
-                              : (item.imageUrl ? [item.imageUrl] : [])),
-                          ]}
-                          alt={item.name}
-                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                          className="object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : item.imageUrl ? (
-                        <FallbackImage
-                          srcs={[item.imageUrl]}
-                          alt={item.name}
-                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                          <div className="w-10 h-10 border-4 border-hero-blue/30 border-t-hero-blue rounded-full animate-spin" />
-                        </div>
-                      )}
-                          {item.tokenId && (
-                            <div className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-black/70 text-xs border border-white/20 font-medium backdrop-blur-sm">
-                              #{item.tokenId}
+                          {item.tokenId ? (
+                            <FallbackImage
+                              srcs={[
+                                `${THUMBS_BASE}/${item.tokenId}.webp`,
+                                ...(item.imageUrls && item.imageUrls.length > 0
+                                  ? item.imageUrls
+                                  : (item.imageUrl ? [item.imageUrl] : [])),
+                              ]}
+                              alt={item.name}
+                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                              className="object-cover group-hover:scale-108 transition-transform duration-500"
+                            />
+                          ) : item.imageUrl ? (
+                            <FallbackImage
+                              srcs={[item.imageUrl]}
+                              alt={item.name}
+                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/[0.02]">
+                              <div className="w-8 h-8 border-2 border-hero-blue/30 border-t-hero-blue rounded-full animate-spin" />
                             </div>
                           )}
+                          {/* Hover overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                            <span className="text-xs font-semibold text-white/80 bg-hero-blue/80 px-2 py-1 rounded-lg backdrop-blur-sm">
+                              Quick view
+                            </span>
+                          </div>
+                        </div>
+                        {/* Bottom info strip */}
+                        <div className="px-3 py-2.5 flex items-center justify-between border-t border-white/[0.06]">
+                          <span className="text-sm font-bold text-white">
+                            {item.tokenId ? `#${item.tokenId}` : item.name}
+                          </span>
+                          <Link
+                            href={item.tokenId ? `/collection/${item.tokenId}` : '#'}
+                            onClick={e => e.stopPropagation()}
+                            className="text-[11px] text-white/30 hover:text-hero-blue transition-colors flex items-center gap-0.5 font-medium"
+                          >
+                            Detail <ExternalLink className="w-2.5 h-2.5" />
+                          </Link>
                         </div>
                       </motion.div>
                   ))}
@@ -1352,80 +1610,199 @@ export default function CollectionPage() {
               {/* Infinite scroll sentinel is shown above when hasMore */}
             </section>
           </div>
+
+          </>)}
         </div>
       </div>
 
       <Footer />
       <ScrollToTopButton />
       {/* Modal Preview */}
+      <AnimatePresence>
       {modalResolved && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={closeModal} />
-          <div className="relative z-10 glass-dark bg-black/60 rounded-xl border border-white/20 w-[95vw] max-w-4xl mx-auto overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <span className="text-sm" style={{ color: 'var(--ape-gray)' }}>Token</span>
-                <span className="text-base font-semibold" style={{ color: 'var(--foreground)' }}>
-                  {modalResolved.tokenId ? `#${modalResolved.tokenId}` : '—'}
-                </span>
+        <motion.div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={closeModal} />
+          <motion.div
+            className="relative z-10 w-full sm:w-[95vw] sm:max-w-3xl mx-auto rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl border border-white/15"
+            style={{ background: 'linear-gradient(135deg, rgba(10,12,20,0.97) 0%, rgba(5,10,25,0.97) 100%)' }}
+            initial={{ y: 60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 60, opacity: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+          >
+            {/* Header bar */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                {modalRarity && (() => {
+                  const cfg = TIER_CONFIG[modalRarity.tier];
+                  const Icon = cfg.icon;
+                  return (
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${cfg.bg} ${cfg.border} ${cfg.color}`}>
+                      <Icon className="w-3 h-3" />
+                      {modalRarity.tier}
+                    </span>
+                  );
+                })()}
+                <h2 className="text-base font-bold text-white">
+                  Ape {modalResolved.tokenId ? `#${modalResolved.tokenId}` : '—'}
+                </h2>
+                {modalRarity && (
+                  <span className="text-xs text-white/40">Rank #{modalRarity.rank.toLocaleString()}</span>
+                )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => {
                     if (typeof window === 'undefined' || !modalResolved.tokenId) return;
-                    const url = `${window.location.origin}/collection?search=${modalResolved.tokenId}`;
-                    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-                      void navigator.clipboard.writeText(url);
-                    }
+                    void navigator.clipboard?.writeText(`${window.location.origin}/collection/${modalResolved.tokenId}`);
                   }}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-hero-blue hover:bg-white/5"
+                  className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                  title="Copy link"
                 >
-                  <Link2 className="w-3 h-3" />
-                  Copy link
+                  <Link2 className="w-4 h-4" />
                 </button>
-                <button onClick={closeModal} className="p-2 rounded hover:bg-white/5" aria-label="Close">
-                  <X className="w-5 h-5" />
+                {modalResolved.tokenId && (
+                  <Link
+                    href={`/collection/${modalResolved.tokenId}`}
+                    onClick={closeModal}
+                    className="p-2 rounded-lg text-white/40 hover:text-hero-blue hover:bg-hero-blue/10 transition-all"
+                    title="Full details"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Link>
+                )}
+                <button onClick={closeModal} className="p-2 rounded-lg hover:bg-white/5 text-white/50 hover:text-white transition-all" aria-label="Close">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
-            <div className="grid md:grid-cols-2 gap-0">
-              <div className="relative w-full aspect-square md:aspect-auto md:min-h-[28rem] bg-black">
+
+            {/* Body */}
+            <div className="grid sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] max-h-[85vh] sm:max-h-none overflow-y-auto sm:overflow-visible">
+              {/* Left: image */}
+              <div className="relative w-full aspect-square bg-black/30 flex-shrink-0">
                 {modalImageSrcs.length > 0 ? (
                   <FallbackImage
                     srcs={modalImageSrcs}
                     alt={modalResolved.name}
-                    sizes="50vw"
-                    className="object-contain"
+                    sizes="(max-width: 640px) 100vw, 40vw"
+                    className="object-cover"
                   />
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                    <div className="w-12 h-12 border-4 border-hero-blue/30 border-t-hero-blue rounded-full animate-spin" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-10 h-10 border-4 border-hero-blue/30 border-t-hero-blue rounded-full animate-spin" />
+                  </div>
+                )}
+                {/* Rarity score overlay on image */}
+                {modalRarity && (
+                  <div className="absolute bottom-2 left-2 px-2 py-1 rounded-lg bg-black/70 backdrop-blur-sm text-xs text-white/70 font-mono">
+                    Score: {modalRarity.score.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </div>
                 )}
               </div>
-              <div className="p-4 md:p-6">
-                <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--foreground)' }}>
-                  Traits
-                </h3>
-                {!modalResolved.traits || modalResolved.traits.length === 0 ? (
-                  <p className="text-sm" style={{ color: 'var(--ape-gray)' }}>
-                    {modalResolved.tokenId ? 'Loading traits…' : 'No traits available'}
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {modalResolved.traits.map((t, idx) => (
-                      <span key={`${t.name}-${t.value}-${idx}`} className="px-2 py-1 rounded-full text-xs glass border border-white/10">
-                        {t.name}: {t.value}
-                      </span>
-                    ))}
+
+              {/* Right: info */}
+              <div className="flex flex-col sm:max-h-[600px] overflow-hidden">
+                {/* Rarity mini stats */}
+                {(modalRarity || modalRarityLoading) && (
+                  <div className="flex gap-2 px-4 pt-3 pb-2">
+                    {modalRarityLoading ? (
+                      <>
+                        <div className="flex-1 h-14 rounded-xl bg-white/5 animate-pulse" />
+                        <div className="flex-1 h-14 rounded-xl bg-white/5 animate-pulse" />
+                        <div className="flex-1 h-14 rounded-xl bg-white/5 animate-pulse" />
+                      </>
+                    ) : modalRarity && (
+                      <>
+                        <div className="flex-1 rounded-xl bg-white/5 border border-white/8 px-3 py-2 text-center">
+                          <div className="text-xs text-white/35 uppercase tracking-wider mb-0.5">Rank</div>
+                          <div className="text-base font-black text-white">#{modalRarity.rank}</div>
+                        </div>
+                        <div className="flex-1 rounded-xl bg-white/5 border border-white/8 px-3 py-2 text-center">
+                          <div className="text-xs text-white/35 uppercase tracking-wider mb-0.5">Score</div>
+                          <div className="text-base font-black text-white">{(modalRarity.score / 1000).toFixed(1)}k</div>
+                        </div>
+                        <div className="flex-1 rounded-xl bg-white/5 border border-white/8 px-3 py-2 text-center">
+                          <div className="text-xs text-white/35 uppercase tracking-wider mb-0.5">Traits</div>
+                          <div className="text-base font-black text-white">{modalRarity.traits.length}</div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
+
+                {/* Traits */}
+                <div className="flex-1 overflow-y-auto px-4 py-2 custom-scrollbar">
+                  <div className="text-xs font-bold uppercase tracking-wider text-white/30 mb-2">Traits</div>
+                  {!modalResolved.traits || modalResolved.traits.length === 0 ? (
+                    <div className="flex items-center gap-2 text-sm text-white/30 py-4">
+                      <div className="w-4 h-4 border-2 border-white/20 border-t-white/50 rounded-full animate-spin" />
+                      {modalResolved.tokenId ? 'Loading traits…' : 'No traits available'}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {modalResolved.traits.map((t, idx) => {
+                        const countData = cdnTraitsMeta?.counts?.[t.name]?.[t.value];
+                        const pct = countData ? ((countData / 10000) * 100).toFixed(1) : null;
+                        const isRare = pct ? parseFloat(pct) < 10 : false;
+                        return (
+                          <div
+                            key={`${t.name}-${t.value}-${idx}`}
+                            className={`px-2.5 py-2 rounded-xl border text-xs transition-colors ${
+                              isRare
+                                ? 'bg-hero-blue/5 border-hero-blue/25'
+                                : 'bg-white/[0.03] border-white/8'
+                            }`}
+                          >
+                            <div className="text-white/35 uppercase tracking-wider text-[10px] mb-0.5">{t.name}</div>
+                            <div className="text-white font-semibold truncate">{t.value}</div>
+                            {pct && (
+                              <div className={`text-[10px] mt-0.5 ${isRare ? 'text-hero-blue/70' : 'text-white/20'}`}>
+                                {pct}% have this
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Buy buttons */}
+                <div className="px-4 pb-4 pt-2 border-t border-white/8 flex gap-2 flex-wrap">
+                  {modalResolved.tokenId && (
+                    <a
+                      href={`https://opensea.io/assets/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0/${modalResolved.tokenId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-hero-blue hover:bg-hero-blue-light text-white text-sm font-bold transition-all shadow-lg shadow-hero-blue/25"
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      Buy on OpenSea
+                    </a>
+                  )}
+                  {modalResolved.tokenId && (
+                    <Link
+                      href={`/collection/${modalResolved.tokenId}`}
+                      onClick={closeModal}
+                      className="flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl border border-white/15 hover:border-hero-blue/40 text-white/60 hover:text-white text-sm font-medium transition-all"
+                    >
+                      Full Details
+                    </Link>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }
