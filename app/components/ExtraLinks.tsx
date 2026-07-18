@@ -46,7 +46,7 @@ export default function ExtraLinks() {
 	const pathname = usePathname();
 	const isActive = (href: string) => pathname?.startsWith(href);
 
-	const communityLinks: { href: string; label: string; desc: string }[] = [];
+	const communityLinks: { href: string; icon: React.ComponentType<{ className?: string }>; label: string; desc: string }[] = [];
 
 	const holderLinks = hasAccess ? [
 		{ href: '/studio',                   icon: Wand2,    label: 'Studio',          desc: 'AI music & creation' },
