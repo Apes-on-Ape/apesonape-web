@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     siteName: "Apes On Ape",
     images: [
       {
-        url: "/AoA-placeholder-apecoinblue.jpg",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "Apes On Ape",
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Apes On Ape | NFT Collection on Apechain",
     description: "A playground for musicians, artists, game devs, and builders.",
-    images: ["/AoA-placeholder-apecoinblue.jpg"],
+    images: ["/og-image.png"],
     creator: "@apesonape",
   },
   robots: {
@@ -72,7 +72,8 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="AoA Music" />
-        <link rel="icon" href="/favicon.png" type="image/png" />
+        <link rel="icon" href="/favicon.png" type="image/png" sizes="any" />
+        <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
         {/* Speed up first connections to IPFS gateways used in collection */}

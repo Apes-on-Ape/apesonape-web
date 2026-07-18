@@ -208,8 +208,8 @@ export default function RadioPage() {
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const widgetRef = useRef<SoundCloudWidget | null>(null);
-  const hasAutoTriedRef = useRef(false);
-  const unmuteOnFirstInteractionRef = useRef(true);
+  // true once the user has interacted — persists across album switches
+  const hasUserInteractedRef = useRef(false);
 
   // ── Spotify / SoundCloud mutual exclusion ─────────────────────────────────
   const spotifyIframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -394,29 +394,33 @@ export default function RadioPage() {
       widget.bind(window.SC.Widget.Events.READY, () => {
         if (cancelled) return;
         setIsReady(true);
-        widget.setVolume(0);
+
+        // Collect tracks for the queue
         widget.getSounds((sounds: SoundCloudTrack[]) => {
-          if (!Array.isArray(sounds) || sounds.length === 0) return;
-          const randomIndex = Math.floor(Math.random() * sounds.length);
-          widget.load(playlistUrl, {
-            auto_play: true,
-            visual: false,
-            show_comments: false,
-            hide_related: true,
-            show_reposts: false,
-            show_user: false,
-            show_teaser: false,
-            start_track: randomIndex,
-          });
-          trackAllSounds(sounds);
+          if (Array.isArray(sounds) && sounds.length > 0) trackAllSounds(sounds);
         });
-        if (!hasAutoTriedRef.current) {
-          hasAutoTriedRef.current = true;
+
+        if (hasUserInteractedRef.current) {
+          // Returning visitor or album switch — user already interacted, restore volume & play
+          widget.setVolume(volume);
           setTimeout(() => {
             widget.isPaused((paused: boolean) => {
               if (paused) { try { widget.play(); } catch { /* silent */ } }
             });
-          }, 600);
+          }, 400);
+        } else {
+          // First page load — mute until the user taps (browser autoplay policy)
+          widget.setVolume(0);
+          const resumeFromGesture = () => {
+            hasUserInteractedRef.current = true;
+            try {
+              widget.setVolume(volume);
+              widget.isPaused((paused: boolean) => { if (paused) widget.play(); });
+            } catch { /* silent */ }
+          };
+          window.addEventListener('pointerdown', resumeFromGesture, { once: true });
+          window.addEventListener('keydown', resumeFromGesture, { once: true });
+          window.addEventListener('touchstart', resumeFromGesture, { once: true });
         }
       });
 
@@ -438,27 +442,22 @@ export default function RadioPage() {
         setIsPlaying(false);
       });
 
-      // Explicitly advance to next track on FINISH so playback continues
-      // when the screen is locked (browser may throttle the widget's own timer)
+      // On track finish: advance to the next track and explicitly start it.
+      // widget.next() only selects the track; widget.play() is needed to start it.
       widget.bind(window.SC.Widget.Events.FINISH, () => {
         if (cancelled) return;
-        try { widget.next(); } catch { /* end of playlist — stay on last track */ }
-      });
-
-      const resumeFromGesture = () => {
-        if (!unmuteOnFirstInteractionRef.current) return;
-        unmuteOnFirstInteractionRef.current = false;
         try {
-          widget.setVolume(volume);
-          widget.isPaused((paused: boolean) => { if (paused) widget.play(); });
-        } catch { /* silent */ }
-        window.removeEventListener('pointerdown', resumeFromGesture);
-        window.removeEventListener('keydown', resumeFromGesture);
-        window.removeEventListener('touchstart', resumeFromGesture);
-      };
-      window.addEventListener('pointerdown', resumeFromGesture, { once: true });
-      window.addEventListener('keydown', resumeFromGesture, { once: true });
-      window.addEventListener('touchstart', resumeFromGesture, { once: true });
+          widget.next();
+          // Give the widget ~400 ms to switch tracks, then force play if paused
+          setTimeout(() => {
+            try {
+              widget.isPaused((paused: boolean) => {
+                if (paused) widget.play();
+              });
+            } catch { /* silent */ }
+          }, 400);
+        } catch { /* end of playlist — no more tracks */ }
+      });
     }
 
     function ensureScript() {
@@ -487,6 +486,18 @@ export default function RadioPage() {
 
   const displayPlaylists = playlistsWithArtwork.length > 0 ? playlistsWithArtwork : AVAILABLE_PLAYLISTS;
 
+  // Helper: advance track then guarantee playback starts (used by lock screen buttons)
+  const skipAndPlay = useCallback((direction: 'next' | 'prev') => {
+    const w = widgetRef.current;
+    if (!w) return;
+    try {
+      direction === 'next' ? w.next() : w.prev();
+      setTimeout(() => {
+        try { w.isPaused((paused: boolean) => { if (paused) w.play(); }); } catch { /* silent */ }
+      }, 400);
+    } catch { /* silent */ }
+  }, []);
+
   // Media Session API — updates lock screen / car display when the track changes
   useEffect(() => {
     if (!nowPlaying) return;
@@ -495,12 +506,13 @@ export default function RadioPage() {
       artist: selectedArtist?.name ?? 'AOA Records',
       album: selectedPlaylist.title.replace(/\s+by\s+.+$/i, '').trim(),
       artwork: nowPlaying.artwork ?? selectedPlaylist.artwork,
+      isPlaying,
       onPlay:  () => widgetRef.current?.play(),
       onPause: () => widgetRef.current?.pause(),
-      onNext:  () => widgetRef.current?.next(),
-      onPrev:  () => widgetRef.current?.prev(),
+      onNext:  () => skipAndPlay('next'),
+      onPrev:  () => skipAndPlay('prev'),
     });
-  }, [nowPlaying, selectedArtist, selectedPlaylist]);
+  }, [nowPlaying, selectedArtist, selectedPlaylist, skipAndPlay, isPlaying]);
 
   // Collect ALL releases per artist (SoundCloud playlists + Spotify albums).
   // Parses "by [Name]" from SoundCloud playlist titles, fuzzy-matches artist names/aliases,

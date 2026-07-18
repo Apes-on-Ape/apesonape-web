@@ -44,6 +44,7 @@ export interface MediaSessionTrack {
   artist?: string;
   album?: string;
   artwork?: string;
+  isPlaying?: boolean;
   onPlay?: () => void;
   onPause?: () => void;
   onNext?: () => void;
@@ -57,17 +58,23 @@ export function updateMediaSession(track: MediaSessionTrack) {
     title: track.title,
     artist: track.artist ?? 'AOA Records',
     album: track.album ?? 'Apes On Ape',
-    artwork: track.artwork
-      ? [
-          { src: track.artwork, sizes: '500x500', type: 'image/jpeg' },
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-        ]
-      : [{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
+    artwork: [
+      ...(track.artwork ? [{ src: track.artwork, sizes: '500x500', type: 'image/jpeg' }] : []),
+      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
   });
+
+  // Tell the OS whether we're playing or paused (shows correct icon on lock screen)
+  navigator.mediaSession.playbackState = track.isPlaying === false ? 'paused' : 'playing';
 
   const noop = () => {};
   navigator.mediaSession.setActionHandler('play', track.onPlay ?? noop);
   navigator.mediaSession.setActionHandler('pause', track.onPause ?? noop);
   navigator.mediaSession.setActionHandler('nexttrack', track.onNext ?? noop);
   navigator.mediaSession.setActionHandler('previoustrack', track.onPrev ?? noop);
+  // Explicitly set seekbackward/forward to null so the OS hides seek bars
+  // (SoundCloud widget doesn't expose a seek API)
+  try { navigator.mediaSession.setActionHandler('seekbackward', null); } catch { /* unsupported */ }
+  try { navigator.mediaSession.setActionHandler('seekforward', null); } catch { /* unsupported */ }
 }
