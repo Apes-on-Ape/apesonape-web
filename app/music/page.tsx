@@ -242,7 +242,10 @@ export default function RadioPage() {
     const params = new URLSearchParams({
       url: playlistUrl,
       color: '0054F9',
-      auto_play: 'false',
+      // auto_play must be 'true' so SoundCloud's internal engine advances tracks
+      // natively — this is the only way playback continues when the screen is locked
+      // (parent-page JS is throttled by the OS; the iframe JS is not).
+      auto_play: 'true',
       hide_related: 'true',
       show_comments: 'false',
       show_user: 'true',
@@ -409,8 +412,11 @@ export default function RadioPage() {
             });
           }, 400);
         } else {
-          // First page load — mute until the user taps (browser autoplay policy)
+          // First page load — the iframe has auto_play=true so we must mute AND pause
+          // immediately to prevent surprise audio before the user has interacted.
           widget.setVolume(0);
+          try { widget.pause(); } catch { /* silent */ }
+
           const resumeFromGesture = () => {
             hasUserInteractedRef.current = true;
             try {
@@ -442,21 +448,18 @@ export default function RadioPage() {
         setIsPlaying(false);
       });
 
-      // On track finish: advance to the next track and explicitly start it.
-      // widget.next() only selects the track; widget.play() is needed to start it.
+      // FINISH handler is a safety net only: with auto_play=true the SoundCloud iframe
+      // advances tracks natively (works on locked screens). We just ensure play resumes
+      // in case the native advance momentarily pauses on slow connections.
       widget.bind(window.SC.Widget.Events.FINISH, () => {
         if (cancelled) return;
-        try {
-          widget.next();
-          // Give the widget ~400 ms to switch tracks, then force play if paused
-          setTimeout(() => {
-            try {
-              widget.isPaused((paused: boolean) => {
-                if (paused) widget.play();
-              });
-            } catch { /* silent */ }
-          }, 400);
-        } catch { /* end of playlist — no more tracks */ }
+        setTimeout(() => {
+          try {
+            widget.isPaused((paused: boolean) => {
+              if (paused) widget.play();
+            });
+          } catch { /* silent */ }
+        }, 600);
       });
     }
 
@@ -498,7 +501,36 @@ export default function RadioPage() {
     } catch { /* silent */ }
   }, []);
 
-  // Media Session API — updates lock screen / car display when the track changes
+  // Stable refs so lock-screen handlers always call the latest widget methods
+  // without needing to re-register them (re-registration can be lost when the
+  // SoundCloud iframe competes for the Media Session on some OS versions).
+  const msNextRef = useRef(() => skipAndPlay('next'));
+  const msPrevRef = useRef(() => skipAndPlay('prev'));
+  const msPlayRef = useRef(() => widgetRef.current?.play());
+  const msPauseRef = useRef(() => widgetRef.current?.pause());
+  msNextRef.current  = () => skipAndPlay('next');
+  msPrevRef.current  = () => skipAndPlay('prev');
+  msPlayRef.current  = () => widgetRef.current?.play();
+  msPauseRef.current = () => widgetRef.current?.pause();
+
+  // Register action handlers ONCE on mount — they stay alive for the entire session.
+  // This prevents the SoundCloud iframe from evicting our next/prev buttons.
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.setActionHandler('play',          () => msPlayRef.current());
+    navigator.mediaSession.setActionHandler('pause',         () => msPauseRef.current());
+    navigator.mediaSession.setActionHandler('nexttrack',     () => msNextRef.current());
+    navigator.mediaSession.setActionHandler('previoustrack', () => msPrevRef.current());
+    // Do NOT register seekbackward/seekforward — their absence lets the OS show next/prev instead
+    return () => {
+      (['play','pause','nexttrack','previoustrack'] as MediaSessionAction[]).forEach(a => {
+        try { navigator.mediaSession.setActionHandler(a, null); } catch { /* silent */ }
+      });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Media Session API — updates lock-screen metadata + playback state when the track changes
   useEffect(() => {
     if (!nowPlaying) return;
     updateMediaSession({
@@ -507,12 +539,8 @@ export default function RadioPage() {
       album: selectedPlaylist.title.replace(/\s+by\s+.+$/i, '').trim(),
       artwork: nowPlaying.artwork ?? selectedPlaylist.artwork,
       isPlaying,
-      onPlay:  () => widgetRef.current?.play(),
-      onPause: () => widgetRef.current?.pause(),
-      onNext:  () => skipAndPlay('next'),
-      onPrev:  () => skipAndPlay('prev'),
     });
-  }, [nowPlaying, selectedArtist, selectedPlaylist, skipAndPlay, isPlaying]);
+  }, [nowPlaying, selectedArtist, selectedPlaylist, isPlaying]);
 
   // Collect ALL releases per artist (SoundCloud playlists + Spotify albums).
   // Parses "by [Name]" from SoundCloud playlist titles, fuzzy-matches artist names/aliases,

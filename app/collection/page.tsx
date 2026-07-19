@@ -105,6 +105,10 @@ export default function CollectionPage() {
 
   const itemsPerPage = 50;
 
+  // Tracks the last set of filter criteria (excludes driveItems / plannedUntil so that
+  // planning more items doesn't reset pagination back to page 1)
+  const prevFilterCriteriaRef = useRef({ searchTerm: '', sortBy: 'token-asc' as string, selKey: '', cdnIdx: null as typeof cdnTraitIndex });
+
   // Local search input for token ID
   const [idQuery, setIdQuery] = useState<string>('');
   const OPENSEA_COLLECTION_URL = 'https://opensea.io/collection/apes-on-apechain';
@@ -535,6 +539,21 @@ export default function CollectionPage() {
     const activeTypes = Object.entries(selectedByType).filter(([, s]) => s.size > 0);
     const hasTraitFilters = activeTypes.length > 0;
 
+    // Detect whether actual filter criteria changed (vs. just more data being planned)
+    const selKey = Object.entries(selectedByType)
+      .filter(([, s]) => s.size > 0)
+      .map(([t, s]) => `${t}:${[...s].sort().join(',')}`)
+      .sort().join(';');
+    const prev = prevFilterCriteriaRef.current;
+    const filtersChanged =
+      prev.searchTerm !== q ||
+      prev.sortBy !== sortBy ||
+      prev.selKey !== selKey ||
+      prev.cdnIdx !== cdnTraitIndex;
+    if (filtersChanged) {
+      prevFilterCriteriaRef.current = { searchTerm: q, sortBy, selKey, cdnIdx: cdnTraitIndex };
+    }
+
     // If neither search nor trait filters, fall back to existing items (paged planning)
     if (!hasSearch && !hasTraitFilters) {
       // Sorting
@@ -555,9 +574,11 @@ export default function CollectionPage() {
         }
       });
       setFilteredItems(sorted);
-      setPage(1);
-      setDisplayedItems(sorted.slice(0, itemsPerPage));
-      // Even if we only have the first planned chunk, allow infinite scroll to plan more
+      // Only reset to page 1 when the actual filter criteria changed — NOT when more items are planned
+      if (filtersChanged) {
+        setPage(1);
+        setDisplayedItems(sorted.slice(0, itemsPerPage));
+      }
       const canPlanMore = (plannedUntil + 1) < totalCount;
       setHasMore(sorted.length > itemsPerPage || canPlanMore);
       return;
@@ -664,9 +685,11 @@ export default function CollectionPage() {
     });
 
     setFilteredItems(filtered);
-    setPage(1);
-    setDisplayedItems(filtered.slice(0, itemsPerPage));
-    // If filters are active, we still may plan more tokens to discover additional matches
+    // Only reset to page 1 when actual filter criteria changed
+    if (filtersChanged) {
+      setPage(1);
+      setDisplayedItems(filtered.slice(0, itemsPerPage));
+    }
     const canPlanMore = (plannedUntil + 1) < totalCount;
     setHasMore(filtered.length > itemsPerPage || canPlanMore);
   }, [driveItems, searchTerm, sortBy, selectedByType, cdnTraitIndex, plannedUntil, totalCount]);
@@ -683,7 +706,8 @@ export default function CollectionPage() {
         if (filterGenRef.current !== capturedGen) return;
         if (!entries[0].isIntersecting || !hasMore || loading) return;
         const nextPage = page + 1;
-        const start = nextPage * itemsPerPage;
+        // `page` already represents pages-loaded; next slice starts at page*itemsPerPage
+        const start = page * itemsPerPage;
         const end = start + itemsPerPage;
         const newItems = filteredItems.slice(start, end);
 

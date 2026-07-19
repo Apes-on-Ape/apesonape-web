@@ -45,12 +45,19 @@ export interface MediaSessionTrack {
   album?: string;
   artwork?: string;
   isPlaying?: boolean;
+  // Action handlers are now registered once by the music page (not via this helper)
+  // so these fields are kept for backwards compat but ignored here.
   onPlay?: () => void;
   onPause?: () => void;
   onNext?: () => void;
   onPrev?: () => void;
 }
 
+/**
+ * Updates the lock-screen / car-display metadata and playback state.
+ * Action handlers (play/pause/next/prev) are registered separately by the
+ * music page on mount so they are never evicted by the SoundCloud iframe.
+ */
 export function updateMediaSession(track: MediaSessionTrack) {
   if (!('mediaSession' in navigator)) return;
 
@@ -65,16 +72,6 @@ export function updateMediaSession(track: MediaSessionTrack) {
     ],
   });
 
-  // Tell the OS whether we're playing or paused (shows correct icon on lock screen)
+  // Reflect current playback state so the lock screen shows the right icon
   navigator.mediaSession.playbackState = track.isPlaying === false ? 'paused' : 'playing';
-
-  const noop = () => {};
-  navigator.mediaSession.setActionHandler('play', track.onPlay ?? noop);
-  navigator.mediaSession.setActionHandler('pause', track.onPause ?? noop);
-  navigator.mediaSession.setActionHandler('nexttrack', track.onNext ?? noop);
-  navigator.mediaSession.setActionHandler('previoustrack', track.onPrev ?? noop);
-  // Explicitly set seekbackward/forward to null so the OS hides seek bars
-  // (SoundCloud widget doesn't expose a seek API)
-  try { navigator.mediaSession.setActionHandler('seekbackward', null); } catch { /* unsupported */ }
-  try { navigator.mediaSession.setActionHandler('seekforward', null); } catch { /* unsupported */ }
 }
