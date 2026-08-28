@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Tailstrike Arena - Fighting Game</title>
+    <link rel="stylesheet" href="../../shared/css/arcade-viewport.css">
+    <script src="../../shared/js/arcade-config.js"></script>
+    <script src="../../shared/js/arcade-device.js"></script>
+    <script src="../../shared/js/loading-screen.js"></script>
+    <script src="../../shared/js/wallet-guard.js?v=8"></script>
+    <script src="../../shared/js/arcade-url-glyph-seed.js"></script>
+    <script src="../../shared/js/arcade-persist-wallet.js?v=8"></script>
+    <script src="../../shared/js/achievements.js?v=8"></script>
+    <script src="../../shared/js/game-score-utils.js?v=8"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "phaser": "./src/shims/phaser-global.js"
+        }
+      }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background: #000;
+            overflow: hidden;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        
+        #root {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        canvas {
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+
+        #loadingScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: #fff;
+            font-size: clamp(12px, 3.5vw, 24px);
+            padding: 16px;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-top: 3px solid #ff6600;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 20px;
+            flex-shrink: 0;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #tailstrike-mobile-wall {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: #0a0a0a;
+            color: #fff;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+            text-align: center;
+            gap: 16px;
+        }
+
+        #tailstrike-mobile-wall h1 {
+            color: #ff6600;
+            font-size: clamp(14px, 4vw, 22px);
+            line-height: 1.4;
+            max-width: 36em;
+        }
+
+        #tailstrike-mobile-wall p {
+            font-size: clamp(9px, 2.8vw, 12px);
+            line-height: 1.6;
+            color: #ccc;
+            max-width: 32em;
+        }
+
+        #tailstrike-mobile-wall a {
+            color: #00ffff;
+        }
+    </style>
+</head>
+<body>
+    <div id="tailstrike-mobile-wall" style="display: none;">
+        <h1>Desktop browser required</h1>
+        <p>Tailstrike Arena needs a keyboard and mouse. Please open this page on a PC or Mac in Chrome, Firefox, Edge, or Safari.</p>
+    </div>
+    <div id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <div>Loading Tailstrike Arena...</div>
+    </div>
+    <div id="root"></div>
+    <script>
+        (function () {
+            var wall = document.getElementById('tailstrike-mobile-wall');
+            var load = document.getElementById('loadingScreen');
+            if (window.ArcadeDevice && window.ArcadeDevice.isMobile()) {
+                if (load) load.style.display = 'none';
+                if (wall) wall.style.display = 'flex';
+                return;
+            }
+            var s = document.createElement('script');
+            s.src = 'bundle.js';
+            s.onload = function () {
+                window.addEventListener('load', function () {
+                    function finish() {
+                        var el = document.getElementById('loadingScreen');
+                        if (el) el.style.display = 'none';
+                        if (window.ArcadeLoading && typeof window.ArcadeLoading.gameReady === 'function') {
+                            window.ArcadeLoading.gameReady();
+                        }
+                    }
+                    var p = typeof window.whenArcadeProfileAvatarReady === 'function' ? window.whenArcadeProfileAvatarReady() : Promise.resolve();
+                    p.then(function () {
+                        setTimeout(finish, 400);
+                    });
+                });
+            };
+            document.body.appendChild(s);
+        })();
+    </script>
+</body>
+</html>
