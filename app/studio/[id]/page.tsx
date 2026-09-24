@@ -1,4 +1,3 @@
-import Nav from '@/app/components/Nav';
 import Footer from '@/app/components/Footer';
 import CreationDetailClient from './CreationDetailClient';
 import { notFound } from 'next/navigation';
@@ -27,7 +26,6 @@ export default async function StudioDetailPage({ params }: { params: Promise<{ i
 
 	return (
 		<div className="min-h-screen flex flex-col">
-			<Nav />
 			<main className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16">
 				<CreationDetailClient creation={creation} />
 			</main>

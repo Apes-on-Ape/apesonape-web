@@ -3,10 +3,10 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useGlyph } from '@use-glyph/sdk-react';
 import { ChevronDown, ChevronLeft, ExternalLink, Trophy } from 'lucide-react';
 import SafeImage from '@/app/components/SafeImage';
-import { ARCADE_WALLET_SYNC_EVENT, getGlyphPrimaryAddress } from '@/lib/arcade-wallet';
+import { ARCADE_WALLET_SYNC_EVENT } from '@/lib/arcade-wallet';
+import { useSessionWallets } from '@/app/hooks/useSessionWallets';
 import { ARCADE_LEADERBOARD_GAMES } from '../arcade-games';
 
 type PointsRow = {
@@ -124,17 +124,7 @@ function ArcadeLeaderboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const glyph = (useGlyph() as unknown) as {
-    /** Some Glyph builds expose the active wallet here */
-    address?: string;
-    user?: {
-      id?: string;
-      evmWallet?: string;
-      smartWallet?: string;
-      linkedWallets?: Array<{ address?: string }>;
-    };
-  };
-  const glyphUserId = glyph?.user?.id?.trim() ?? '';
+  const { userId: glyphUserId, addresses: sessionAddresses } = useSessionWallets();
 
   /** Glyph canonical wallet mirrored for static arcade consumers. */
   const [arcadeConnectedWallet, setArcadeConnectedWallet] = useState<string | null>(null);
@@ -157,22 +147,10 @@ function ArcadeLeaderboardContent() {
 
   /** All wallet addresses that should receive the Glyph site profile on leaderboard rows */
   const leaderboardIdentityWalletSet = useMemo(() => {
-    const u = glyph?.user;
-    const addrs: string[] = [];
-    if (u) {
-      addrs.push(
-        ...[u.evmWallet, u.smartWallet, ...(u.linkedWallets ?? []).map((x) => x?.address)]
-          .filter((a): a is string => typeof a === 'string' && a.length > 0)
-          .map((a) => a.toLowerCase().trim())
-      );
-    }
-    const topLevel = (glyph.address ?? '').trim();
-    if (topLevel) addrs.push(topLevel.toLowerCase());
-    const primary = getGlyphPrimaryAddress(u ?? undefined).trim();
-    if (primary) addrs.push(primary.toLowerCase());
+    const addrs = [...sessionAddresses];
     if (arcadeConnectedWallet) addrs.push(arcadeConnectedWallet);
     return new Set(addrs);
-  }, [glyph?.user, glyph.address, arcadeConnectedWallet]);
+  }, [sessionAddresses, arcadeConnectedWallet]);
 
   const [glyphSiteProfile, setGlyphSiteProfile] = useState<{
     displayName: string | null;

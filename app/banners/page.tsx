@@ -4,7 +4,6 @@ import React, { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { magicEdenAPI, type MagicEdenNFT } from '@/lib/magic-eden';
 import { Download, ImagePlus, Loader2, Wand2, Plus, Minus, Palette } from 'lucide-react';
-import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import NextImage from 'next/image';
 import { useToolTracking } from '@/app/hooks/useToolTracking';
@@ -927,7 +926,6 @@ export default function BannersPage() {
 
   return (
     <div className="min-h-screen relative">
-      <Nav />
       {/* Decorative background glows */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full blur-3xl" style={{ background: 'radial-gradient(closest-side, rgba(34,211,238,0.18), transparent)' }} />

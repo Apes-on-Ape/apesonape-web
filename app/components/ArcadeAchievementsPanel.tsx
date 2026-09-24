@@ -91,29 +91,32 @@ export function ArcadeAchievementsPanel({ addresses, className = '', variant = '
   if (!addresses.length) return null;
 
   const isLobby = variant === 'lobby';
-  const pad = isLobby ? 'p-4 sm:p-5' : 'p-5 sm:p-6';
+  const pad = isLobby ? 'p-4 sm:p-5' : '';
   const gridCols = isLobby
     ? 'grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 md:grid-cols-4'
-    : 'grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5';
+    : 'grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 md:grid-cols-4';
+  const shell = isLobby
+    ? `rounded-2xl border border-white/10 bg-gradient-to-b from-zinc-900/80 to-zinc-950/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm ${pad}`
+    : 'border-t border-white/10 pt-8';
 
   return (
     <section
-      className={`rounded-2xl border border-white/10 bg-gradient-to-b from-zinc-900/80 to-zinc-950/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm ${pad} ${className}`}
+      className={`${shell} ${className}`}
       aria-labelledby="arcade-achievements-heading"
     >
       <div className={`mb-4 flex flex-col gap-2 sm:mb-5 sm:flex-row sm:items-center sm:justify-between`}>
         <div className="flex min-w-0 items-start gap-3">
-          <div
-            className={`flex shrink-0 items-center justify-center rounded-xl border border-amber-400/35 bg-amber-500/15 shadow-[0_0_20px_rgba(245,158,11,0.12)] ${isLobby ? 'h-10 w-10' : 'h-11 w-11'}`}
-          >
-            <Award className={`text-amber-200 ${isLobby ? 'h-5 w-5' : 'h-5 w-5'}`} aria-hidden />
+          {isLobby && (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-400/35 bg-amber-500/15">
+            <Award className="h-5 w-5 text-amber-200" aria-hidden />
           </div>
+          )}
           <div className="min-w-0">
             <h2
               id="arcade-achievements-heading"
-              className={`font-black tracking-tight text-white ${isLobby ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'}`}
+              className={isLobby ? 'font-black tracking-tight text-white text-base sm:text-lg' : 'text-[11px] tracking-[0.35em] uppercase text-white/40'}
             >
-              Arcade achievements
+              {isLobby ? 'Arcade achievements' : 'Achievements'}
             </h2>
             <p className={`text-zinc-500 ${isLobby ? 'text-xs sm:text-sm' : 'text-sm'}`}>
               {loading
@@ -159,11 +162,14 @@ export function ArcadeAchievementsPanel({ addresses, className = '', variant = '
                   <div
                     key={a.id}
                     title={a.description}
-                    className={`flex flex-col rounded-xl border px-2.5 py-2.5 transition sm:px-3 sm:py-3 ${
-                      a.earned
-                        ? 'border-amber-400/25 bg-amber-500/[0.07] ring-1 ring-amber-500/10'
-                        : 'border-white/[0.08] bg-zinc-950/50 opacity-[0.85]'
-                    }`}
+                    className={isLobby
+                      ? `flex flex-col rounded-xl border px-2.5 py-2.5 transition sm:px-3 sm:py-3 ${
+                          a.earned
+                            ? 'border-amber-400/25 bg-amber-500/[0.07] ring-1 ring-amber-500/10'
+                            : 'border-white/[0.08] bg-zinc-950/50 opacity-[0.85]'
+                        }`
+                      : `py-1 ${a.earned ? 'text-white' : 'text-white/30'}`
+                    }
                   >
                     <div className="mb-1 flex items-start justify-between gap-1">
                       <span className="text-xl leading-none sm:text-2xl" aria-hidden>

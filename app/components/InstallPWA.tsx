@@ -75,7 +75,8 @@ export default function InstallPWA() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 260, damping: 24, delay: 3 }}
-          className="fixed bottom-4 left-3 right-3 z-50 max-w-md mx-auto"
+          className="fixed left-3 right-3 z-50 mx-auto max-w-md"
+          style={{ bottom: 'calc(var(--aoa-dock-offset) + 0.75rem)' }}
         >
           <div className="bg-[#0a0a0f] border border-hero-blue/30 rounded-2xl p-4 shadow-2xl shadow-black/60 flex items-center gap-3">
             {/* Icon */}

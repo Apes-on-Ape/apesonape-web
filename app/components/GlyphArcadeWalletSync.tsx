@@ -1,13 +1,8 @@
 'use client';
 
-import { useGlyph } from '@use-glyph/sdk-react';
-import { useEffect, useMemo, useRef } from 'react';
-import {
-  ARCADE_WALLET_SYNC_EVENT,
-  getGlyphEvmWalletAddress,
-  getGlyphPrimaryAddress,
-  type GlyphUserLike
-} from '@/lib/arcade-wallet';
+import { useEffect, useRef } from 'react';
+import { ARCADE_WALLET_SYNC_EVENT } from '@/lib/arcade-wallet';
+import { useSessionWallets } from '@/app/hooks/useSessionWallets';
 
 /**
  * When the user is signed in with Glyph on the main site, mirror their verified holder
@@ -29,20 +24,7 @@ const ARCADE_NON_TRUSTED_STORAGE_KEYS = [
 ];
 
 export default function GlyphArcadeWalletSync() {
-  const glyph = (useGlyph() as unknown) as { user?: GlyphUserLike };
-
-  /** Prefer explicit Glyph EVM; fallback to Glyph primary so arcade always gets a canonical wallet. */
-  const primaryAddress = useMemo(() => {
-    const evm = getGlyphEvmWalletAddress(glyph?.user);
-    if (evm) return evm;
-    return getGlyphPrimaryAddress(glyph?.user);
-  }, [glyph?.user]);
-
-  const glyphUserId = useMemo(() => {
-    const id = glyph?.user?.id?.trim();
-    return id || '';
-  }, [glyph?.user?.id]);
-
+  const { signedIn, userId, primaryAddress } = useSessionWallets();
   const lastSyncedRef = useRef<string>('');
 
   useEffect(() => {
@@ -58,70 +40,39 @@ export default function GlyphArcadeWalletSync() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!glyph?.user) {
-      try {
-        localStorage.removeItem(GLYPH_USER_ID_STORAGE_KEY);
-      } catch {
-        /* ignore */
-      }
-    } else if (glyphUserId) {
-      try {
-        localStorage.setItem(GLYPH_USER_ID_STORAGE_KEY, glyphUserId);
-        window.dispatchEvent(new CustomEvent('aoa-glyph-user-id-sync', { detail: { glyphUserId } }));
-      } catch {
-        /* ignore */
-      }
-    } else {
-      try {
-        localStorage.removeItem(GLYPH_USER_ID_STORAGE_KEY);
-        localStorage.removeItem(GLYPH_EVM_WALLET_STORAGE_KEY);
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [glyph?.user, glyphUserId]);
-
-  /** Keep Glyph EVM in localStorage whenever we have a signed-in Glyph user (holder check still gates `connectedWallet`). */
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!glyph?.user || !glyphUserId || !primaryAddress) {
-      try {
-        localStorage.removeItem(GLYPH_EVM_WALLET_STORAGE_KEY);
-        localStorage.removeItem('connectedWallet');
-      } catch {
-        /* ignore */
-      }
-      return;
-    }
-    try {
-      localStorage.setItem(GLYPH_EVM_WALLET_STORAGE_KEY, primaryAddress.toLowerCase().trim());
-      window.dispatchEvent(new CustomEvent('aoa-glyph-arcade-sync', { detail: { glyphUserId, address: primaryAddress } }));
-    } catch {
-      /* ignore */
-    }
-  }, [glyph?.user, glyphUserId, primaryAddress]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!primaryAddress) {
+    if (!signedIn || !primaryAddress) {
       lastSyncedRef.current = '';
-      try {
-        localStorage.removeItem('connectedWallet');
-      } catch {
-        /* ignore */
+      if (!signedIn) {
+        try {
+          localStorage.removeItem(GLYPH_USER_ID_STORAGE_KEY);
+          localStorage.removeItem(GLYPH_EVM_WALLET_STORAGE_KEY);
+          localStorage.removeItem('connectedWallet');
+        } catch {
+          /* ignore */
+        }
       }
       return;
     }
 
     const normalized = primaryAddress.toLowerCase().trim();
-    if (lastSyncedRef.current === normalized) return;
+    try {
+      localStorage.setItem(GLYPH_EVM_WALLET_STORAGE_KEY, normalized);
+      localStorage.setItem('connectedWallet', normalized);
+      if (userId) {
+        localStorage.setItem(GLYPH_USER_ID_STORAGE_KEY, userId);
+        window.dispatchEvent(new CustomEvent('aoa-glyph-user-id-sync', { detail: { glyphUserId: userId } }));
+      }
+      window.dispatchEvent(new CustomEvent('aoa-glyph-arcade-sync', { detail: { glyphUserId: userId, address: normalized } }));
+    } catch {
+      /* ignore */
+    }
 
-    localStorage.setItem('connectedWallet', normalized);
+    if (lastSyncedRef.current === normalized) return;
     lastSyncedRef.current = normalized;
     window.dispatchEvent(
       new CustomEvent(ARCADE_WALLET_SYNC_EVENT, { detail: { address: normalized } })
     );
-  }, [primaryAddress]);
+  }, [signedIn, userId, primaryAddress]);
 
   return null;
 }

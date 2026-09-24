@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePrivy } from '@privy-io/react-auth';
 import { Image as ImageIcon, Loader2, BadgeCheck, Search } from 'lucide-react';
-import Nav from '@/app/components/Nav';
 import Footer from '@/app/components/Footer';
 import SafeImage from '@/app/components/SafeImage';
 import DailyEngagementStudioSection from '@/app/components/engagement/DailyEngagementStudioSection';
@@ -93,7 +92,6 @@ export default function StudioExplorePage() {
 
 	return (
 		<div className="min-h-screen flex flex-col">
-			<Nav />
 			<main className="flex-1 container-premium pt-24 pb-16">
 				{/* Premium Hero Section */}
 				<div className="glass-premium rounded-2xl p-8 md:p-12 mb-12 relative overflow-hidden">

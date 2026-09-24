@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Music | Apes On Ape",
-  description: "Featured albums from Apes On Ape artists on SoundCloud. Discover new tracks from the community.",
+  title: "Turn your volume up",
+  description: "This community built a record label. Apes together strong.",
   openGraph: {
-    title: "Music | Apes On Ape",
-    description: "Featured albums from Apes On Ape artists on SoundCloud.",
+    title: "Turn your volume up",
+    description: "Apes together strong.",
     images: ["/AoA-placeholder-apecoinblue.jpg"],
   },
 };

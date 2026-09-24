@@ -4,11 +4,12 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Music, Heart, Disc3, Trophy, ExternalLink, Download } from 'lucide-react';
 import { SiSoundcloud } from 'react-icons/si';
-import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import Image from 'next/image';
+import Link from 'next/link';
 import { ARTISTS } from '@/app/data/artists';
-import { updateMediaSession } from '@/app/components/PWAManager';
+import { useAoaRadioState } from '@/app/hooks/useAoaRadioState';
+import { dispatchRadioCommand, sameRadioUrl } from '@/lib/aoa-radio';
 
 interface Track {
   id: string;
@@ -50,43 +51,6 @@ interface Playlist {
   url: string;
   trackCount: number;
   artwork?: string;
-}
-
-type SoundCloudTrack = {
-  id: number;
-  title?: string;
-  user?: { username?: string };
-  artwork_url?: string;
-  duration?: number;
-  permalink_url?: string;
-  description?: string;
-  stream_url?: string;
-};
-
-interface SoundCloudWidget {
-  bind(event: string, listener: () => void): void;
-  play(): void;
-  pause(): void;
-  next(): void;
-  prev(): void;
-  isPaused(callback: (paused: boolean) => void): void;
-  setVolume(volumePercent: number): void;
-  getCurrentSound(callback: (sound: SoundCloudTrack | null) => void): void;
-  getSounds(callback: (sounds: SoundCloudTrack[]) => void): void;
-  getCurrentSoundIndex(callback: (index: number) => void): void;
-  load(url: string, options?: Record<string, unknown>): void;
-}
-
-interface SoundCloud {
-  Widget: {
-    (iframe: HTMLIFrameElement): SoundCloudWidget;
-    Events: {
-      READY: string;
-      PLAY: string;
-      PAUSE: string;
-      FINISH: string;
-    };
-  };
 }
 
 const AVAILABLE_PLAYLISTS: Playlist[] = [
@@ -166,11 +130,6 @@ function StatItem({ value, label }: { value: string; label: string }) {
 }
 
 export default function RadioPage() {
-  const [nowPlaying, setNowPlaying] = useState<Track | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [volume] = useState(70);
-  const [isReady, setIsReady] = useState(false);
-  const [allTracks, setAllTracks] = useState<Track[]>([]);
   const [stats, setStats] = useState<SoundCloudStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [playlistUrl, setPlaylistUrl] = useState(DEFAULT_PLAYLIST_URL);
@@ -206,14 +165,34 @@ export default function RadioPage() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const widgetRef = useRef<SoundCloudWidget | null>(null);
-  // true once the user has interacted — persists across album switches
-  const hasUserInteractedRef = useRef(false);
+  const radio = useAoaRadioState();
+  const radioOnRelease = sameRadioUrl(radio.playlistUrl, playlistUrl);
+  const isPlaying = radioOnRelease && !!radio.playing;
+  const allTracks: Track[] = radioOnRelease
+    ? (radio.tracks ?? []).map((track) => ({
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        artwork: track.artwork,
+        duration: track.duration,
+        permalink: track.permalink,
+      }))
+    : [];
+  const nowPlaying: Track | null = radioOnRelease
+    ? allTracks.find((track) => track.id === radio.currentTrackId)
+      ?? (radio.title
+        ? {
+            id: radio.currentTrackId || 'current',
+            title: radio.title,
+            artist: radio.artist || 'AOA Records',
+            artwork: radio.artwork || selectedPlaylist.artwork || '',
+            duration: 0,
+            permalink: '',
+          }
+        : null)
+    : null;
 
-  // ── Spotify / SoundCloud mutual exclusion ─────────────────────────────────
   const spotifyIframeRef = useRef<HTMLIFrameElement | null>(null);
-  // Always-current helper so widget callbacks (captured in closures) can call it
   const pauseSpotifyRef = useRef<() => void>(() => {});
   pauseSpotifyRef.current = () => {
     try {
@@ -223,55 +202,32 @@ export default function RadioPage() {
     } catch { /* cross-origin guard */ }
   };
 
-  // Listen for Spotify postMessage events and pause SoundCloud when Spotify plays
   useEffect(() => {
-    const onMessage = (e: MessageEvent) => {
+    if (radio.playing) pauseSpotifyRef.current();
+  }, [radio.playing]);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
       try {
-        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-        // Spotify embed fires playback_update with isPaused:false when it starts
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (data?.type === 'playback_update' && data?.payload?.isPaused === false) {
-          widgetRef.current?.pause();
+          dispatchRadioCommand({ type: 'pause' });
         }
-      } catch { /* ignore malformed messages */ }
+      } catch { /* ignore */ }
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
-  const playerSrc = React.useMemo(() => {
-    const params = new URLSearchParams({
-      url: playlistUrl,
-      color: '0054F9',
-      // auto_play must be 'true' so SoundCloud's internal engine advances tracks
-      // natively — this is the only way playback continues when the screen is locked
-      // (parent-page JS is throttled by the OS; the iframe JS is not).
-      auto_play: 'true',
-      hide_related: 'true',
-      show_comments: 'false',
-      show_user: 'true',
-      show_reposts: 'false',
-      show_teaser: 'false',
-      visual: 'true',
-      show_artwork: 'true',
-      buying: 'false',
-      sharing: 'true',
-      download: 'true',
-      show_playcount: 'true',
-    });
-    return `https://w.soundcloud.com/player/?${params.toString()}`;
-  }, [playlistUrl]);
+  useEffect(() => {
+    if (isPlaying) setSidebarTab('queue');
+  }, [isPlaying]);
 
-  const convertTrack = (scTrack: SoundCloudTrack): Track => ({
-    id: String(scTrack.id),
-    title: scTrack.title || 'Untitled',
-    artist: scTrack.user?.username || 'Apes On Ape',
-    artwork: scTrack.artwork_url || '/AoA-placeholder-apecoinblue.jpg',
-    duration: Math.floor((scTrack.duration || 0) / 1000),
-    permalink: scTrack.permalink_url || '',
-    mood: scTrack.description?.match(/mood:\s*(\w+)/i)?.[1] || 'Vibes',
-    season: scTrack.description?.match(/season:\s*(\w+)/i)?.[1] || 'Season 1',
-    streamUrl: scTrack.stream_url,
-  });
+  const playRelease = (url: string, title?: string) => {
+    if (!url) return;
+    setPlaylistUrl(url);
+    dispatchRadioCommand({ type: 'load', url, play: true, title });
+  };
 
   useEffect(() => {
     async function fetchStats() {
@@ -382,105 +338,6 @@ export default function RadioPage() {
     fetchPlaylists();
   }, []);
 
-  const trackAllSounds = (sounds: SoundCloudTrack[]) => {
-    setAllTracks(sounds.map(convertTrack));
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    function initWidget() {
-      if (!iframeRef.current || !window.SC || !window.SC.Widget) return;
-      const widget = window.SC.Widget(iframeRef.current) as unknown as SoundCloudWidget;
-      widgetRef.current = widget;
-
-      widget.bind(window.SC.Widget.Events.READY, () => {
-        if (cancelled) return;
-        setIsReady(true);
-
-        // Collect tracks for the queue
-        widget.getSounds((sounds: SoundCloudTrack[]) => {
-          if (Array.isArray(sounds) && sounds.length > 0) trackAllSounds(sounds);
-        });
-
-        if (hasUserInteractedRef.current) {
-          // Returning visitor or album switch — user already interacted, restore volume & play
-          widget.setVolume(volume);
-          setTimeout(() => {
-            widget.isPaused((paused: boolean) => {
-              if (paused) { try { widget.play(); } catch { /* silent */ } }
-            });
-          }, 400);
-        } else {
-          // First page load — the iframe has auto_play=true so we must mute AND pause
-          // immediately to prevent surprise audio before the user has interacted.
-          widget.setVolume(0);
-          try { widget.pause(); } catch { /* silent */ }
-
-          const resumeFromGesture = () => {
-            hasUserInteractedRef.current = true;
-            try {
-              widget.setVolume(volume);
-              widget.isPaused((paused: boolean) => { if (paused) widget.play(); });
-            } catch { /* silent */ }
-          };
-          window.addEventListener('pointerdown', resumeFromGesture, { once: true });
-          window.addEventListener('keydown', resumeFromGesture, { once: true });
-          window.addEventListener('touchstart', resumeFromGesture, { once: true });
-        }
-      });
-
-      widget.bind(window.SC.Widget.Events.PLAY, () => {
-        if (cancelled) return;
-        pauseSpotifyRef.current();
-        setIsPlaying(true);
-        setSidebarTab('queue');
-        widget.getCurrentSound((sound: SoundCloudTrack | null) => {
-          if (sound) setNowPlaying(convertTrack(sound));
-        });
-        widget.getSounds((sounds: SoundCloudTrack[]) => {
-          if (Array.isArray(sounds) && sounds.length > 0) trackAllSounds(sounds);
-        });
-      });
-
-      widget.bind(window.SC.Widget.Events.PAUSE, () => {
-        if (cancelled) return;
-        setIsPlaying(false);
-      });
-
-      // FINISH handler is a safety net only: with auto_play=true the SoundCloud iframe
-      // advances tracks natively (works on locked screens). We just ensure play resumes
-      // in case the native advance momentarily pauses on slow connections.
-      widget.bind(window.SC.Widget.Events.FINISH, () => {
-        if (cancelled) return;
-        setTimeout(() => {
-          try {
-            widget.isPaused((paused: boolean) => {
-              if (paused) widget.play();
-            });
-          } catch { /* silent */ }
-        }, 600);
-      });
-    }
-
-    function ensureScript() {
-      const sc = window.SC;
-      if (sc && typeof sc.Widget === 'function') { initWidget(); return; }
-      const existing = document.querySelector('script[data-sc-widget]') as HTMLScriptElement | null;
-      if (existing) { existing.addEventListener('load', initWidget); return; }
-      const script = document.createElement('script');
-      script.src = 'https://w.soundcloud.com/player/api.js';
-      script.async = true;
-      script.defer = true;
-      script.setAttribute('data-sc-widget', 'true');
-      script.addEventListener('load', initWidget);
-      document.body.appendChild(script);
-    }
-
-    ensureScript();
-    return () => { cancelled = true; };
-  }, [volume, playlistUrl]);
-
   const formatNumber = (num: number): string => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
@@ -488,59 +345,6 @@ export default function RadioPage() {
   };
 
   const displayPlaylists = playlistsWithArtwork.length > 0 ? playlistsWithArtwork : AVAILABLE_PLAYLISTS;
-
-  // Helper: advance track then guarantee playback starts (used by lock screen buttons)
-  const skipAndPlay = useCallback((direction: 'next' | 'prev') => {
-    const w = widgetRef.current;
-    if (!w) return;
-    try {
-      direction === 'next' ? w.next() : w.prev();
-      setTimeout(() => {
-        try { w.isPaused((paused: boolean) => { if (paused) w.play(); }); } catch { /* silent */ }
-      }, 400);
-    } catch { /* silent */ }
-  }, []);
-
-  // Stable refs so lock-screen handlers always call the latest widget methods
-  // without needing to re-register them (re-registration can be lost when the
-  // SoundCloud iframe competes for the Media Session on some OS versions).
-  const msNextRef = useRef(() => skipAndPlay('next'));
-  const msPrevRef = useRef(() => skipAndPlay('prev'));
-  const msPlayRef = useRef(() => widgetRef.current?.play());
-  const msPauseRef = useRef(() => widgetRef.current?.pause());
-  msNextRef.current  = () => skipAndPlay('next');
-  msPrevRef.current  = () => skipAndPlay('prev');
-  msPlayRef.current  = () => widgetRef.current?.play();
-  msPauseRef.current = () => widgetRef.current?.pause();
-
-  // Register action handlers ONCE on mount — they stay alive for the entire session.
-  // This prevents the SoundCloud iframe from evicting our next/prev buttons.
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
-    navigator.mediaSession.setActionHandler('play',          () => msPlayRef.current());
-    navigator.mediaSession.setActionHandler('pause',         () => msPauseRef.current());
-    navigator.mediaSession.setActionHandler('nexttrack',     () => msNextRef.current());
-    navigator.mediaSession.setActionHandler('previoustrack', () => msPrevRef.current());
-    // Do NOT register seekbackward/seekforward — their absence lets the OS show next/prev instead
-    return () => {
-      (['play','pause','nexttrack','previoustrack'] as MediaSessionAction[]).forEach(a => {
-        try { navigator.mediaSession.setActionHandler(a, null); } catch { /* silent */ }
-      });
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Media Session API — updates lock-screen metadata + playback state when the track changes
-  useEffect(() => {
-    if (!nowPlaying) return;
-    updateMediaSession({
-      title: nowPlaying.title,
-      artist: selectedArtist?.name ?? 'AOA Records',
-      album: selectedPlaylist.title.replace(/\s+by\s+.+$/i, '').trim(),
-      artwork: nowPlaying.artwork ?? selectedPlaylist.artwork,
-      isPlaying,
-    });
-  }, [nowPlaying, selectedArtist, selectedPlaylist, isPlaying]);
 
   // Collect ALL releases per artist (SoundCloud playlists + Spotify albums).
   // Parses "by [Name]" from SoundCloud playlist titles, fuzzy-matches artist names/aliases,
@@ -598,16 +402,16 @@ export default function RadioPage() {
       return;
     }
     setSelectedArtist(artist);
-    if (latestUrl === playlistUrl) return;
+    const match = displayPlaylists.find(p => p.url === latestUrl);
+    if (match) setSelectedPlaylist(match);
+    if (sameRadioUrl(latestUrl, playlistUrl) && radioOnRelease) {
+      dispatchRadioCommand({ type: 'toggle' });
+      return;
+    }
     setIsInsertingDisc(true);
-    setTimeout(() => {
-      setPlaylistUrl(latestUrl);
-      setIsReady(false);
-      setIsInsertingDisc(false);
-      const match = displayPlaylists.find(p => p.url === latestUrl);
-      if (match) setSelectedPlaylist(match);
-    }, 500);
-  }, [artistPlaylistMap, playlistUrl, displayPlaylists]);
+    playRelease(latestUrl, artist.name);
+    window.setTimeout(() => setIsInsertingDisc(false), 400);
+  }, [artistPlaylistMap, playlistUrl, displayPlaylists, radioOnRelease]);
 
   const ArtistAvatar = ({ src, name }: { src: string; name: string }) => {
     const [errored, setErrored] = React.useState(false);
@@ -641,7 +445,6 @@ export default function RadioPage() {
             'radial-gradient(900px 500px at 50% -60px, rgba(0,84,249,0.18), transparent 70%), radial-gradient(600px 400px at 10% 20%, rgba(0,84,249,0.07), transparent 60%), linear-gradient(180deg, #070b18 0%, #080808 30%)',
         }}
       />
-      <Nav />
 
       {/* ── OFFLINE BANNER ───────────────────────────────────────── */}
       <AnimatePresence>
@@ -661,28 +464,38 @@ export default function RadioPage() {
       </AnimatePresence>
 
       {/* ── APP HEADER ───────────────────────────────────────────── */}
-      <section className="pt-24 pb-8 border-b border-white/8" style={{ background: 'linear-gradient(180deg, rgba(0,84,249,0.10) 0%, transparent 100%)' }}>
-        <div className="max-w-6xl mx-auto px-6">
+      <section className="pt-28 pb-12 border-b border-white/8 relative overflow-hidden bg-black">
+        <div className="max-w-6xl mx-auto px-6 relative">
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6"
+            transition={{ duration: 0.6 }}
           >
-            {/* Left: title */}
-            <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-3xl bg-hero-blue flex items-center justify-center flex-shrink-0 shadow-2xl shadow-hero-blue/40"
-                style={{ boxShadow: '0 0 0 1px rgba(255,255,255,0.12) inset, 0 8px 32px rgba(0,84,249,0.5)' }}>
-                <Music className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.3em] text-hero-blue/70 font-bold mb-0.5">AOA Records</p>
-                <h1 className="text-3xl font-black text-white leading-tight tracking-tight">Music</h1>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <div className="flex items-center gap-1.5 bg-orange-500/15 border border-orange-500/25 rounded-full px-2.5 py-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-                    <span className="text-[10px] text-orange-300 font-bold uppercase tracking-wider">Live</span>
-                  </div>
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 mb-8">
+              <Link href="/" className="type-label hover:text-white transition-colors" style={{ color: 'rgba(255,255,255,0.3)' }}>AOA</Link>
+              <span className="type-label" style={{ color: 'rgba(255,255,255,0.2)' }}>/</span>
+              <span className="type-label text-hero-blue">Records</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1 }}
+            className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-8"
+          >
+            {/* Left: headline */}
+            <div className="min-w-0 flex-1 @container">
+              <h1 className="font-black text-white tracking-tighter leading-none mb-5 whitespace-nowrap" style={{ fontSize: 'clamp(1rem, 6.2cqi, 4.5rem)' }}>
+                Turn your volume up
+              </h1>
+              <p className="text-lg max-w-lg leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                This community built a record label. Apes together strong.
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 border border-white/15 rounded-full px-3 py-1">
+                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-wider">SoundCloud</span>
                 </div>
               </div>
             </div>
@@ -760,7 +573,7 @@ export default function RadioPage() {
       </section>
 
       {/* ── ARTISTS ──────────────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-6 pt-10 pb-4">
+      <section id="artists" className="max-w-6xl mx-auto px-6 pt-10 pb-4 scroll-mt-28">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-lg font-black text-white tracking-tight">Artists</h2>
@@ -882,14 +695,14 @@ export default function RadioPage() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.05, duration: 0.22 }}
                     onClick={() => {
-                      if (isActive) return;
+                      if (isActive && radioOnRelease) {
+                        dispatchRadioCommand({ type: 'toggle' });
+                        return;
+                      }
                       setIsInsertingDisc(true);
-                      setTimeout(() => {
-                        setPlaylistUrl(album.url);
-                        setSelectedPlaylist(album);
-                        setIsReady(false);
-                        setIsInsertingDisc(false);
-                      }, 400);
+                      setSelectedPlaylist(album);
+                      playRelease(album.url, cleanTitle);
+                      window.setTimeout(() => setIsInsertingDisc(false), 400);
                     }}
                     className="group flex-shrink-0 w-[148px] text-left outline-none"
                     whileHover={{ y: -3 }}
@@ -1058,19 +871,20 @@ export default function RadioPage() {
                 )}
               </AnimatePresence>
 
-              {/* SoundCloud iframe — full height, no redundant info bar */}
-              <div className="relative z-10 p-3" style={{ height: '420px' }}>
-                <iframe
-                  ref={iframeRef}
-                  title="SoundCloud Player"
-                  width="100%"
-                  height="100%"
-                  scrolling="no"
-                  frameBorder="no"
-                  allow="autoplay"
-                  src={playerSrc}
-                  className="w-full h-full rounded-xl overflow-hidden"
-                />
+              <div className="relative z-10 flex min-h-[220px] flex-col items-start justify-end gap-4 p-5">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-white/50">
+                  {isPlaying ? 'On air in the broadcast deck' : 'Plays in the AOA Radio deck'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (radioOnRelease) dispatchRadioCommand({ type: 'toggle' });
+                    else playRelease(selectedPlaylist.url, selectedPlaylist.title);
+                  }}
+                  className="inline-flex h-11 items-center gap-2 bg-white px-4 text-xs font-bold uppercase tracking-widest text-black"
+                >
+                  {isPlaying ? 'Pause' : 'Play'}
+                </button>
               </div>
             </div>
           </motion.div>
@@ -1185,15 +999,15 @@ export default function RadioPage() {
                         <button
                           key={playlist.id}
                           onClick={() => {
-                            if (isSelected) return;
+                            if (isSelected && radioOnRelease) {
+                              dispatchRadioCommand({ type: 'toggle' });
+                              return;
+                            }
                             setSelectedArtist(null);
                             setIsInsertingDisc(true);
-                            setTimeout(() => {
-                              setSelectedPlaylist(playlist);
-                              setPlaylistUrl(playlist.url);
-                              setIsReady(false);
-                              setIsInsertingDisc(false);
-                            }, 500);
+                            setSelectedPlaylist(playlist);
+                            playRelease(playlist.url, cleanTitle);
+                            window.setTimeout(() => setIsInsertingDisc(false), 400);
                           }}
                           className={`group w-full flex items-center gap-3 px-2.5 py-2 rounded-xl transition-all duration-200 text-left ${
                             isSelected
@@ -1289,9 +1103,9 @@ export default function RadioPage() {
           <div className="rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6"
             style={{ background: 'linear-gradient(135deg, rgba(0,84,249,0.12), rgba(0,84,249,0.04))' }}>
             <div>
-              <p className="text-[11px] uppercase tracking-[0.25em] text-hero-blue/70 font-bold mb-1">For Ape Holders</p>
-              <h2 className="text-xl font-black text-white">Release under AOA Records</h2>
-              <p className="text-white/40 text-sm mt-1.5">Any AOA NFT holder can publish under the label.</p>
+              <p className="text-[11px] uppercase tracking-[0.25em] text-white/40 font-bold mb-1">Own one?</p>
+              <h2 className="text-xl font-black text-white">There&apos;s more inside.</h2>
+              <p className="text-white/40 text-sm mt-1.5">If you hold an Ape, you can put music on the radio.</p>
             </div>
             <div className="flex flex-wrap gap-2 flex-shrink-0">
               <a href="https://discord.gg/gVmqW6SExU" target="_blank" rel="noopener noreferrer"

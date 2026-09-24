@@ -8,6 +8,7 @@ import SafeImage from '@/app/components/SafeImage';
 import { CreationRecord } from '@/lib/studio/types';
 import { gatewayCandidates } from '@/lib/studio/urls';
 import { useGlyph } from '@use-glyph/sdk-react';
+import { useSessionWallets } from '@/app/hooks/useSessionWallets';
 import { usePrivy } from '@privy-io/react-auth';
 
 function shortAddress(addr: string) {
@@ -53,10 +54,8 @@ export default function CreationDetailClient({ creation }: Props) {
 		[creation.metadataUrl],
 	);
 	const metadataUri = metadataGateways[0];
-	const walletAddr = useMemo(
-		() => (glyph?.user?.evmWallet || glyph?.user?.smartWallet || '').toLowerCase(),
-		[glyph?.user?.evmWallet, glyph?.user?.smartWallet],
-	);
+	const session = useSessionWallets();
+	const walletAddr = session.primaryAddress;
 	const isOwner =
 		!!walletAddr && walletAddr === (creation.creatorAddress || '').toLowerCase();
 
@@ -101,12 +100,12 @@ export default function CreationDetailClient({ creation }: Props) {
 	const parentId = (metaArtifact?.generator as { sourceCreationId?: string } | undefined)?.sourceCreationId
 		|| (creation.artifact?.generator as { sourceCreationId?: string } | undefined)?.sourceCreationId
 		|| '';
-	const address = glyph?.user?.evmWallet || glyph?.user?.smartWallet || '';
+	const address = session.primaryAddress;
 	const xHandle = privy?.user?.twitter?.username || '';
-	const glyphVerified = !!glyph?.user?.hasTwitter || !!glyph?.user?.hasProfile;
-	const glyphId = glyph?.user?.id || '';
-	const canGenerate = !!(glyph?.user || glyph?.authenticated) && !!address;
-	const linkedWallets = glyph?.user?.linkedWallets || [];
+	const glyphVerified = !!glyph?.user?.hasTwitter || !!glyph?.user?.hasProfile || !!xHandle;
+	const glyphId = glyph?.user?.id || session.userId;
+	const canGenerate = session.signedIn && !!address;
+	const linkedWallets = session.addresses.map((wallet) => ({ address: wallet }));
 
 	useEffect(() => {
 		let active = true;

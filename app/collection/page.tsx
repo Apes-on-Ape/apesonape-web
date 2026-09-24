@@ -3,9 +3,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ExternalLink, ShoppingBag, X, Search, Filter, Sparkles, Link2, ChevronDown, Crown, Zap, Star, Shield, Circle, Trophy, ChevronLeft, ChevronRight, ArrowUpDown, Users, Layers, TrendingUp } from 'lucide-react';
+import { ExternalLink, ShoppingBag, X, Search, Filter, Sparkles, Link2, ChevronDown, Crown, Zap, Star, Shield, Circle, Trophy, ChevronLeft, ChevronRight, ArrowUpDown, Layers } from 'lucide-react';
 import Link from 'next/link';
-import Nav from '../components/Nav';
 import Image from 'next/image';
 import SafeImage from '../components/SafeImage';
 import Footer from '../components/Footer';
@@ -897,7 +896,6 @@ export default function CollectionPage() {
 
   return (
     <div className="min-h-screen" style={{ color: 'var(--foreground)' }}>
-      <Nav />
 
       <div className="pt-24 pb-20 relative" suppressHydrationWarning>
         {/* Subtle gradient backdrop */}
@@ -914,19 +912,20 @@ export default function CollectionPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
           >
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-hero-blue via-hero-blue-light to-accent-cyan">
-              Apes on Apechain
+            <p className="text-[11px] tracking-[0.35em] uppercase text-white/35 mb-4">The original 10,000</p>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black mb-3 text-white">
+              Before the music.
+              <br />
+              There were 10,000.
             </h1>
             <p className="text-base text-white/50 max-w-2xl mx-auto mb-6">
-              10,000 unique collectible Apes on Apechain. Explore, filter by traits, discover rarity.
+              These are the characters the whole thing started with.
             </p>
 
             {/* Collection stats pill row */}
             <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
               {[
                 { icon: Layers, label: 'Supply', value: '10,000' },
-                { icon: Users, label: 'Owners', value: '1,492' },
-                { icon: TrendingUp, label: 'Floor', value: '94.99 APE' },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/10 text-sm">
                   <Icon className="w-3.5 h-3.5 text-hero-blue" />
@@ -939,12 +938,6 @@ export default function CollectionPage() {
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-hero-blue/10 border border-hero-blue/30 hover:bg-hero-blue/20 transition-all text-sm text-hero-blue font-semibold">
                 <Image src="/opensea-logo.webp" alt="OpenSea" width={16} height={16} className="w-4 h-4 object-contain" />
                 OpenSea
-                <ExternalLink className="w-3 h-3" />
-              </a>
-              <a href="https://app.mintify.com/nft/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] transition-all text-sm text-white/60 hover:text-white font-medium">
-                <Image src="/mintify_icon.jpeg" alt="Mintify" width={16} height={16} className="w-4 h-4 rounded" />
-                Mintify
                 <ExternalLink className="w-3 h-3" />
               </a>
             </div>

@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Music2, ExternalLink, ArrowLeft, Mic, Play, Twitter, Instagram, Disc3 } from 'lucide-react';
-import Nav from '@/app/components/Nav';
 import Footer from '@/app/components/Footer';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -31,7 +30,6 @@ export default function ArtistPage() {
   if (!artist) {
     return (
       <div className="min-h-screen">
-        <Nav />
         <div className="container-premium pt-32 text-center">
           <h1 className="text-4xl font-black text-white mb-4">Artist not found</h1>
           <Link href="/music" className="text-hero-blue hover:text-hero-blue-light transition-colors">← Back to Music</Link>
@@ -45,30 +43,40 @@ export default function ArtistPage() {
 
   return (
     <div className="min-h-screen">
-      <Nav />
 
-      {/* Hero */}
-      <div className="relative overflow-hidden">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-hero-blue/20 via-hero-blue/5 to-transparent" />
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,84,249,0.15) 0%, transparent 70%)' }} />
+      {/* Hero — editorial full-bleed */}
+      <div className="relative overflow-hidden min-h-[55vh] flex flex-col justify-end" style={{ background: '#080808' }}>
+        {/* Cover art or colour fill — behind all content */}
+        {artist.coverImage ? (
+          <div className="absolute inset-0">
+            <Image src={artist.coverImage} alt="" fill className="object-cover" priority />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(8,8,8,0.2) 0%, rgba(8,8,8,0.6) 55%, #080808 100%)' }} />
+          </div>
+        ) : (
+          <div className="absolute inset-0">
+            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 30% 20%, rgba(0,84,249,0.18) 0%, transparent 65%)' }} />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#080b18] via-transparent to-[#080808]" />
+          </div>
+        )}
 
-        <div className="container-premium relative z-10 pt-28 pb-16">
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="mb-8">
-            <Link href="/music" className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors">
-              <ArrowLeft className="w-4 h-4" /> Back to Music
+        <div className="container-premium relative z-10 pt-28 pb-14">
+          {/* Back link */}
+          <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} className="mb-10">
+            <Link href="/music" className="inline-flex items-center gap-2 type-label transition-colors hover:text-white" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              <ArrowLeft className="w-3.5 h-3.5" /> AOA Records
             </Link>
           </motion.div>
 
-          <div className="flex flex-col md:flex-row gap-10 items-start md:items-end">
+          <div className="flex flex-col md:flex-row gap-10 items-end">
             {/* Avatar */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.88 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.6 }}
               className="flex-shrink-0"
             >
-              <div className="relative w-40 h-40 md:w-52 md:h-52 rounded-3xl overflow-hidden border-2 border-hero-blue/40 shadow-2xl shadow-hero-blue/20">
+              <div className="relative w-44 h-44 md:w-60 md:h-60 rounded-3xl overflow-hidden shadow-2xl shadow-black/60"
+                style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
                 {artist.avatar ? (
                   <ArtistAvatar src={artist.avatar} alt={artist.name} fallback={<Mic className="w-16 h-16 text-hero-blue/50" />} />
                 ) : (
@@ -76,7 +84,6 @@ export default function ArtistPage() {
                     <Mic className="w-16 h-16 text-hero-blue/50" />
                   </div>
                 )}
-                {/* Ape ID badge */}
                 {artist.apeId && (
                   <div className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/80 text-[11px] font-bold text-hero-blue backdrop-blur-sm">
                     #{artist.apeId}
@@ -87,40 +94,46 @@ export default function ArtistPage() {
 
             {/* Info */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 28 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
+              transition={{ duration: 0.7, delay: 0.1 }}
               className="flex-1"
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-hero-blue/10 border border-hero-blue/30 mb-3">
+              <div className="inline-flex items-center gap-2 mb-5">
                 <Music2 className="w-3.5 h-3.5 text-hero-blue" />
-                <span className="text-xs font-bold uppercase tracking-wider text-hero-blue">AOA Records Artist</span>
+                <span className="type-label text-hero-blue">AOA Records Artist</span>
               </div>
-              <h1 className="text-5xl md:text-7xl font-black text-white tracking-tight mb-2">{artist.name}</h1>
-              <div className="text-lg text-white/50 mb-4">{artist.role}</div>
-              <div className="flex flex-wrap gap-2 mb-5">
+              <h1 className="font-black text-white tracking-tight mb-3 leading-[0.9]"
+                style={{ fontSize: 'clamp(2.5rem, 7vw, 6rem)' }}>
+                {artist.name}
+              </h1>
+              <p className="text-lg mb-5" style={{ color: 'rgba(255,255,255,0.5)' }}>{artist.role}</p>
+              <div className="flex flex-wrap gap-2 mb-7">
                 {artist.genres.map(g => (
-                  <span key={g} className="px-3 py-1 rounded-full bg-white/5 border border-white/15 text-sm text-white/60">{g}</span>
+                  <span key={g} className="px-3 py-1 rounded-full text-sm font-semibold"
+                    style={{ background: 'rgba(0,84,249,0.1)', color: 'var(--blue-light)', border: '1px solid rgba(0,84,249,0.22)' }}>
+                    {g}
+                  </span>
                 ))}
               </div>
               {/* Social links */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 {artist.soundcloudUrl && (
                   <a href={artist.soundcloudUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-hero-blue/15 border border-hero-blue/30 text-hero-blue hover:bg-hero-blue/25 transition-all text-sm font-medium">
-                    <Disc3 className="w-4 h-4" /> SoundCloud
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all bg-hero-blue text-white hover:bg-hero-blue-light shadow-lg shadow-hero-blue/30">
+                    <Disc3 className="w-4 h-4" /> Listen on SoundCloud
                   </a>
                 )}
                 {artist.twitterUrl && (
                   <a href={artist.twitterUrl} target="_blank" rel="noopener noreferrer"
-                    className="p-2.5 rounded-xl bg-white/5 border border-white/15 text-white/60 hover:text-white hover:border-white/30 transition-all">
-                    <Twitter className="w-4 h-4" />
+                    className="p-2.5 rounded-xl transition-all" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                    <Twitter className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.6)' }} />
                   </a>
                 )}
                 {artist.instagramUrl && (
                   <a href={artist.instagramUrl} target="_blank" rel="noopener noreferrer"
-                    className="p-2.5 rounded-xl bg-white/5 border border-white/15 text-white/60 hover:text-white hover:border-white/30 transition-all">
-                    <Instagram className="w-4 h-4" />
+                    className="p-2.5 rounded-xl transition-all" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                    <Instagram className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.6)' }} />
                   </a>
                 )}
               </div>

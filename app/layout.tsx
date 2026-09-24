@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Raleway } from "next/font/google";
+import { Barlow_Condensed, IBM_Plex_Mono, Raleway } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 import GlyphClientProvider from "./components/GlyphClientProvider";
@@ -8,6 +8,7 @@ import NotificationToast from "./components/NotificationToast";
 import ApeBackground from "./components/ApeBackground";
 import PWAManager from "./components/PWAManager";
 import ClientOnlyGlobals from "./components/ClientOnlyGlobals";
+import Nav from "./components/Nav";
 
 const raleway = Raleway({
   variable: "--font-raleway",
@@ -16,35 +17,54 @@ const raleway = Raleway({
   weight: ["300", "400", "500", "600", "700", "800", "900"],
 });
 
+const signalDisplay = Barlow_Condensed({
+  variable: "--font-signal-display",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["600", "700", "800", "900"],
+});
+
+const signalMono = IBM_Plex_Mono({
+  variable: "--font-signal-mono",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600"],
+});
+
 export const metadata: Metadata = {
   // Ensure absolute URLs for OG/Twitter images
   metadataBase: new URL('https://apesonape.io'),
-  title: "Apes On Ape | NFT Collection on Apechain",
-  description: "A playground for musicians, artists, game devs, and builders. Join the Apes On Ape community on Apechain. Make weird. Make loud. Make games. Ape together.",
-  keywords: ["NFT", "Apechain", "Apes On Ape", "Digital Art", "Music", "Gaming", "Web3"],
-  authors: [{ name: "Apes On Ape" }],
+  title: {
+    default: 'Apes on Ape — AOA',
+    template: '%s | Apes On Ape',
+  },
+  description:
+    '10,000 apes started something. Music, radio, games, art and whatever comes next.',
+  keywords: ['AOA', 'Apes On Ape', 'AOA Records', 'Music'],
+  authors: [{ name: 'Apes On Ape' }],
   openGraph: {
-    title: "Apes On Ape | NFT Collection on Apechain",
-    description: "A playground for musicians, artists, game devs, and builders.",
-    url: "https://apesonape.io",
-    siteName: "Apes On Ape",
+    title: 'Still here. AOA',
+    description: 'Believe in something. Apes together strong.',
+    url: 'https://apesonape.io',
+    siteName: 'Apes On Ape',
     images: [
       {
-        url: "/og-image.png",
+        url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: "Apes On Ape",
+        alt: 'Apes On Ape — Music, Art & Culture',
       },
     ],
-    locale: "en_US",
-    type: "website",
+    locale: 'en_US',
+    type: 'website',
   },
   twitter: {
-    card: "summary_large_image",
-    title: "Apes On Ape | NFT Collection on Apechain",
-    description: "A playground for musicians, artists, game devs, and builders.",
-    images: ["/og-image.png"],
-    creator: "@apesonape",
+    card: 'summary_large_image',
+    title: 'Still here. AOA',
+    description: 'Believe in something.',
+    images: ['/og-image.png'],
+    creator: '@apesonape',
+    site: '@apesonape',
   },
   robots: {
     index: true,
@@ -52,9 +72,9 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
     },
   },
 };
@@ -91,7 +111,7 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://dweb.link" />
       </head>
       <body
-        className={`${raleway.variable} antialiased font-sans`}
+        className={`${raleway.variable} ${signalDisplay.variable} ${signalMono.variable} antialiased font-sans`}
       >
         {/* Root stacking context — ApeBackground at z:-1 renders behind all page content */}
         <div style={{ position: 'relative', zIndex: 0 }}>
@@ -99,7 +119,8 @@ export default function RootLayout({
           <ThemeProvider>
             <GlyphClientProvider>
               <GlyphArcadeWalletSync />
-              <div className="min-h-screen">
+              <Nav />
+              <div id="aoa-main" className="min-h-screen">
                 {children}
               </div>
               <NotificationToast />

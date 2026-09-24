@@ -56,7 +56,11 @@ export default function ArcadeGameFrame({ title, src }: Props) {
   return (
     <div
       className="relative w-full overflow-hidden rounded-[calc(1rem-3px)] bg-black"
-      style={{ aspectRatio: '16 / 10', minHeight: '65dvh' }}
+      style={{
+        width: '100%',
+        height: 'calc(100dvh - var(--aoa-header-h) - var(--aoa-dock-offset) - 11rem)',
+        minHeight: '12rem',
+      }}
     >
       <iframe
         title={title}

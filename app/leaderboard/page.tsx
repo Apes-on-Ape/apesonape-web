@@ -3,7 +3,6 @@ export const dynamic = 'force-dynamic';
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import SafeImage from '../components/SafeImage';
 
@@ -42,7 +41,6 @@ export default function LeaderboardPage() {
 
 	return (
 		<div className="min-h-screen relative">
-			<Nav />
 			<main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16">
 				<div className="text-center mb-8">
 					<h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>

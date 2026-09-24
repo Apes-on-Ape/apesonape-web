@@ -1,197 +1,138 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
-import Image from 'next/image';
-import { cn } from '@/lib/utils';
+import { PRIMARY_NAV } from '@/app/data/site';
+import { useAoaRadioState } from '@/app/hooks/useAoaRadioState';
+import BrandLogo from './BrandLogo';
+import LiveIndicator from './signal/LiveIndicator';
+import NoiseOverlay from './signal/NoiseOverlay';
 
 const AuthNavControls = dynamic(() => import('./AuthNavControls'), { ssr: false });
-
 const NotificationBell = dynamic(() => import('./NotificationBell'), { ssr: false });
 
+function normalizePath(path: string) {
+  const base = path.split('#')[0].split('?')[0] || '/';
+  if (base.length > 1 && base.endsWith('/')) return base.slice(0, -1);
+  return base || '/';
+}
+
 export default function Nav() {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const pathname = usePathname();
+  const pathname = usePathname() || '/';
+  const current = normalizePath(pathname);
+  const radio = useAoaRadioState();
+  const [open, setOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const firstLinkRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
-    // Hysteresis prevents layout shift ↔ scroll position from oscillating at one threshold
-    // (which can trigger "Maximum update depth exceeded" via tight setState loops).
-    const SCROLL_ON = 56;
-    const SCROLL_OFF = 32;
-    let raf = 0;
+    setOpen(false);
+  }, [pathname]);
 
-    const handleScroll = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        const y = window.scrollY;
-        setIsScrolled((prev) => {
-          if (prev) return y > SCROLL_OFF;
-          return y > SCROLL_ON;
-        });
-      });
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        menuButtonRef.current?.focus();
+      }
     };
-
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKey);
+    firstLinkRef.current?.focus();
     return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (raf) cancelAnimationFrame(raf);
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKey);
     };
-  }, []);
+  }, [open]);
 
-  const navLinks = [
-    { href: '/about', label: 'About' },
-    { href: '/collection', label: 'Collection' },
-    { href: '/music', label: 'Music' },
-    { href: '/wardrobe', label: 'Wardrobe' },
-  ];
-  
   const isActive = (href: string) => {
-    if (href === '/') {
-      return pathname === '/';
-    }
-    return pathname?.startsWith(href);
+    const target = normalizePath(href);
+    if (target === '/') return current === '/';
+    return current === target || current.startsWith(`${target}/`);
   };
 
   return (
-    <motion.nav
-      className={cn(
-        'fixed top-0 left-0 right-0 z-50 transition-all duration-500',
-        isScrolled 
-          ? 'shadow-xl border-b' 
-          : 'bg-transparent'
-      )}
-      style={isScrolled ? { 
-        borderBottomColor: 'rgba(0, 84, 249, 0.3)',
-        backgroundColor: 'rgba(10, 10, 15, 0.95)',
-        backdropFilter: 'blur(20px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-      } : undefined}
-      initial={{ y: -100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-    >
-      <div className="container-premium">
-        <div className="flex items-center h-16 md:h-20">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 group relative">
-            <motion.div 
-              className="relative w-10 h-10 md:w-14 md:h-14"
-              whileHover={{ scale: 1.1, rotate: 5 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-              style={{ opacity: 1 }}
-            >
-              <Image
-                src="/apechain.png"
-                alt="Apechain Logo"
-                fill
-                className="object-contain transition-all duration-300"
-                style={{ opacity: 1 }}
-              />
-            </motion.div>
-            <span className="text-xl md:text-2xl font-bold text-hero-blue group-hover:text-hero-blue-light transition-colors" style={{ opacity: 1 }}>
-              Apes On Ape
-            </span>
-          </Link>
+    <header className="aoa-header fixed top-0 left-0 right-0 z-[70]">
+      <a href="#aoa-main" className="aoa-skip">
+        Skip to content
+      </a>
+      <div className="container-premium flex h-full items-center gap-3">
+        <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="Apes On Ape — home">
+          <BrandLogo className="h-8 w-14 shrink-0" priority />
+          <span className="font-display text-[1.35rem] leading-none tracking-wide text-[var(--ink)]">AOA</span>
+        </Link>
 
-          {/* Desktop Navigation - Right Aligned */}
-          <div className="hidden md:flex items-center gap-2 ml-auto">
-            {navLinks.map((link) => {
-              const active = isActive(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    'relative px-4 py-2 rounded-lg font-medium transition-all duration-300',
-                    'hover:text-hero-blue',
-                    active && 'text-hero-blue'
-                  )}
-                  style={!active ? { color: 'rgba(245, 245, 245, 1)' } : undefined}
-                >
-                  {link.label}
-                  {active && (
-                    <motion.div
-                      className="absolute -bottom-1 left-2 right-2 h-0.5 bg-hero-blue rounded-full"
-                      layoutId="activeIndicator"
-                      initial={false}
-                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                    />
-                  )}
-                </Link>
-              );
-            })}
-            <NotificationBell />
-            <AuthNavControls />
-          </div>
-
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center gap-2">
-            <motion.button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2.5 rounded-xl glass transition-colors"
-              style={{ color: 'var(--foreground)' }}
-              aria-label="Toggle menu"
-              whileTap={{ scale: 0.9 }}
+        <nav className="mx-auto hidden items-center xl:flex" aria-label="Main navigation">
+          {PRIMARY_NAV.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              data-active={isActive(link.href) ? 'true' : 'false'}
+              className="aoa-nav-link"
+              aria-current={isActive(link.href) ? 'page' : undefined}
             >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </motion.button>
-          </div>
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="ml-auto flex items-center gap-2">
+          {radio.playing ? <LiveIndicator label="ON AIR" className="hidden sm:inline-flex" /> : null}
+          <NotificationBell />
+          <AuthNavControls />
+          <button
+            ref={menuButtonRef}
+            type="button"
+            className="inline-flex h-11 w-11 items-center justify-center text-[var(--ink)] xl:hidden"
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            aria-expanded={open}
+            aria-controls="mobile-menu"
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? <X size={22} aria-hidden="true" /> : <Menu size={22} aria-hidden="true" />}
+          </button>
         </div>
       </div>
 
-      {/* Mobile Menu */}
       <AnimatePresence>
-        {isMobileMenuOpen && (
+        {open && (
           <motion.div
-            className="md:hidden border-t"
-            style={{ 
-              borderTopColor: 'rgba(0, 84, 249, 0.3)',
-              backgroundColor: 'rgba(10, 10, 15, 0.95)',
-              backdropFilter: 'blur(20px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-            }}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+            id="mobile-menu"
+            className="fixed inset-x-0 bottom-0 z-[80] overflow-y-auto bg-[var(--bg)] xl:hidden"
+            style={{ top: 'var(--aoa-header-h)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
           >
-            <div className="px-4 py-6 space-y-2">
-              {navLinks.map((link) => {
-                const active = isActive(link.href);
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={cn(
-                      'block px-4 py-3 rounded-xl font-medium transition-all duration-300',
-                      active
-                        ? 'text-hero-blue bg-hero-blue/10 border border-hero-blue/30'
-                        : 'hover:text-hero-blue hover:bg-hero-blue/5'
-                    )}
-                    style={!active ? { color: 'rgba(245, 245, 245, 1)' } : undefined}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
-              <div className="flex flex-col gap-3 pt-4 border-t" style={{ borderTopColor: 'rgba(0, 84, 249, 0.3)' }}>
-                <div className="flex justify-center">
-                  <AuthNavControls />
-                </div>
+            <NoiseOverlay />
+            <nav className="relative flex min-h-full flex-col px-6 py-8" aria-label="Mobile navigation">
+              {PRIMARY_NAV.map((link, index) => (
+                <Link
+                  key={link.href}
+                  ref={index === 0 ? firstLinkRef : undefined}
+                  href={link.href}
+                  className="flex items-baseline justify-between border-b border-[rgba(243,238,228,0.1)] py-4"
+                  aria-current={isActive(link.href) ? 'page' : undefined}
+                  onClick={() => setOpen(false)}
+                >
+                  <span className="font-display text-4xl uppercase tracking-wide text-[var(--ink)]">{link.label}</span>
+                  <span className="aoa-meta">{String(index + 1).padStart(2, '0')}</span>
+                </Link>
+              ))}
+              <div className="mt-8 pb-[var(--aoa-dock-offset)]">
+                {radio.playing ? <LiveIndicator label="ON AIR" /> : <p className="aoa-meta">AOA Radio</p>}
               </div>
-            </div>
+            </nav>
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.nav>
+    </header>
   );
 }
-

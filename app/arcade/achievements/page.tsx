@@ -1,26 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
-import { useGlyph } from '@use-glyph/sdk-react';
+import { useSessionWallets } from '@/app/hooks/useSessionWallets';
 import { Award, ChevronLeft } from 'lucide-react';
 import { ArcadeAchievementsPanel } from '@/app/components/ArcadeAchievementsPanel';
 
 export default function ArcadeAchievementsPage() {
-  const glyph = (useGlyph() as unknown) as {
-    user?: {
-      evmWallet?: string;
-      smartWallet?: string;
-      linkedWallets?: Array<{ address?: string }>;
-    };
-  };
-
-  const walletAddresses = useMemo(() => {
-    const primary = glyph?.user?.evmWallet ?? glyph?.user?.smartWallet ?? '';
-    const linked =
-      glyph?.user?.linkedWallets?.map((w) => (w?.address ?? '').trim()).filter(Boolean) ?? [];
-    return Array.from(new Set([primary, ...linked].map((a) => a.toLowerCase()).filter(Boolean)));
-  }, [glyph?.user?.evmWallet, glyph?.user?.smartWallet, glyph?.user?.linkedWallets]);
+  const { addresses: walletAddresses } = useSessionWallets();
 
   const hasWallets = walletAddresses.length > 0;
 
@@ -49,7 +35,7 @@ export default function ArcadeAchievementsPage() {
           <ArcadeAchievementsPanel addresses={walletAddresses} variant="profile" />
         ) : (
           <div className="rounded-2xl border border-white/10 bg-zinc-900/40 px-6 py-12 text-center text-sm text-[var(--text-sub)]">
-            <p className="mb-4 font-semibold text-zinc-300">Sign in with Glyph to see your achievements</p>
+            <p className="mb-4 font-semibold text-zinc-300">Sign in to see your achievements</p>
             <p className="text-xs text-zinc-500">
               Your arcade progress is saved per wallet once you&apos;re verified as a holder.
             </p>

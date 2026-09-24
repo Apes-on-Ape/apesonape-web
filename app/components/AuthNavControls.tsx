@@ -1,25 +1,55 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useGlyph, useGlyphTokenGate } from '@use-glyph/sdk-react';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { createPublicClient, http, isAddress } from 'viem';
+import { apeChain } from 'viem/chains';
 import SafeImage from './SafeImage';
 
-type GlyphUser = { id?: string };
+const APE_CONTRACT = '0xa6babe18f2318d2880dd7da3126c19536048f8b0' as const;
+
+const apeClient = createPublicClient({ chain: apeChain, transport: http() });
+
+const balanceOfAbi = [
+	{
+		type: 'function',
+		name: 'balanceOf',
+		stateMutability: 'view',
+		inputs: [{ name: 'owner', type: 'address' }],
+		outputs: [{ name: 'balance', type: 'uint256' }],
+	},
+] as const;
+
+type GlyphUser = { id?: string; evmWallet?: string; smartWallet?: string };
 type PrivyTwitter = { name?: string; username?: string; profilePictureUrl?: string };
-type PrivyUser = { id?: string; twitter?: PrivyTwitter };
+type LinkedAccount = { type?: string; address?: string; chainType?: string };
+type PrivyUser = { id?: string; twitter?: PrivyTwitter; linkedAccounts?: LinkedAccount[] };
+
+async function addressHoldsApe(address: string): Promise<boolean> {
+	if (!isAddress(address)) return false;
+	try {
+		const balance = await apeClient.readContract({
+			address: APE_CONTRACT,
+			abi: balanceOfAbi,
+			functionName: 'balanceOf',
+			args: [address],
+		});
+		return balance > BigInt(0);
+	} catch {
+		return false;
+	}
+}
 
 export default function AuthNavControls() {
-	const { login, logout, user, isAuthenticated } = (useGlyph() as unknown) as {
-		login: () => Promise<void>;
-		logout: () => Promise<void>;
-		user?: GlyphUser;
-		isAuthenticated?: boolean;
-	};
+	const { login, logout, user, authenticated } = useGlyph();
 
-	const privy = (usePrivy() as unknown) as { user?: PrivyUser };
-	const privyUser = privy.user;
+	const privy = usePrivy();
+	const privyUser = privy.user as PrivyUser | null | undefined;
+	const { wallets } = useWallets();
+	const sessionRef = useRef({ user: user as GlyphUser | null, privyUser, wallets });
+	sessionRef.current = { user: user as GlyphUser | null, privyUser, wallets };
 
 	const { checkTokenGate, isTokenGateLoading } = useGlyphTokenGate();
 	const [checkingGate, setCheckingGate] = useState(false);
@@ -27,32 +57,45 @@ export default function AuthNavControls() {
 	const attemptGate = useCallback(async () => {
 		setCheckingGate(true);
 		try {
-			// Hardcoded per request (was env NEXT_PUBLIC_APECHAIN_CHAIN_ID)
-			const chainId = 33139;
-
-			let allowed = false;
-			for (let i = 0; i < 8; i++) {
-				const res = await checkTokenGate({
-					contractAddress: '0xa6babe18f2318d2880dd7da3126c19536048f8b0',
-					includeDelegates: true,
-					...(chainId ? { chainId } : {}),
-				});
-				if (res?.result) { allowed = true; break; }
-				await new Promise((r) => setTimeout(r, 750));
-			}
-			return allowed;
+			const res = await checkTokenGate({
+				contractAddress: APE_CONTRACT,
+				includeDelegates: true,
+				chainId: 33139,
+			});
+			return !!res?.result;
 		} finally {
 			setCheckingGate(false);
 		}
 	}, [checkTokenGate]);
 
+	const connectedWalletHoldsApe = useCallback(async () => {
+		const { user: glyphUser, privyUser: currentPrivyUser, wallets: currentWallets } = sessionRef.current;
+		const addresses = new Set<string>();
+		if (glyphUser?.evmWallet) addresses.add(glyphUser.evmWallet);
+		if (glyphUser?.smartWallet) addresses.add(glyphUser.smartWallet);
+		for (const account of currentPrivyUser?.linkedAccounts ?? []) {
+			if (account.type === 'wallet' && account.address && account.chainType !== 'solana') {
+				addresses.add(account.address);
+			}
+		}
+		for (const wallet of currentWallets) {
+			if (wallet.address) addresses.add(wallet.address);
+		}
+		for (const address of addresses) {
+			if (await addressHoldsApe(address)) return true;
+		}
+		return false;
+	}, []);
+
 	const handleLogin = async () => {
 		try {
 			await login?.();
-			// After social login, verify access via linked wallets (delegations allowed)
-			const allowed = await attemptGate();
+			let allowed = false;
+			for (let i = 0; i < 8 && !allowed; i++) {
+				allowed = (await attemptGate()) || (await connectedWalletHoldsApe());
+				if (!allowed) await new Promise((r) => setTimeout(r, 750));
+			}
 			if (!allowed) {
-				// silently sign out if not a holder
 				await logout?.();
 			}
 		} catch {
@@ -60,7 +103,7 @@ export default function AuthNavControls() {
 		}
 	};
 
-	const signedIn = !!user || !!isAuthenticated;
+	const signedIn = !!user || authenticated;
 
 	// Initialize user profile on first sign-in
 	useEffect(() => {
@@ -98,13 +141,16 @@ export default function AuthNavControls() {
 	const [foreverApeId, setForeverApeId] = useState<number | null>(null);
 	const [foreverApeImg, setForeverApeImg] = useState<string | null>(null);
 	const [supabaseAvatar, setSupabaseAvatar] = useState<string | null>(null);
-	const glyph = (useGlyph() as unknown) as {
-		user?: { evmWallet?: string; smartWallet?: string };
-	};
-	const walletAddress = useMemo(
-		() => (glyph?.user?.evmWallet || glyph?.user?.smartWallet || '').toLowerCase(),
-		[glyph?.user?.evmWallet, glyph?.user?.smartWallet]
-	);
+	const walletAddress = useMemo(() => {
+		const glyphUser = user as GlyphUser | null;
+		const fromGlyph = glyphUser?.evmWallet || glyphUser?.smartWallet;
+		if (fromGlyph) return fromGlyph.toLowerCase();
+		const linked = privyUser?.linkedAccounts?.find(
+			(account) => account.type === 'wallet' && account.address && account.chainType !== 'solana'
+		);
+		if (linked?.address) return linked.address.toLowerCase();
+		return (wallets[0]?.address || '').toLowerCase();
+	}, [user, privyUser, wallets]);
 
 	const fetchForeverApe = useCallback(async () => {
 		if (!walletAddress) return;
@@ -217,7 +263,7 @@ export default function AuthNavControls() {
 	return (
 		<button
 			onClick={() => { void handleLogin(); }}
-			className="btn-primary px-3 py-1.5 text-sm"
+			className="aoa-connect"
 			disabled={isTokenGateLoading || checkingGate}
 		>
 			Sign in

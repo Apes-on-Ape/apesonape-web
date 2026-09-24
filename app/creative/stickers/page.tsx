@@ -2,7 +2,6 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import Nav from '../../components/Nav';
 import Footer from '../../components/Footer';
 import { Download } from 'lucide-react';
 import SafeImage from '@/app/components/SafeImage';
@@ -97,7 +96,6 @@ export default function StickersPage() {
 
 	return (
 		<div className="min-h-screen relative">
-			<Nav />
 			<div className="pointer-events-none absolute inset-0 -z-10">
 				<div className="absolute -top-24 -left-24 w-96 h-96 rounded-full blur-3xl" style={{ background: 'radial-gradient(closest-side, rgba(34,211,238,0.18), transparent)' }} />
 				<div className="absolute top-1/3 -right-16 w-[28rem] h-[28rem] rounded-full blur-3xl" style={{ background: 'radial-gradient(closest-side, rgba(16,185,129,0.16), transparent)' }} />

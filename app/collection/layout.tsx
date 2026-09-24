@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Collection | Apes On Ape",
-  description: "Explore the complete Apes On Ape NFT collection on Apechain. Filter by traits, price, and rarity. Discover unique apes and join the community.",
+  title: "The original 10,000",
+  description: "Before the music. Before the radio. There were 10,000.",
   openGraph: {
-    title: "Collection | Apes On Ape",
-    description: "Explore the complete Apes On Ape NFT collection on Apechain.",
+    title: "The original 10,000. AOA",
+    description: "Before the music. Before the radio. There were 10,000.",
     images: ["/AoA-placeholder-apecoinblue.jpg"],
   },
 };

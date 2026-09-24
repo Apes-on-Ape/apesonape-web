@@ -1,0 +1,23 @@
+This repository is apesonape.io.
+
+Read docs/AOA_REDESIGN_BRIEF.md before making major UI changes.
+
+Core rules:
+
+- Preserve all existing functionality.
+- Never mock real integrations when an existing integration exists.
+- Never expose secrets or move server environment variables client-side.
+- Preserve Glyph authentication.
+- Preserve wallet/ApeChain functionality.
+- Preserve NFT collection and rarity functionality.
+- Preserve SoundCloud, Spotify and AOA Radio functionality.
+- Preserve Studio/IPFS publishing.
+- Preserve Wardrobe.
+- Preserve Arcade and leaderboards.
+- Maintain mobile usability.
+- Maintain accessibility.
+- Do not invent statistics, live users, live broadcasts or activity.
+- Avoid generic Web3/SaaS styling.
+- The visual concept is "The AOA Signal": underground radio + ApeChain culture + arcade + terminal.
+- Run lint, typecheck and production build after substantial changes.
+- Fix errors instead of merely reporting them.

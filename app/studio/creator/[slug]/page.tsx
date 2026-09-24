@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import Nav from '@/app/components/Nav';
 import Footer from '@/app/components/Footer';
 import SafeImage from '@/app/components/SafeImage';
 import { CreationRecord, CreationType } from '@/lib/studio/types';
@@ -41,7 +40,6 @@ export default async function CreatorPage({ params }: { params: Promise<{ slug: 
 
 	return (
 		<div className="min-h-screen flex flex-col">
-			<Nav />
 			<main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16">
 				<div className="glass-dark border border-white/10 rounded-2xl p-6 mb-8 shadow-2xl shadow-black/40">
 					<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">

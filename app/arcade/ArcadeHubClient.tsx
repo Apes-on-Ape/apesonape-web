@@ -2,13 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useGlyph } from '@use-glyph/sdk-react';
 import type { LucideIcon } from 'lucide-react';
-import {
-  ARCADE_WALLET_SYNC_EVENT,
-  getGlyphEvmWalletAddress,
-  getGlyphPrimaryAddress,
-} from '@/lib/arcade-wallet';
+import { ARCADE_WALLET_SYNC_EVENT } from '@/lib/arcade-wallet';
+import { useSessionWallets } from '@/app/hooks/useSessionWallets';
 import {
   Award,
   Bird,
@@ -112,17 +108,9 @@ const TICKER =
   'HOLDER ARCADE  •  APECHAIN  •  HIGH SCORES  •  MAINTENANCE — SOCIAL LOUNGE CLOSED  •  PLAY ANYWHERE  •  ';
 
 export default function ArcadeHubClient() {
-  const glyph = (useGlyph() as unknown) as {
-    login?: () => void | Promise<void>;
-    user?: {
-      id?: string;
-      evmWallet?: string;
-      smartWallet?: string;
-      linkedWallets?: Array<{ address?: string }>;
-    };
-  };
-  const hasGlyphSession = !!glyph?.user;
-  const glyphUserId = glyph?.user?.id?.trim() ?? '';
+  const { signedIn, userId, primaryAddress, login } = useSessionWallets();
+  const hasGlyphSession = signedIn;
+  const glyphUserId = userId;
 
   const [wallet, setWallet] = useState<string | null>(null);
   /** Same `user_profiles` row as /profile (display name, PFP, X handle) */
@@ -166,7 +154,7 @@ export default function ArcadeHubClient() {
     };
   }, [glyphUserId]);
 
-  const primaryGlyphWallet = getGlyphPrimaryAddress(glyph?.user);
+  const primaryGlyphWallet = primaryAddress;
   const shortPrimaryWallet = primaryGlyphWallet
     ? `${primaryGlyphWallet.slice(0, 6)}…${primaryGlyphWallet.slice(-4)}`
     : '';
@@ -203,11 +191,8 @@ export default function ArcadeHubClient() {
   }, []);
 
   useEffect(() => {
-    const glyphEvm = getGlyphEvmWalletAddress(glyph?.user)?.trim();
-    if (glyphEvm) {
-      setWallet(glyphEvm);
-    }
-  }, [glyph?.user]);
+    if (primaryAddress) setWallet(primaryAddress);
+  }, [primaryAddress]);
 
   return (
     <section className="section-spacing pt-24 md:pt-32">
@@ -223,7 +208,7 @@ export default function ArcadeHubClient() {
             </span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-[var(--text-sub)] md:text-base">
-            Insert coin, pick a cabinet, chase high scores on your phone or desktop. Sign in with Glyph — we unlock the floor
+            Insert coin, pick a cabinet, chase high scores on your phone or desktop. Sign in with your wallet — we unlock the floor
             for verified holders and sync your runs to the leaderboard.
           </p>
         </div>
@@ -283,17 +268,17 @@ export default function ArcadeHubClient() {
                 <p className="arcade-insert">PLAYER 1 — WALLET</p>
                 <h2 className="font-[family-name:var(--font-raleway)] text-xl font-bold text-white md:text-2xl">
                   {!hasGlyphSession
-                    ? 'Sign in with Glyph'
+                    ? 'Sign in'
                     : wallet
                       ? 'Access granted'
                       : 'Checking holder wallet…'}
                 </h2>
                 <p className="max-w-md text-sm text-[var(--text-sub)]">
                   {!hasGlyphSession
-                    ? 'Arcade access uses your Glyph account and the wallets linked in it. Apes On Ape NFTs must be in a linked wallet.'
+                    ? 'Arcade access uses the wallet you sign in with. Apes On Ape NFTs must be in that wallet.'
                     : wallet
-                      ? `Holder wallet for games: ${wallet.slice(0, 6)}…${wallet.slice(-4)} (from your Glyph session).`
-                      : 'Linking your verified Glyph wallet for games — if this takes long, confirm you hold Apes and refresh.'}
+                      ? `Holder wallet for games: ${wallet.slice(0, 6)}…${wallet.slice(-4)}.`
+                      : 'Linking your wallet for games — if this takes long, confirm you hold Apes and refresh.'}
                 </p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -318,10 +303,10 @@ export default function ArcadeHubClient() {
                     type="button"
                     className="arcade-btn-neon shrink-0"
                     onClick={() => {
-                      void glyph?.login?.();
+                      void login?.();
                     }}
                   >
-                    SIGN IN WITH GLYPH
+                    SIGN IN
                   </button>
                 ) : null}
               </div>

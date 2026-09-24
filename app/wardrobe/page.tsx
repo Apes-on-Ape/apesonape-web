@@ -3,7 +3,6 @@ export const dynamic = 'force-dynamic';
 
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import { Download, Shirt, Crown, ShirtIcon, Hand, Sparkles, User } from 'lucide-react';
 import { useToolTracking } from '@/app/hooks/useToolTracking';
@@ -1094,7 +1093,6 @@ export default function WardrobePage() {
             'radial-gradient(1200px 600px at 20% 10%, rgba(0, 84, 249, 0.12), transparent 60%), radial-gradient(1000px 500px at 80% 20%, rgba(0, 180, 255, 0.08), transparent 60%), radial-gradient(800px 400px at 50% 80%, rgba(0, 84, 249, 0.07), transparent 60%), linear-gradient(180deg, #030a1e 0%, #050d22 50%, #070f26 100%)'
         }}
       />
-      <Nav />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16">
 
         {/* ── PAGE HEADER ──────────────────────────────────────────── */}

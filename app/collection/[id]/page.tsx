@@ -5,7 +5,6 @@ import React, { useState, useEffect } from 'react';
 type TierIcon = React.ComponentType<{ className?: string }>;
 import { motion } from 'framer-motion';
 import { Crown, Zap, Star, Shield, Circle, ArrowLeft, ExternalLink, Trophy, Layers, Wallet, Copy, Check } from 'lucide-react';
-import Nav from '@/app/components/Nav';
 import Footer from '@/app/components/Footer';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -134,14 +133,12 @@ export default function ApeDetailPage() {
   const cfg = rarity ? TIER_CONFIG[rarity.tier] : TIER_CONFIG['Common'];
   const TierIcon = cfg.icon;
   const osUrl = `https://opensea.io/assets/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0/${id}`;
-  const mintifyUrl = `https://mintify.xyz/asset/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0/${id}`;
 
   // Sort traits by rarity desc (rarest first)
   const sortedTraits = rarity?.traits ? [...rarity.traits].sort((a, b) => b.rarity - a.rarity) : [];
 
   return (
     <div className="min-h-screen">
-      <Nav />
 
       <div className="container-premium pt-28 pb-16">
         {/* Back */}
@@ -362,17 +359,6 @@ export default function ApeDetailPage() {
                 >
                   <ExternalLink className="w-4 h-4" />
                   Buy on OpenSea
-                </a>
-                <a
-                  href={mintifyUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl
-                    border border-white/20 hover:border-white/40 text-white/80 hover:text-white font-medium
-                    transition-all duration-300 hover:-translate-y-0.5"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  View on Mintify
                 </a>
               </div>
 

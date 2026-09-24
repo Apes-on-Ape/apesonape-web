@@ -4,16 +4,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useGlyph, useGlyphTokenGate } from '@use-glyph/sdk-react';
-import { ChevronDown, Gamepad2, Wrench, Wand2, Palette } from 'lucide-react';
+import { useGlyphTokenGate } from '@use-glyph/sdk-react';
+import { ChevronDown, Wrench, Palette, Shirt } from 'lucide-react';
+import { useSessionWallets } from '@/app/hooks/useSessionWallets';
 
 export default function ExtraLinks() {
-	const glyph = (useGlyph() as unknown) as {
-		user?: unknown;
-		address?: string;
-		isAuthenticated?: boolean;
-	};
-	const isSignedIn = !!(glyph && ((glyph.user) || (glyph.address) || (glyph.isAuthenticated)));
+	const { signedIn, addresses } = useSessionWallets();
+	const addressKey = addresses.join(',');
 	const { checkTokenGate } = useGlyphTokenGate();
 	const [hasAccess, setHasAccess] = useState(false);
 	const [open, setOpen] = useState(false);
@@ -22,17 +19,28 @@ export default function ExtraLinks() {
 	useEffect(() => {
 		let cancelled = false;
 		(async () => {
-			if (!isSignedIn) { setHasAccess(false); return; }
-			const chainId = 33139;
+			if (!signedIn) { setHasAccess(false); return; }
 			const res = await checkTokenGate({
 				contractAddress: '0xa6babe18f2318d2880dd7da3126c19536048f8b0',
 				includeDelegates: true,
-				...(chainId ? { chainId } : {}),
+				chainId: 33139,
 			});
-			if (!cancelled) setHasAccess(!!res?.result);
+			if (cancelled) return;
+			if (res?.result) { setHasAccess(true); return; }
+			if (!addresses.length) { setHasAccess(false); return; }
+			try {
+				const params = new URLSearchParams();
+				addresses.forEach((address) => params.append('addresses', address));
+				const portfolioRes = await fetch(`/api/portfolio?${params.toString()}`, { cache: 'no-store' });
+				const data = await portfolioRes.json();
+				const total = typeof data.total === 'number' ? data.total : (data.tokenIds?.length ?? 0);
+				if (!cancelled) setHasAccess(total > 0);
+			} catch {
+				if (!cancelled) setHasAccess(false);
+			}
 		})();
 		return () => { cancelled = true; };
-	}, [isSignedIn, checkTokenGate]);
+	}, [signedIn, addressKey, checkTokenGate, addresses]);
 
 	// Close on outside click
 	useEffect(() => {
@@ -49,10 +57,9 @@ export default function ExtraLinks() {
 	const communityLinks: { href: string; icon: React.ComponentType<{ className?: string }>; label: string; desc: string }[] = [];
 
 	const holderLinks = hasAccess ? [
-		{ href: '/studio',                   icon: Wand2,    label: 'Studio',          desc: 'AI music & creation' },
 		{ href: '/creative/ape-builder',     icon: Palette,  label: 'Ape Builder',     desc: 'Build with your traits' },
 		{ href: '/creative',                 icon: Wrench,   label: 'Creative Tools',  desc: 'PFP, banners, QR' },
-		{ href: '/arcade', icon: Gamepad2, label: 'Arcade',        desc: 'Holder-only games', external: false },
+		{ href: '/wardrobe',                 icon: Shirt,    label: 'Wardrobe',        desc: 'Dress your Ape' },
 	] : [];
 
 	return (
@@ -105,25 +112,7 @@ export default function ExtraLinks() {
 						{holderLinks.length > 0 && (
 							<div className="px-3 pb-3 border-t border-white/8 mt-2 pt-2">
 								<div className="text-[10px] uppercase tracking-widest text-hero-blue/50 font-bold px-2 mb-1">Holder Perks</div>
-								{holderLinks.map(({ href, icon: Icon, label, desc, external }) => (
-									external ? (
-										<a
-											key={href}
-											href={href}
-											target="_blank"
-											rel="noopener noreferrer"
-											onClick={() => setOpen(false)}
-											className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:bg-hero-blue/10 group text-white/70 hover:text-white"
-										>
-											<div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/5 group-hover:bg-hero-blue/15 transition-colors">
-												<Icon className="w-3.5 h-3.5 text-white/50 group-hover:text-hero-blue" />
-											</div>
-											<div className="flex-1 min-w-0">
-												<div className="text-sm font-medium leading-tight">{label}</div>
-												<div className="text-[11px] text-white/35 mt-0.5">{desc}</div>
-											</div>
-										</a>
-									) : (
+								{holderLinks.map(({ href, icon: Icon, label, desc }) => (
 										<Link
 											key={href}
 											href={href}
@@ -140,12 +129,11 @@ export default function ExtraLinks() {
 												<div className="text-[11px] text-white/35 mt-0.5">{desc}</div>
 											</div>
 										</Link>
-									)
 								))}
 							</div>
 						)}
 
-						{!hasAccess && isSignedIn && (
+						{!hasAccess && signedIn && (
 							<div className="px-5 py-3 border-t border-white/8 text-[11px] text-white/25">
 								Hold an Ape to unlock holder features
 							</div>

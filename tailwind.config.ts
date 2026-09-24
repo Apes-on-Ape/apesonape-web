@@ -13,6 +13,13 @@ export default {
         'background-elevated': "var(--background-elevated)",
         'background-surface': "var(--background-surface)",
         foreground: "var(--foreground)",
+        ink: "var(--ink)",
+        signal: {
+          DEFAULT: "#C6F135",
+          dim: "rgba(198, 241, 53, 0.14)",
+          ink: "#14180A",
+        },
+        live: "#E10600",
         // Apechain blue theme
         'hero-blue': {
           DEFAULT: '#0054F9',
@@ -42,8 +49,9 @@ export default {
         'border-color-active': 'var(--border-color-active)',
       },
       fontFamily: {
-        'sans': ['Raleway', 'system-ui', 'sans-serif'],
-        'mono': ['monospace'],
+        'sans': ['var(--font-raleway)', 'Raleway', 'system-ui', 'sans-serif'],
+        'display': ['var(--font-signal-display)', 'Arial Narrow', 'Impact', 'sans-serif'],
+        'mono': ['var(--font-signal-mono)', 'ui-monospace', 'monospace'],
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',

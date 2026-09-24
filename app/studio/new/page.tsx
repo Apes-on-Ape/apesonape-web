@@ -4,25 +4,15 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle2, UploadCloud } from 'lucide-react';
-import Nav from '@/app/components/Nav';
 import Footer from '@/app/components/Footer';
-import { useGlyph } from '@use-glyph/sdk-react';
 import { usePrivy } from '@privy-io/react-auth';
+import { useSessionWallets } from '@/app/hooks/useSessionWallets';
 import type { CreationType } from '@/lib/studio/types';
 
 const TITLE_LIMIT = 80;
 const PROMPT_LIMIT = 1000;
 const MAX_FILE_MB = Number(process.env.NEXT_PUBLIC_STUDIO_MAX_FILE_MB || '20');
 
-type GlyphUser = {
-	id?: string;
-	evmWallet?: string;
-	smartWallet?: string;
-	authenticated?: boolean;
-	hasTwitter?: boolean;
-	hasProfile?: boolean;
-	linkedWallets?: Array<{ address?: string; walletClientType?: string }>;
-};
 type PrivyUser = { twitter?: { username?: string } };
 
 function shortAddress(addr: string) {
@@ -31,11 +21,7 @@ function shortAddress(addr: string) {
 }
 
 export default function StudioPublishPage() {
-	const glyph = (useGlyph() as unknown) as {
-		user?: GlyphUser | null;
-		authenticated?: boolean;
-		login?: () => Promise<void>;
-	};
+	const session = useSessionWallets();
 	const privy = (usePrivy() as unknown) as { user?: (PrivyUser & { id?: string }) | null };
 	const router = useRouter();
 
@@ -49,14 +35,14 @@ export default function StudioPublishPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [successId, setSuccessId] = useState<string | null>(null);
 
-	const isConnected = !!(glyph?.user || glyph?.authenticated);
-	const address = glyph?.user?.evmWallet || glyph?.user?.smartWallet || '';
+	const isConnected = session.signedIn && !!session.primaryAddress;
+	const address = session.primaryAddress;
 	const xHandle = privy?.user?.twitter?.username || '';
-	const glyphVerified = !!glyph?.user?.hasTwitter || !!glyph?.user?.hasProfile;
-	const glyphId = glyph?.user?.id || '';
+	const glyphVerified = !!xHandle;
+	const glyphId = session.userId;
 	const privyUserId = privy?.user?.id || '';
 	const canPublish = isConnected && !!address;
-	const linkedWallets = glyph?.user?.linkedWallets || [];
+	const linkedWallets = session.addresses.map((address) => ({ address }));
 
 	useEffect(() => {
 		return () => {
@@ -156,7 +142,6 @@ export default function StudioPublishPage() {
 
 	return (
 		<div className="min-h-screen flex flex-col">
-			<Nav />
 			<main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16">
 				<div className="glass-dark border border-white/10 rounded-2xl p-6 mb-8 shadow-2xl shadow-black/40">
 					<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
@@ -173,10 +158,10 @@ export default function StudioPublishPage() {
 								</div>
 							) : (
 								<button
-									onClick={() => { void glyph?.login?.(); }}
+									onClick={() => { void session.login?.(); }}
 									className="btn-primary px-4 py-2"
 								>
-									Connect with Glyph
+									Sign in
 								</button>
 							)}
 						</div>

@@ -6,13 +6,11 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 
 import { Wand2, ImagePlus, Shirt, Circle, Type, Images, Laugh, QrCode } from 'lucide-react';
-import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 
 export default function CreativeHubPage() {
   return (
     <div className="min-h-screen relative">
-      <Nav />
       {/* Decorative background glows */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full blur-3xl" style={{ background: 'radial-gradient(closest-side, rgba(34,211,238,0.18), transparent)' }} />

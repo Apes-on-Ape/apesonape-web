@@ -6,10 +6,9 @@ import { Wand2, Music2, Sparkles, ChevronRight, Disc3, Clock } from 'lucide-reac
 
 // Flip to true once the feature is live
 const FEATURE_ENABLED = false;
-import Nav from '@/app/components/Nav';
 import Footer from '@/app/components/Footer';
 import HolderOnly from '@/app/components/HolderOnly';
-import { useGlyph } from '@use-glyph/sdk-react';
+import { useSessionWallets } from '@/app/hooks/useSessionWallets';
 
 const STYLES = [
   { value: 'electronic', label: 'Electronic / EDM' },
@@ -26,18 +25,7 @@ const PROMPT_EXAMPLES = [
 ];
 
 export default function MusicCreatePage() {
-  const glyph = (useGlyph() as unknown) as {
-    user?: {
-      evmWallet?: string;
-      smartWallet?: string;
-      linkedWallets?: Array<{ address?: string }>;
-    };
-  };
-  const walletAddress =
-    glyph?.user?.evmWallet ||
-    glyph?.user?.smartWallet ||
-    glyph?.user?.linkedWallets?.[0]?.address ||
-    '';
+  const { primaryAddress: walletAddress } = useSessionWallets();
 
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState('electronic');
@@ -84,7 +72,6 @@ export default function MusicCreatePage() {
 
   return (
     <div className="min-h-screen text-white">
-      <Nav />
 
       {/* ── HERO ─────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden pt-32 pb-16">

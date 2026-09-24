@@ -6,9 +6,8 @@ import {
   Wand2, Download, Lock, RefreshCw, CheckCircle2,
   Layers, Sparkles, Info,
 } from 'lucide-react';
-import Nav from '@/app/components/Nav';
 import Footer from '@/app/components/Footer';
-import { useGlyph } from '@use-glyph/sdk-react';
+import { useSessionWallets } from '@/app/hooks/useSessionWallets';
 
 // ── CDN & canvas constants ────────────────────────────────────────────────────
 const CDN_INDEX = 'https://bqcrbcpmimfojnjdhvrz.supabase.co/storage/v1/object/public/collection/collection-index';
@@ -254,32 +253,14 @@ async function composeCanvas(sel: Selection): Promise<string | null> {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ApeBuilderPage() {
-  const glyphHook = useGlyph();
-  // useGlyph may return { glyph } or the object itself — handle both shapes
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const glyph = (glyphHook as any)?.glyph ?? glyphHook;
+  const { addresses: allAddresses } = useSessionWallets();
 
-  // glyphReady: true once we've given Glyph enough time to hydrate
   const [glyphReady, setGlyphReady] = useState(false);
   useEffect(() => {
-    // If wallet data is already present, mark ready immediately
-    const hasWallet = !!(
-      glyph?.user?.evmWallet ||
-      glyph?.user?.smartWallet ||
-      glyph?.address ||
-      glyph?.user?.linkedWallets?.length
-    );
-    if (hasWallet) { setGlyphReady(true); return; }
-    // Otherwise give Glyph up to 2.5 seconds to populate
+    if (allAddresses.length) { setGlyphReady(true); return; }
     const t = setTimeout(() => setGlyphReady(true), 2500);
     return () => clearTimeout(t);
-  }, [glyph?.user?.evmWallet, glyph?.user?.smartWallet, glyph?.address, glyph?.user?.linkedWallets]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const allAddresses = useMemo<string[]>(() => {
-    const primary = glyph?.user?.evmWallet ?? glyph?.user?.smartWallet ?? glyph?.address ?? '';
-    const linked  = glyph?.user?.linkedWallets?.map((w: { address?: string }) => (w?.address ?? '').trim()).filter(Boolean) ?? [];
-    return Array.from(new Set([primary, ...linked].map((a: string) => a.toLowerCase()).filter(Boolean)));
-  }, [glyph?.user?.evmWallet, glyph?.user?.smartWallet, glyph?.user?.linkedWallets, glyph?.address]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allAddresses.length]);
 
   const walletAddress = allAddresses[0] ?? '';
 
@@ -377,7 +358,6 @@ export default function ApeBuilderPage() {
   if (!glyphReady) {
     return (
       <div className="min-h-screen flex flex-col">
-        <Nav />
         <main className="flex-1 flex items-center justify-center">
           <div className="w-10 h-10 rounded-full border-2 border-hero-blue/30 border-t-hero-blue animate-spin" />
         </main>
@@ -390,7 +370,6 @@ export default function ApeBuilderPage() {
   if (!walletAddress) {
     return (
       <div className="min-h-screen flex flex-col">
-        <Nav />
         <main className="flex-1 flex items-center justify-center">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
@@ -416,7 +395,6 @@ export default function ApeBuilderPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Nav />
 
       <main className="flex-1 pt-24 pb-16">
         <div className="container-premium">

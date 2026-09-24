@@ -84,7 +84,7 @@ export const ARTISTS: Artist[] = [
     name: 'SurfingPunk',
     handle: 'Surfingpunk',
     avatar: '/artists/surfer.png',
-    bio: 'Riding the wave of Web3 culture with punk attitude and surfer soul. SurfingPunk keeps the AOA vibes flowing.',
+    bio: 'Punk attitude, surfer soul. SurfingPunk keeps the AOA vibes flowing.',
     role: 'Artist / DJ',
     genres: ['Punk', 'Electronic', 'Alternative'],
     twitterUrl: 'https://x.com/Surfingpunk',
@@ -129,7 +129,7 @@ export const ARTISTS: Artist[] = [
     name: 'Kemobleee',
     handle: 'kemobleee',
     avatar: '/artists/kemo.png',
-    bio: 'Kemobleee is a standout voice in the AOA ecosystem — raw talent and authentic energy on every track.',
+    bio: 'Kemobleee is a standout voice in AOA — raw talent and authentic energy on every track.',
     role: 'Artist / MC',
     genres: ['Hip-Hop', 'Rap'],
     twitterUrl: 'https://x.com/kemobleee',
@@ -173,7 +173,7 @@ export const ARTISTS: Artist[] = [
     name: 'ApeVault',
     handle: 'apevault',
     avatar: '/artists/apevault.png',
-    bio: 'Securing the culture, one vault at a time. ApeVault is a trusted voice in the AOA ecosystem.',
+    bio: 'Securing the culture, one vault at a time. ApeVault is a trusted voice in AOA.',
     role: 'Community / Collector',
     genres: ['Culture', 'Vibes'],
     twitterUrl: 'https://x.com/apevault',
@@ -184,7 +184,7 @@ export const ARTISTS: Artist[] = [
     name: 'Gzilla',
     handle: 'Bought2high',
     avatar: '/artists/gzilla.png',
-    bio: 'Gzilla stomps through the Apechain ecosystem leaving a trail of heat. Bought2high, never sells low.',
+    bio: 'Gzilla stomps through AOA leaving a trail of heat. Bought2high, never sells low.',
     role: 'Artist / Collector',
     genres: ['Hip-Hop', 'Trap'],
     twitterUrl: 'https://x.com/Bought2high',
@@ -208,7 +208,7 @@ export const ARTISTS: Artist[] = [
     handle: 'BigRich',
     apeId: 7665,
     avatar: `${CDN_THUMB}/7665.webp`,
-    bio: 'Big Rich brings big energy and bigger moves to the AOA community. A true OG in the Apechain ecosystem.',
+    bio: 'Big Rich brings big energy and bigger moves to the AOA community. A true OG in AOA.',
     role: 'Community / OG',
     genres: ['Culture', 'Vibes'],
     apesonapeHolder: true,
@@ -219,7 +219,7 @@ export const ARTISTS: Artist[] = [
     handle: 'Ragnar216554201',
     apeId: 8324,
     avatar: `${CDN_THUMB}/8324.webp`,
-    bio: 'Ragnar is a proud Ape holder bringing Viking energy to the Apechain ecosystem.',
+    bio: 'Ragnar is a proud Ape holder bringing Viking energy to AOA.',
     role: 'Community / Holder',
     genres: ['Culture', 'Vibes'],
     twitterUrl: 'https://x.com/Ragnar216554201',
@@ -300,7 +300,7 @@ export const ARTISTS: Artist[] = [
     name: 'JDiezel',
     handle: '0xJDIEZEL',
     avatar: '/artists/jdiezel.png',
-    bio: 'JDiezel runs deep in the AOA ecosystem — creative energy and community spirit on every move.',
+    bio: 'JDiezel runs deep in AOA — creative energy and community spirit on every move.',
     role: 'Community / Holder',
     genres: ['Culture', 'Vibes'],
     twitterUrl: 'https://x.com/0xJDIEZEL',
@@ -312,7 +312,7 @@ export const ARTISTS: Artist[] = [
     handle: 'MetaLineman',
     apeId: 3269,
     avatar: `${CDN_THUMB}/3269.webp`,
-    bio: 'Holding the line in the metaverse. MetaLineman brings strength and reliability to the AOA ecosystem.',
+    bio: 'Holding the line. MetaLineman brings strength and reliability to AOA.',
     role: 'Community / Holder',
     genres: ['Culture', 'Vibes'],
     twitterUrl: 'https://x.com/MetaLineman',
@@ -344,4 +344,52 @@ export const ARTISTS: Artist[] = [
 
 export function getArtist(slug: string): Artist | undefined {
   return ARTISTS.find(a => a.slug === slug);
+}
+
+/** Confirmed releasers shown even before the SoundCloud playlist API returns. */
+const SEEDED_MUSIC_SLUGS = new Set([
+  'smokethatdank1',
+  '2real2x',
+  'alexnotime',
+  'doinitbettersan',
+  'dudeman22',
+]);
+
+/** Singles artists who appear on /music#artists without a full playlist. */
+const SINGLES_ARTIST_SLUGS = new Set(['rabidartwork']);
+
+/** SoundCloud credits that don't match the display name. Same rules as /music. */
+const ARTIST_SC_ALIASES: Record<string, string[]> = {
+  dudeman22: ['simianmaw', 'simiamaw'],
+  surfingpunk: ['surfer', 'surfingpunk', 'surfpunk'],
+};
+
+/**
+ * Artists who have released at least one song — the same people who
+ * appear on /music#artists once playlists load.
+ */
+export function artistsWithReleases(
+  playlists: Array<{ title?: string; url?: string }>,
+): Artist[] {
+  const matched = new Set<string>([...SEEDED_MUSIC_SLUGS, ...SINGLES_ARTIST_SLUGS]);
+
+  for (const playlist of playlists) {
+    if (!playlist.title) continue;
+    const byMatch = playlist.title.match(/\bby\s+(.+)$/i);
+    if (!byMatch) continue;
+    const credited = byMatch[1].trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    for (const artist of ARTISTS) {
+      const nameKey = artist.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const handleKey = artist.handle.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const aliases = ARTIST_SC_ALIASES[artist.slug] ?? [];
+      if ([nameKey, handleKey, ...aliases].some((k) =>
+        k.length > 2 && (k === credited || credited.includes(k) || k.includes(credited)),
+      )) {
+        matched.add(artist.slug);
+      }
+    }
+  }
+
+  return ARTISTS.filter((artist) => matched.has(artist.slug));
 }
