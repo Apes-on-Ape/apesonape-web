@@ -12,6 +12,40 @@ import type { CreationType } from '@/lib/studio/types';
 const TITLE_LIMIT = 80;
 const PROMPT_LIMIT = 1000;
 const MAX_FILE_MB = Number(process.env.NEXT_PUBLIC_STUDIO_MAX_FILE_MB || '20');
+// Netlify rejects the function request around 6MB, and the encoded payload is smaller than the raw file.
+const UPLOAD_BUDGET_BYTES = 3.5 * 1024 * 1024;
+
+async function prepareStudioImage(file: File): Promise<File> {
+	if (file.size <= UPLOAD_BUDGET_BYTES) return file;
+
+	const bitmap = await createImageBitmap(file);
+	try {
+		let maxEdge = 2048;
+		let quality = 0.86;
+		for (let attempt = 0; attempt < 6; attempt += 1) {
+			const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+			const width = Math.max(1, Math.round(bitmap.width * scale));
+			const height = Math.max(1, Math.round(bitmap.height * scale));
+			const canvas = document.createElement('canvas');
+			canvas.width = width;
+			canvas.height = height;
+			const ctx = canvas.getContext('2d');
+			if (!ctx) throw new Error('Could not prepare that image.');
+			ctx.drawImage(bitmap, 0, 0, width, height);
+			const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+			if (blob && blob.size <= UPLOAD_BUDGET_BYTES) {
+				const base = file.name.replace(/\.[^.]+$/, '') || 'artifact';
+				return new File([blob], `${base}.jpg`, { type: 'image/jpeg' });
+			}
+			quality = Math.max(0.5, quality - 0.1);
+			maxEdge = Math.round(maxEdge * 0.75);
+		}
+	} finally {
+		bitmap.close();
+	}
+
+	throw new Error('That image is still too large after compression. Try a smaller file.');
+}
 
 type PrivyUser = { twitter?: { username?: string } };
 
@@ -106,24 +140,24 @@ export default function StudioPublishPage() {
 			setError('Only image uploads are supported.');
 			return;
 		}
-		const form = new FormData();
-		form.append('type', type);
-		form.append('title', title);
-		form.append('prompt', prompt);
-		form.append('creatorAddress', address);
-		if (linkedWallets.length > 0) {
-			form.append('linkedWallets', JSON.stringify(linkedWallets));
-		}
-		if (glyphId) form.append('glyphId', glyphId);
-		if (privyUserId) form.append('privyUserId', privyUserId);
-		if (xHandle) form.append('xHandle', xHandle);
-		form.append('glyphVerified', glyphVerified ? 'true' : 'false');
-		if (artifact) {
-			form.append('artifact', artifact);
-		}
-
 		try {
 			setBusy(true);
+			setStatus('Preparing image');
+			const uploadFile = await prepareStudioImage(artifact);
+			const form = new FormData();
+			form.append('type', type);
+			form.append('title', title);
+			form.append('prompt', prompt);
+			form.append('creatorAddress', address);
+			if (linkedWallets.length > 0) {
+				form.append('linkedWallets', JSON.stringify(linkedWallets));
+			}
+			if (glyphId) form.append('glyphId', glyphId);
+			if (privyUserId) form.append('privyUserId', privyUserId);
+			if (xHandle) form.append('xHandle', xHandle);
+			form.append('glyphVerified', glyphVerified ? 'true' : 'false');
+			form.append('artifact', uploadFile);
+
 			setStatus('Uploading artifact');
 			const token = await privy.getAccessToken?.();
 			const res = await fetch('/api/studio/creations/', {
@@ -131,9 +165,20 @@ export default function StudioPublishPage() {
 				headers: token ? { Authorization: `Bearer ${token}` } : undefined,
 				body: form,
 			});
-			const json = await res.json();
+			const raw = await res.text();
+			let json: { error?: string; creation?: { id?: string; contentHash?: string } } = {};
+			if (raw) {
+				try {
+					json = JSON.parse(raw) as typeof json;
+				} catch {
+					json = {};
+				}
+			}
+			if (res.status === 413) {
+				throw new Error('That image is too large for the server. Try a smaller file.');
+			}
 			if (!res.ok) {
-				throw new Error(json?.error || 'Publish failed');
+				throw new Error(json.error || 'Publish failed');
 			}
 			setStatus('Transmission complete');
 			const creationId = json?.creation?.id as string | undefined;
@@ -194,7 +239,7 @@ export default function StudioPublishPage() {
 							/>
 							<UploadCloud className="h-6 w-6" aria-hidden />
 							<span className="text-sm">Drop an image or choose a file</span>
-							<span className="aoa-meta">Images only · max {MAX_FILE_MB}MB</span>
+							<span className="aoa-meta">Images only · large photos are reduced before upload</span>
 						</label>
 						{artifact ? (
 							<div className="mt-3 flex flex-wrap items-center justify-between gap-2">
