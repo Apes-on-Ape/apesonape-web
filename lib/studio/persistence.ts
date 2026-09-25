@@ -77,6 +77,19 @@ function parseCursor(cursor: string | null | undefined) {
 	}
 }
 
+/** Same file saved more than once (a failed publish retried) should appear once. Newest row wins. */
+function dedupeCreations(items: CreationRecord[]): CreationRecord[] {
+	const seen = new Set<string>();
+	const unique: CreationRecord[] = [];
+	for (const item of items) {
+		const key = (item.artifactUrl || item.id).trim();
+		if (seen.has(key)) continue;
+		seen.add(key);
+		unique.push(item);
+	}
+	return unique;
+}
+
 // -------- Supabase provider (optional) --------
 function supabaseClient() {
 	const svc = getSupabaseServiceClient();
@@ -120,7 +133,8 @@ async function localListCreations(options: ListOptions): Promise<ListResult> {
 		);
 	}
 	items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-	return { items: items.slice(0, limit), nextCursor: null };
+	const page = dedupeCreations(items).slice(0, limit);
+	return { items: page, nextCursor: null };
 }
 
 async function localGet(id: string): Promise<CreationRecord | null> {
@@ -199,7 +213,7 @@ async function dbList(options: ListOptions): Promise<ListResult> {
 	const { data, error } = await query;
 	if (error) throw new Error(error.message);
 	const items = (data || []).map(normalizeDbRecord);
-	return { items, nextCursor: null };
+	return { items: dedupeCreations(items), nextCursor: null };
 }
 
 async function dbDelete(id: string): Promise<boolean> {

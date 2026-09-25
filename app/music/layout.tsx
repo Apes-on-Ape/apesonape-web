@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Turn your volume up",
-  description: "This community built a record label. Apes together strong.",
+  title: "AOA Records",
+  description: "Independent sounds. Community frequencies. Broadcast from ApeChain.",
   openGraph: {
-    title: "Turn your volume up",
-    description: "Apes together strong.",
-    images: ["/AoA-placeholder-apecoinblue.jpg"],
+    title: "AOA Records",
+    description: "The sound of ApeChain.",
+    images: ["/og-image.png"],
   },
 };
 

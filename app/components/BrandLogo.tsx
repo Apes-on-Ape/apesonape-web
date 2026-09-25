@@ -1,9 +1,7 @@
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
-/**
- * Wordmark sits in a wide black field. The frame crops into the mark.
- */
+/** Trimmed wordmark. The source file is the mark itself, so the frame must not zoom it. */
 export default function BrandLogo({
   className,
   priority = false,
@@ -14,12 +12,12 @@ export default function BrandLogo({
   return (
     <span className={cn('relative block overflow-hidden bg-black', className)}>
       <Image
-        src="/logo.png"
+        src="/logo-mark.png"
         alt=""
         fill
         priority={priority}
         sizes="120px"
-        className="object-cover object-center scale-[2.35]"
+        className="object-contain object-center"
       />
     </span>
   );

@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Footer from '../../components/Footer';
+import ToolChrome from '@/app/components/creative/ToolChrome';
 import { Download, Type } from 'lucide-react';
 import SafeImage from '@/app/components/SafeImage';
 import { useToolTracking } from '@/app/hooks/useToolTracking';
@@ -126,16 +126,8 @@ export default function QrBadgePage() {
 	}, [preview]);
 
 	return (
-		<div className="min-h-screen relative">
-			<div className="pointer-events-none absolute inset-0 -z-10">
-				<div className="absolute -top-24 -left-24 w-96 h-96 rounded-full blur-3xl" style={{ background: 'radial-gradient(closest-side, rgba(34,211,238,0.18), transparent)' }} />
-				<div className="absolute top-1/3 -right-16 w-[28rem] h-[28rem] rounded-full blur-3xl" style={{ background: 'radial-gradient(closest-side, rgba(16,185,129,0.16), transparent)' }} />
-			</div>
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pt-28">
-				<h1 className="text-4xl md:text-5xl font-bold mb-6 text-hero-blue">QR / Badge Maker</h1>
-				<p className="text-off-white/80 max-w-3xl mb-6">Create a branded QR with caption and rounded frame. Exports PNG.</p>
-
-				<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+		<ToolChrome index="08" title="QR" purpose="Enter text or a URL, preview the code, and download a PNG.">
+				<div className="aoa-tool-split grid grid-cols-1 gap-8 lg:grid-cols-3">
 					<div className="lg:col-span-1 space-y-6 lg:sticky lg:top-28 self-start">
 						<div className="glass-dark rounded-xl p-5 space-y-4">
 							<label className="text-xs text-off-white/70">Text / URL
@@ -205,9 +197,7 @@ export default function QrBadgePage() {
 						</div>
 					</div>
 				</div>
-			</div>
-			<Footer />
-		</div>
+		</ToolChrome>
 	);
 }
 

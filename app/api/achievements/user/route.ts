@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveCanonicalArcadeWallet } from '@/lib/arcade-canonical-wallet';
 import { buildSelectedApePayloadForArcade, getForeverApeForWallet } from '@/lib/arcade-forever-ape';
 import { resolveGlyphUserIdFromStudioWallet } from '@/lib/arcade-glyph-resolve';
 import { getArcadeSupabase, normalizeWallet } from '@/lib/arcade-db';
 import { magicEdenAPI } from '@/lib/magic-eden';
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase';
 import { toGatewayUri } from '@/lib/studio/urls';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 function getMainSupabase() {
   return getSupabaseServiceClient() ?? getSupabaseServerClient();
@@ -72,27 +70,14 @@ async function siteProfileForGlyph(glyphUserId: string | null | undefined) {
   return profileFieldsFromRow(prof);
 }
 
-/**
- * Refresh `nft_count` from on-chain / indexer (same source as `/api/portfolio`) and persist when a profile row exists.
- */
+/** Read held-ape count for display. This route does not write the profile. */
 async function refreshNftCount(
   wallet: string,
-  supabase: SupabaseClient,
-  hasProfileRow: boolean,
   previous: number | null | undefined
 ): Promise<number> {
   try {
     const ids = await magicEdenAPI.getWalletTokenIds(wallet);
     const nft_count = ids.length;
-    if (hasProfileRow) {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ nft_count, updated_at: new Date().toISOString() })
-        .ilike('wallet_address', wallet);
-      if (error) {
-        console.warn('[achievements/user] nft_count update', error.message);
-      }
-    }
     return nft_count;
   } catch (e) {
     console.warn('[achievements/user] nft_count fetch', e);
@@ -108,24 +93,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'wallet_address required' }, { status: 400 });
     }
 
-    const glyphFromBody =
-      typeof body.glyph_user_id === 'string' && body.glyph_user_id.trim().length > 0
-        ? body.glyph_user_id.trim()
-        : null;
-    const glyphEvmHint =
-      typeof body.glyph_evm_wallet === 'string' && body.glyph_evm_wallet.trim()
-        ? normalizeWallet(body.glyph_evm_wallet)
-        : '';
-
     const supabase = getArcadeSupabase();
-    const resolved = await resolveCanonicalArcadeWallet(
-      supabase,
-      wallet,
-      glyphFromBody,
-      glyphEvmHint || null
-    );
-    wallet = resolved.wallet;
-
     const { data: userRows, error: userErr } = await supabase
       .from('user_profiles')
       .select('*')
@@ -148,10 +116,9 @@ export async function POST(req: NextRequest) {
       achievement_id: r.achievement_id,
     }));
 
-    let glyphId =
-      (user?.glyph_user_id && String(user.glyph_user_id).trim()) || glyphFromBody;
+    let glyphId = user?.glyph_user_id ? String(user.glyph_user_id).trim() : '';
     if (!glyphId) {
-      glyphId = await resolveGlyphUserIdFromStudioWallet(wallet);
+      glyphId = (await resolveGlyphUserIdFromStudioWallet(wallet)) ?? '';
     }
 
     const byWallet = await siteProfileForWallet(wallet);
@@ -170,18 +137,12 @@ export async function POST(req: NextRequest) {
     if (!selectedApePayload && foreverApe.forever_ape_id != null) {
       try {
         selectedApePayload = await buildSelectedApePayloadForArcade(foreverApe.forever_ape_id);
-        if (user) {
-          await supabase
-            .from('user_profiles')
-            .update({ selected_ape: selectedApePayload, updated_at: new Date().toISOString() })
-            .ilike('wallet_address', wallet);
-        }
       } catch {
         /* ignore selected ape payload build issues */
       }
     }
 
-    const nft_count = await refreshNftCount(wallet, supabase, !!user, user?.nft_count);
+    const nft_count = await refreshNftCount(wallet, user?.nft_count);
 
     if (!user) {
       return NextResponse.json({

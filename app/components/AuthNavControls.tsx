@@ -117,11 +117,14 @@ export default function AuthNavControls() {
 				if (!userId) return;
 
 				// Call init-user API to create profile and award first_sign_in achievement
+				const token = await privy.getAccessToken?.();
 				await fetch('/api/auth/init-user', {
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
+					headers: {
+						'Content-Type': 'application/json',
+						...(token ? { Authorization: `Bearer ${token}` } : {}),
+					},
 					body: JSON.stringify({
-						userId,
 						displayName: twitter?.name || null,
 						xUsername: twitter?.username || null,
 						avatarUrl: twitter?.profilePictureUrl || null
@@ -217,8 +220,28 @@ export default function AuthNavControls() {
 		};
 	}, [signedIn, walletAddress, fetchAvatar, fetchForeverApe]);
 
+	const [configuredAvatar, setConfiguredAvatar] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (!signedIn || !privyUser?.id) return;
+		let cancelled = false;
+		(async () => {
+			const token = await privy.getAccessToken?.();
+			if (!token) return;
+			const response = await fetch('/api/profile/identity?lite=1', {
+				headers: { Authorization: `Bearer ${token}` },
+				cache: 'no-store',
+			});
+			const json = await response.json().catch(() => ({}));
+			if (!cancelled && response.ok) setConfiguredAvatar(json.avatarUrl || null);
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [signedIn, privyUser?.id, foreverApeId, supabaseAvatar]);
+
 	const profileImageUrl: string | null = useMemo(() => {
-		// Priority: Forever Ape > Supabase custom avatar > Privy Twitter avatar
+		if (configuredAvatar) return configuredAvatar;
 		if (foreverApeImg) {
 			// Convert IPFS to gateway URL
 			if (foreverApeImg.startsWith('ipfs://')) {
@@ -234,7 +257,7 @@ export default function AuthNavControls() {
 		if (supabaseAvatar) return supabaseAvatar;
 		const tw = privyUser?.twitter || null;
 		return tw?.profilePictureUrl || null;
-	}, [foreverApeImg, supabaseAvatar, privyUser]);
+	}, [configuredAvatar, foreverApeImg, supabaseAvatar, privyUser]);
 
 	if (signedIn) {
 		return (

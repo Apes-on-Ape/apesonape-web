@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, ExternalLink, Trophy } from 'lucide-react';
+import { ChevronDown, ExternalLink } from 'lucide-react';
 import SafeImage from '@/app/components/SafeImage';
 import { ARCADE_WALLET_SYNC_EVENT } from '@/lib/arcade-wallet';
 import { useSessionWallets } from '@/app/hooks/useSessionWallets';
@@ -65,10 +65,10 @@ function LeaderboardPlayer({
         )}
       </p>
       <p
-        className="mt-1 max-w-[min(100%,28rem)] break-all font-mono text-[11px] leading-snug text-zinc-400/95 sm:text-xs"
+        className="mt-1 max-w-[min(100%,28rem)] truncate font-mono text-[11px] leading-snug text-zinc-400/95 sm:text-xs"
         title={addr}
       >
-        {addr}
+        {addr && addr !== '—' ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : '—'}
       </p>
     </div>
   );
@@ -269,28 +269,16 @@ function ArcadeLeaderboardContent() {
   };
 
   return (
-    <section className="section-spacing pt-24 md:pt-32">
+    <section className="pb-[calc(var(--aoa-dock-offset)+2rem)] pt-[calc(var(--aoa-header-h)+1.5rem)]">
       <div className="container-premium">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="arcade-subline mb-2">/// HIGH SCORES ///</p>
-            <h1 className="arcade-title-pixel text-xl sm:text-2xl md:text-3xl flex items-center gap-3">
-              <Trophy className="h-8 w-8 text-[var(--arcade-amber)] shrink-0" aria-hidden />
-              Arcade leaderboard
-            </h1>
-            <p className="mt-2 max-w-xl text-sm text-[var(--text-sub)]">
-              See who&apos;s king of each cabinet, or who&apos;s hoarding the most arcade points across every game. Your name and
-              picture on the board come from your{' '}
-              <Link href="/profile" className="text-cyan-300/90 underline underline-offset-2 hover:text-cyan-200">
-                site profile
-              </Link>{' '}
-              when the wallet you play with matches — same apes, same bragging rights.
-            </p>
+            <p className="arcade-subline mb-2">Rank // Player // Score</p>
+            <h1 className="arcade-title-pixel text-xl sm:text-3xl">AOA Scoreboard</h1>
           </div>
-          <Link href="/arcade" className="arcade-btn-ghost inline-flex items-center gap-2 self-start">
-            <ChevronLeft className="h-4 w-4" aria-hidden />
-            LOBBY
-          </Link>
+          <nav className="flex flex-wrap gap-2" aria-label="Arcade">
+            <Link href="/arcade" className="arcade-btn-ghost">Arcade</Link>
+          </nav>
         </div>
 
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -407,14 +395,8 @@ function ArcadeLeaderboardContent() {
                       />
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-4 self-center text-sm sm:gap-6">
-                      <span className="text-white/40">
-                        Lv <span className="text-amber-400 font-bold">{r.level}</span>
-                      </span>
-                      <span className="text-white/40">
-                        XP <span className="text-purple-300 font-mono tabular-nums">{r.experience.toLocaleString()}</span>
-                      </span>
                       <span className="arcade-insert text-[var(--arcade-amber)] tabular-nums">
-                        {r.total_points.toLocaleString()} pts
+                        {r.total_points.toLocaleString()} combined score
                       </span>
                     </div>
                   </li>
@@ -452,8 +434,13 @@ function ArcadeLeaderboardContent() {
                         profileSlug={r.profile_slug}
                       />
                     </div>
-                    <span className="shrink-0 self-center text-xl font-black tabular-nums text-hero-blue">
-                      {r.score.toLocaleString()}
+                    <span className="shrink-0 self-center text-right">
+                      <span className="block text-xl font-black tabular-nums text-hero-blue">{r.score.toLocaleString()}</span>
+                      {r.created_at ? (
+                        <time className="mt-1 block text-[11px] text-white/40" dateTime={r.created_at}>
+                          {new Date(r.created_at).toLocaleDateString()}
+                        </time>
+                      ) : null}
                     </span>
                   </li>
                 );

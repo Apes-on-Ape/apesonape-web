@@ -3,8 +3,16 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, Trophy } from 'lucide-react';
+import BrandLogo from '@/app/components/BrandLogo';
+import SafeImage from '@/app/components/SafeImage';
 
-export type WeeklyRow = { creatorAddress: string; count: number; label: string };
+export type WeeklyRow = {
+	creatorAddress: string;
+	count: number;
+	label: string;
+	profileHref?: string | null;
+	avatarUrl?: string | null;
+};
 
 export default function WeeklyStudioLeaderboard({ compact }: { compact?: boolean }) {
 	const [rows, setRows] = useState<WeeklyRow[]>([]);
@@ -56,10 +64,13 @@ export default function WeeklyStudioLeaderboard({ compact }: { compact?: boolean
 						<span className="flex items-center gap-2 min-w-0 text-muted">
 							<span className="w-5 text-right font-mono text-hero-blue">{i + 1}</span>
 							<Link
-								href={`/studio/creator/${r.creatorAddress.toLowerCase()}`}
-								className="truncate text-off-white hover:text-hero-blue transition-colors font-medium"
+								href={r.profileHref || `/studio/creator/${r.creatorAddress.toLowerCase()}/`}
+								className="flex min-w-0 items-center gap-2 text-off-white hover:text-hero-blue transition-colors font-medium"
 							>
-								{r.label}
+								<span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-md border border-white/10 bg-black">
+									{r.avatarUrl ? <SafeImage src={r.avatarUrl} alt="" fill className="object-cover" unoptimized /> : <BrandLogo className="h-full w-full" />}
+								</span>
+								<span className="truncate">{r.label}</span>
 							</Link>
 						</span>
 						<span className="flex-shrink-0 tabular-nums text-off-white/80">{r.count} img{r.count !== 1 ? 's' : ''}</span>

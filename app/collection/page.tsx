@@ -9,6 +9,10 @@ import Image from 'next/image';
 import SafeImage from '../components/SafeImage';
 import Footer from '../components/Footer';
 import ScrollToTopButton from '../components/ScrollToTopButton';
+import ArchiveHeader from '../components/collection/ArchiveHeader';
+import TraitRecord from '../components/collection/TraitRecord';
+import { APECHAIN_CHAIN_ID } from '@/lib/constants';
+import { COLLECTION_SUPPLY } from '@/app/data/stats';
 // Magic Eden fetching removed in CID mode
 
 // Exclude specific trait types from the filter UI
@@ -114,6 +118,7 @@ export default function CollectionPage() {
 
   // ── View mode: browse vs rarity ───────────────────────────────────────────
   const [viewMode, setViewMode] = useState<'browse' | 'rarity'>('browse');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // ── Rarity state ──────────────────────────────────────────────────────────
   const [rarityEntries, setRarityEntries] = useState<RarityEntry[]>([]);
@@ -782,6 +787,15 @@ export default function CollectionPage() {
 
   useEffect(() => { fetchRarity(); }, [fetchRarity]);
 
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setFiltersOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [filtersOpen]);
+
   const handleRarityTierChange = (tier: Tier | '') => {
     setRarityActiveTier(tier);
     setRarityPage(1);
@@ -894,80 +908,37 @@ export default function CollectionPage() {
     return [...new Set(combined)];
   }, [modalResolved]);
 
+  const searchQuery = searchTerm.trim();
+  const locatedToken = searchQuery && !loading && filteredItems.length === 1 && filteredItems[0]?.tokenId === String(Number(searchQuery))
+    ? String(Number(searchQuery)).padStart(4, '0')
+    : null;
+
   return (
-    <div className="min-h-screen" style={{ color: 'var(--foreground)' }}>
+    <div className="min-h-screen text-[var(--ink)]">
 
-      <div className="pt-24 pb-20 relative" suppressHydrationWarning>
-        {/* Subtle gradient backdrop */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-hero-blue/8 rounded-full blur-3xl" />
-          <div className="absolute top-40 right-0 w-[400px] h-[300px] bg-hero-blue/5 rounded-full blur-3xl" />
-        </div>
+      <div className="relative pb-[calc(var(--aoa-dock-offset)+2rem)] pt-[calc(var(--aoa-header-h)+1.5rem)]" suppressHydrationWarning>
+        <div className="container-premium relative" suppressHydrationWarning>
+          <ArchiveHeader chainId={APECHAIN_CHAIN_ID} supply={COLLECTION_SUPPLY.toLocaleString('en-US')} />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative" suppressHydrationWarning>
-          {/* Hero header */}
-          <motion.div
-            className="mb-10 text-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-          >
-            <p className="text-[11px] tracking-[0.35em] uppercase text-white/35 mb-4">The original 10,000</p>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black mb-3 text-white">
-              Before the music.
-              <br />
-              There were 10,000.
-            </h1>
-            <p className="text-base text-white/50 max-w-2xl mx-auto mb-6">
-              These are the characters the whole thing started with.
-            </p>
-
-            {/* Collection stats pill row */}
-            <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
-              {[
-                { icon: Layers, label: 'Supply', value: '10,000' },
-              ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/10 text-sm">
-                  <Icon className="w-3.5 h-3.5 text-hero-blue" />
-                  <span className="text-white/40">{label}</span>
-                  <span className="text-white font-bold">{value}</span>
-                </div>
-              ))}
-              {/* Marketplaces inline */}
-              <a href={OPENSEA_COLLECTION_URL} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-hero-blue/10 border border-hero-blue/30 hover:bg-hero-blue/20 transition-all text-sm text-hero-blue font-semibold">
-                <Image src="/opensea-logo.webp" alt="OpenSea" width={16} height={16} className="w-4 h-4 object-contain" />
-                OpenSea
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-
-            {/* View mode tabs */}
-            <div className="inline-flex items-center gap-1 bg-white/[0.04] border border-white/10 rounded-2xl p-1">
-              <button
-                onClick={() => setViewMode('browse')}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 ${
-                  viewMode === 'browse'
-                    ? 'bg-hero-blue text-white shadow-lg shadow-hero-blue/30'
-                    : 'text-white/40 hover:text-white/70'
-                }`}
-              >
-                <Filter className="w-4 h-4" />
-                Browse
-              </button>
-              <button
-                onClick={() => setViewMode('rarity')}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 ${
-                  viewMode === 'rarity'
-                    ? 'bg-hero-blue text-white shadow-lg shadow-hero-blue/30'
-                    : 'text-white/40 hover:text-white/70'
-                }`}
-              >
-                <Trophy className="w-4 h-4" />
-                Rarity
-              </button>
-            </div>
-          </motion.div>
+          <div className="mb-8 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setViewMode('browse')}
+              className={`aoa-archive-control aoa-home-cta ${viewMode === 'browse' ? 'aoa-home-cta-solid' : 'aoa-home-cta-ghost'}`}
+            >
+              Browse
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('rarity')}
+              className={`aoa-archive-control aoa-home-cta ${viewMode === 'rarity' ? 'aoa-home-cta-solid' : 'aoa-home-cta-ghost'}`}
+            >
+              Rarity
+            </button>
+            <a href={OPENSEA_COLLECTION_URL} target="_blank" rel="noopener noreferrer" className="aoa-home-cta aoa-home-cta-ghost">
+              OpenSea ↗
+            </a>
+          </div>
 
           {/* ── RARITY VIEW ──────────────────────────────────────── */}
           {viewMode === 'rarity' && (
@@ -1041,7 +1012,16 @@ export default function CollectionPage() {
                   ))}
                 </div>
               ) : displayedRarityEntries.length === 0 ? (
-                <div className="text-center py-24 text-white/40">No Apes found.</div>
+                <div className="border border-[rgba(243,238,228,0.12)] px-6 py-16 text-center">
+                  <p className="type-section text-[var(--ink)]">No signals match this filter.</p>
+                  <button
+                    type="button"
+                    onClick={() => { handleRarityTierChange(''); setRaritySearch(''); }}
+                    className="aoa-home-cta aoa-home-cta-solid mt-6"
+                  >
+                    Reset filters
+                  </button>
+                </div>
               ) : (
                 <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   <AnimatePresence>
@@ -1122,168 +1102,107 @@ export default function CollectionPage() {
           {/* ── BROWSE VIEW ──────────────────────────────────────── */}
           {viewMode === 'browse' && (<>
 
-          {/* Divider */}
-          <div className="flex items-center gap-4 mb-8">
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-            <span className="text-sm text-ape-gray uppercase tracking-widest">Explore the Collection</span>
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-          </div>
-
-          {/* Search bar - full width above the grid */}
-          <motion.div
-            className="mb-8"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+          <form
+            className="mb-6"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const q = (idQuery || '').trim();
+              setSearchTerm(q);
+              setPage(1);
+            }}
           >
-            {/* Gradient border wrapper */}
-            <div className="relative rounded-2xl p-[1px] bg-gradient-to-r from-hero-blue/50 via-hero-blue-light/40 to-hero-blue/50 shadow-[0_0_30px_-10px_rgba(0,84,249,0.3)]">
-              <div className="glass-dark rounded-2xl p-4 sm:p-5 border border-white/10 shadow-xl shadow-black/30 overflow-hidden relative">
-                {/* Gradient accent overlay */}
-                <div className="absolute inset-0 bg-gradient-to-r from-hero-blue/[0.07] via-transparent to-hero-blue-light/[0.07] pointer-events-none" />
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-
-                <div className="flex flex-col gap-4 relative">
-                  {/* Row 1: Search + actions + result count */}
-                  <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-                    <div className="relative flex-1 min-w-0 group/input">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-ape-gray group-focus-within/input:text-hero-blue transition-colors pointer-events-none" />
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="Jump to token ID (0–9999)"
-                        value={idQuery}
-                        onChange={(e) => setIdQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const q = (idQuery || '').trim();
-                            setSearchTerm(q);
-                            setPage(1);
-                          }
-                        }}
-                        className="w-full pl-11 pr-4 py-3 rounded-xl border border-white/10 bg-white/5 text-sm placeholder-ape-gray focus:border-hero-blue focus:outline-none focus:ring-2 focus:ring-hero-blue/25 focus:bg-white/[0.07] transition-all duration-200"
-                        style={{ color: 'var(--foreground)' }}
-                      />
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
-                      <button
-                        className="btn-primary px-5 py-3 text-sm rounded-xl font-medium shadow-lg shadow-hero-blue/20 hover:shadow-hero-blue/30 transition-shadow"
-                        onClick={() => {
-                          const q = (idQuery || '').trim();
-                          setSearchTerm(q);
-                          setPage(1);
-                        }}
-                      >
-                        Go
-                      </button>
-                      <button
-                        onClick={handleSurpriseMe}
-                        className="inline-flex items-center gap-2 px-4 py-3 rounded-xl border border-hero-blue/40 bg-hero-blue/10 text-hero-blue hover:bg-hero-blue/20 hover:border-hero-blue/60 transition-all text-sm font-medium"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        Surprise
-                      </button>
-                      {/* Sort toggle */}
-                      <button
-                        onClick={() => setSortBy(s => s === 'token-asc' ? 'token-desc' : 'token-asc')}
-                        className="inline-flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 hover:border-white/25 bg-white/[0.03] hover:bg-white/[0.06] transition-all text-sm text-white/60 hover:text-white"
-                        title={sortBy === 'token-asc' ? 'ID: Low → High' : 'ID: High → Low'}
-                      >
-                        <ArrowUpDown className="w-4 h-4" />
-                        {sortBy === 'token-asc' ? '0→9' : '9→0'}
-                      </button>
-                      <button
-                        className="px-4 py-3 rounded-xl border border-white/10 text-sm hover:border-hero-blue/50 hover:bg-white/5 transition-all"
-                        style={{ color: 'var(--foreground)' }}
-                        onClick={clearFilters}
-                      >
-                        Clear
-                      </button>
-                      {!loading && (
-                        <div className="hidden lg:flex items-center px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-ape-gray">
-                          {filteredItems.length === 0
-                            ? 'No results'
-                            : `${filteredItems.length.toLocaleString()} Ape${filteredItems.length !== 1 ? 's' : ''}`}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Row 2: Active filter chips */}
-                  <AnimatePresence mode="popLayout">
-                    {selectedChips.length > 0 && (
-                      <motion.div
-                        key="filter-chips"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.25 }}
-                        className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10 overflow-hidden"
-                      >
-                        <span className="text-xs text-ape-gray font-medium w-full sm:w-auto">Active filters:</span>
-                        {selectedChips.map((c, idx) => (
-                          <motion.button
-                            key={`${c.type}-${c.value}-${idx}`}
-                            onClick={() => toggleTraitValue(c.type, c.value)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-hero-blue/15 border border-hero-blue/40 hover:border-hero-blue/60 hover:bg-hero-blue/25 transition-all group"
-                            title="Remove filter"
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <span>{c.type}: {c.value}</span>
-                            <X className="w-3 h-3 opacity-70 group-hover:opacity-100" />
-                          </motion.button>
-                        ))}
-                        <button
-                          className="text-xs text-hero-blue hover:underline font-medium"
-                          onClick={clearFilters}
-                        >
-                          Clear all
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+            <label htmlFor="archive-scan" className="aoa-meta text-[var(--signal)]">Scan token</label>
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input
+                id="archive-scan"
+                type="text"
+                inputMode="numeric"
+                placeholder="Enter ape id (0–9999)"
+                value={idQuery}
+                onChange={(e) => setIdQuery(e.target.value)}
+                className="aoa-archive-input min-w-0 flex-1"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="submit" className="aoa-home-cta aoa-home-cta-solid">Scan</button>
+                <button type="button" onClick={handleSurpriseMe} className="aoa-home-cta aoa-home-cta-ghost">Surprise</button>
+                <button
+                  type="button"
+                  onClick={() => setSortBy(s => s === 'token-asc' ? 'token-desc' : 'token-asc')}
+                  className="aoa-home-cta aoa-home-cta-ghost"
+                  title={sortBy === 'token-asc' ? 'ID: Low to High' : 'ID: High to Low'}
+                >
+                  Sort {sortBy === 'token-asc' ? '0–9' : '9–0'}
+                </button>
+                <button type="button" onClick={clearFilters} className="aoa-home-cta aoa-home-cta-ghost">Reset</button>
+                <button
+                  type="button"
+                  className="aoa-home-cta aoa-home-cta-ghost lg:hidden"
+                  aria-expanded={filtersOpen}
+                  aria-controls="archive-filters"
+                  onClick={() => setFiltersOpen(true)}
+                >
+                  Filter signals{selectedChips.length > 0 ? ` · ${selectedChips.length}` : ''}
+                </button>
               </div>
             </div>
+            {locatedToken ? (
+              <p className="aoa-meta mt-3 text-[var(--signal)]">Signal located // Ape {locatedToken}</p>
+            ) : null}
+            {!loading ? (
+              <p className="aoa-meta mt-3">
+                {filteredItems.length === 0
+                  ? 'No signals match'
+                  : `${filteredItems.length.toLocaleString()} record${filteredItems.length === 1 ? '' : 's'}`}
+                {selectedChips.length > 0 ? ` · ${selectedChips.length} filter${selectedChips.length === 1 ? '' : 's'}` : ''}
+              </p>
+            ) : (
+              <p className="aoa-meta mt-3">Scanning archive...</p>
+            )}
 
-            {/* Scroll to filters on mobile */}
-            <button
-              onClick={() => filtersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-              className="mt-3 flex items-center gap-2 text-sm text-ape-gray hover:text-hero-blue transition-colors lg:hidden"
+            {selectedChips.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {selectedChips.map((c, idx) => (
+                  <button
+                    key={`${c.type}-${c.value}-${idx}`}
+                    type="button"
+                    onClick={() => toggleTraitValue(c.type, c.value)}
+                    className="aoa-meta inline-flex items-center gap-1 border border-[rgba(0,84,250,0.45)] px-2 py-1 text-[var(--signal)]"
+                  >
+                    <span>{c.type}: {c.value}</span>
+                    <X className="h-3 w-3" />
+                  </button>
+                ))}
+                <button type="button" onClick={clearFilters} className="aoa-meta text-[var(--ink)]">Reset</button>
+              </div>
+            )}
+          </form>
+
+          <div className="lg:grid lg:grid-cols-5 lg:gap-6">
+            {filtersOpen ? (
+              <button type="button" className="aoa-archive-scrim lg:hidden" aria-label="Close filters" onClick={() => setFiltersOpen(false)} />
+            ) : null}
+            <aside
+              id="archive-filters"
+              ref={filtersRef}
+              className={`aoa-archive-rail lg:col-span-1 ${filtersOpen ? 'is-open' : ''}`}
+              {...(filtersOpen ? { role: 'dialog' as const, 'aria-modal': true, 'aria-label': 'Filter signals' } : {})}
             >
-              <Filter className="w-4 h-4" />
-              Filter by traits
-            </button>
-          </motion.div>
-
-          {/* Sidebar filters (left) + Grid (right) */}
-          <div className="grid lg:grid-cols-5 gap-6">
-            {/* Left: Trait Filters */}
-            <aside ref={filtersRef} className="lg:col-span-1">
-              <div className="sticky top-24 space-y-3">
-
-                {/* Panel header */}
-                <div className="flex items-center justify-between px-0.5">
+              <div className="space-y-3 lg:sticky lg:top-[calc(var(--aoa-header-h)+0.75rem)]">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Filter className="w-3.5 h-3.5 text-hero-blue" />
-                    <span className="text-sm font-bold text-white">Filter Traits</span>
+                    <span className="text-sm font-semibold text-[var(--ink)]">Filter signals</span>
                     {selectedChips.length > 0 && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-hero-blue text-white font-bold">
                         {selectedChips.length}
                       </span>
                     )}
                   </div>
-                  {selectedChips.length > 0 && (
-                    <button
-                      onClick={clearFilters}
-                      className="text-[11px] text-white/30 hover:text-red-400 transition-colors flex items-center gap-1"
-                    >
-                      <X className="w-3 h-3" /> Reset
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {selectedChips.length > 0 && (
+                      <button type="button" onClick={clearFilters} className="aoa-meta text-[var(--ink)]">Reset</button>
+                    )}
+                    <button type="button" className="aoa-meta lg:hidden" onClick={() => setFiltersOpen(false)}>Close</button>
+                  </div>
                 </div>
 
                 {/* Active chips */}
@@ -1510,35 +1429,37 @@ export default function CollectionPage() {
               )}
 
               {loading ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 py-6">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="glass-dark rounded-xl border border-white/5 animate-pulse overflow-hidden"
-                    >
-                      <div className="aspect-square bg-white/5" />
-                      <div className="p-3 space-y-2 bg-white/[0.02] border-t border-white/5">
-                        <div className="h-3 w-2/3 rounded-full bg-white/10" />
-                        <div className="h-3 w-1/3 rounded-full bg-white/5" />
+                <div>
+                  <p className="aoa-meta mb-4">Scanning archive...</p>
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 xl:grid-cols-4">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div key={i} className="aoa-archive-card animate-pulse">
+                        <div className="aspect-square bg-white/5" />
+                        <div className="h-10 border-t border-[rgba(243,238,228,0.08)]" />
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               ) : (
               <>
-                  {/* 4 columns on desktop */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
-                    {displayedItems.map((item, idx) => (
-                      <motion.div
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 xl:grid-cols-4">
+                    {displayedItems.map((item) => {
+                      const label = item.tokenId ? item.tokenId.padStart(4, '0') : item.name;
+                      return (
+                      <div
                         key={item.id}
-                        className="glass-dark rounded-2xl overflow-hidden border border-white/10 cursor-pointer group hover:border-hero-blue/40 transition-all duration-300 hover:shadow-lg hover:shadow-hero-blue/10"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={item.tokenId ? `Scan ape ${item.tokenId}` : item.name}
+                        className="aoa-archive-card cursor-pointer overflow-hidden"
                         onClick={() => openModal(item)}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: Math.min(idx * 0.02, 0.3) }}
-                        whileHover={{ scale: 1.02, y: -3 }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            openModal(item);
+                          }
+                        }}
                       >
-                        {/* Image */}
                         <div className="relative aspect-square overflow-hidden">
                           {item.tokenId ? (
                             <FallbackImage
@@ -1548,9 +1469,9 @@ export default function CollectionPage() {
                                   ? item.imageUrls
                                   : (item.imageUrl ? [item.imageUrl] : [])),
                               ]}
-                              alt={item.name}
+                              alt={`Ape ${item.tokenId}`}
                               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                              className="object-cover group-hover:scale-108 transition-transform duration-500"
+                              className="object-cover"
                             />
                           ) : item.imageUrl ? (
                             <FallbackImage
@@ -1560,66 +1481,48 @@ export default function CollectionPage() {
                               className="object-cover"
                             />
                           ) : (
-                            <div className="absolute inset-0 flex items-center justify-center bg-white/[0.02]">
-                              <div className="w-8 h-8 border-2 border-hero-blue/30 border-t-hero-blue rounded-full animate-spin" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <p className="aoa-meta">Indexing...</p>
                             </div>
                           )}
-                          {/* Hover overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                            <span className="text-xs font-semibold text-white/80 bg-hero-blue/80 px-2 py-1 rounded-lg backdrop-blur-sm">
-                              Quick view
-                            </span>
-                          </div>
                         </div>
-                        {/* Bottom info strip */}
-                        <div className="px-3 py-2.5 flex items-center justify-between border-t border-white/[0.06]">
-                          <span className="text-sm font-bold text-white">
-                            {item.tokenId ? `#${item.tokenId}` : item.name}
-                          </span>
+                        <div className="flex items-end justify-between gap-2 border-t border-[rgba(243,238,228,0.08)] px-2.5 py-2">
+                          <div className="min-w-0">
+                            <p className="aoa-meta text-[var(--ink)]">Ape // {label}</p>
+                            {item.traits && item.traits.length > 0 ? (
+                              <p className="aoa-meta">Trait count // {item.traits.length}</p>
+                            ) : null}
+                          </div>
                           <Link
                             href={item.tokenId ? `/collection/${item.tokenId}` : '#'}
                             onClick={e => e.stopPropagation()}
-                            className="text-[11px] text-white/30 hover:text-hero-blue transition-colors flex items-center gap-0.5 font-medium"
+                            className="aoa-meta shrink-0 text-[var(--signal)]"
                           >
-                            Detail <ExternalLink className="w-2.5 h-2.5" />
+                            Record
                           </Link>
                         </div>
-                      </motion.div>
-                  ))}
+                      </div>
+                    );})}
                 </div>
 
                 {hasMore && (
                   <div ref={observerTarget} className="flex justify-center py-8">
-                    <div className="w-12 h-12 border-4 border-hero-blue/30 border-t-hero-blue rounded-full animate-spin"></div>
+                    <p className="aoa-meta">Indexing signals...</p>
                   </div>
                 )}
 
                   {!hasMore && filteredItems.length > 0 && (
-                  <motion.div 
-                    className="text-center py-12"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
-                    <p style={{ color: 'var(--ape-gray)' }}>You&apos;ve reached the end of the collection</p>
-                  </motion.div>
+                  <p className="aoa-meta py-12 text-center">End of the loaded archive</p>
                 )}
 
                   {filteredItems.length === 0 && (
-                  <motion.div
-                    className="text-center py-16 px-6 rounded-2xl glass-dark border border-white/10"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <p className="text-xl font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
-                      No Apes match your filters
-                    </p>
-                    <p className="text-sm mb-6 text-ape-gray">
-                      Try broadening your search or clearing some traits
-                    </p>
-                    <button onClick={clearFilters} className="btn-primary px-6 py-2">
-                      Clear all filters
+                  <div className="border border-[rgba(243,238,228,0.12)] px-6 py-16 text-center">
+                    <p className="type-section text-[var(--ink)]">No signals match this filter.</p>
+                    <p className="aoa-meta mt-3">The archive still holds {COLLECTION_SUPPLY.toLocaleString('en-US')} records.</p>
+                    <button type="button" onClick={clearFilters} className="aoa-home-cta aoa-home-cta-solid mt-6">
+                      Reset filters
                     </button>
-                  </motion.div>
+                  </div>
                 )}
               </>
           )}
@@ -1767,24 +1670,13 @@ export default function CollectionPage() {
                       {modalResolved.traits.map((t, idx) => {
                         const countData = cdnTraitsMeta?.counts?.[t.name]?.[t.value];
                         const pct = countData ? ((countData / 10000) * 100).toFixed(1) : null;
-                        const isRare = pct ? parseFloat(pct) < 10 : false;
                         return (
-                          <div
+                          <TraitRecord
                             key={`${t.name}-${t.value}-${idx}`}
-                            className={`px-2.5 py-2 rounded-xl border text-xs transition-colors ${
-                              isRare
-                                ? 'bg-hero-blue/5 border-hero-blue/25'
-                                : 'bg-white/[0.03] border-white/8'
-                            }`}
-                          >
-                            <div className="text-white/35 uppercase tracking-wider text-[10px] mb-0.5">{t.name}</div>
-                            <div className="text-white font-semibold truncate">{t.value}</div>
-                            {pct && (
-                              <div className={`text-[10px] mt-0.5 ${isRare ? 'text-hero-blue/70' : 'text-white/20'}`}>
-                                {pct}% have this
-                              </div>
-                            )}
-                          </div>
+                            name={t.name}
+                            value={t.value}
+                            note={pct ? `${pct}% have this` : undefined}
+                          />
                         );
                       })}
                     </div>
@@ -1792,25 +1684,24 @@ export default function CollectionPage() {
                 </div>
 
                 {/* Buy buttons */}
-                <div className="px-4 pb-4 pt-2 border-t border-white/8 flex gap-2 flex-wrap">
+                <div className="flex flex-wrap gap-2 border-t border-white/8 px-4 pb-[calc(var(--aoa-dock-offset)+1rem)] pt-2 sm:pb-4">
                   {modalResolved.tokenId && (
                     <a
                       href={`https://opensea.io/assets/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0/${modalResolved.tokenId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-hero-blue hover:bg-hero-blue-light text-white text-sm font-bold transition-all shadow-lg shadow-hero-blue/25"
+                      className="aoa-home-cta aoa-home-cta-ghost"
                     >
-                      <ShoppingBag className="w-4 h-4" />
-                      Buy on OpenSea
+                      OpenSea ↗
                     </a>
                   )}
                   {modalResolved.tokenId && (
                     <Link
                       href={`/collection/${modalResolved.tokenId}`}
                       onClick={closeModal}
-                      className="flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl border border-white/15 hover:border-hero-blue/40 text-white/60 hover:text-white text-sm font-medium transition-all"
+                      className="aoa-home-cta aoa-home-cta-solid"
                     >
-                      Full Details
+                      Open record
                     </Link>
                   )}
                 </div>

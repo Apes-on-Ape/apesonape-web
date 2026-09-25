@@ -3,11 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePrivy } from '@privy-io/react-auth';
-import { Image as ImageIcon, Loader2, BadgeCheck, Search } from 'lucide-react';
+import { BadgeCheck } from 'lucide-react';
 import Footer from '@/app/components/Footer';
+import ApeIdentityLink from '@/app/components/profile/ApeIdentityLink';
+import ApeMark from '@/app/components/profile/ApeMark';
 import SafeImage from '@/app/components/SafeImage';
+import BroadcastLabel from '@/app/components/signal/BroadcastLabel';
 import DailyEngagementStudioSection from '@/app/components/engagement/DailyEngagementStudioSection';
-import { CreationRecord, CreationType } from '@/lib/studio/types';
+import { CreationRecord } from '@/lib/studio/types';
 import { toGatewayUri } from '@/lib/studio/urls';
 
 function shortAddress(addr: string) {
@@ -25,13 +28,6 @@ function formatTimeAgo(dateIso: string) {
 	const days = Math.floor(hours / 24);
 	return `${days}d ago`;
 }
-
-const typeLabels: Record<CreationType, string> = {
-	sound: 'Sound',
-	visual: 'AI Image',
-	interactive: 'Interactive',
-	code: 'Code',
-};
 
 export default function StudioExplorePage() {
 	const { user } = (usePrivy() as unknown) as { user?: { id?: string } };
@@ -91,118 +87,61 @@ export default function StudioExplorePage() {
 	};
 
 	return (
-		<div className="min-h-screen flex flex-col">
-			<main className="flex-1 container-premium pt-24 pb-16">
-				{/* Premium Hero Section */}
-				<div className="glass-premium rounded-2xl p-8 md:p-12 mb-12 relative overflow-hidden">
-					{/* Background gradient */}
-					<div className="absolute inset-0 bg-gradient-to-br from-hero-blue/5 via-transparent to-accent-purple/5 opacity-50" />
-					<div className="relative z-10">
-						<div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-							<div className="space-y-4">
-								<div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border-hero-blue/40 text-hero-blue text-sm font-semibold">
-									<span className="w-2 h-2 bg-hero-blue rounded-full animate-pulse" />
-									AOA Studio
-								</div>
-								<h1 className="section-heading text-4xl md:text-5xl lg:text-6xl">
-									AI Image Studio.
-								</h1>
-								<p className="section-description max-w-2xl">
-									Prompted creations—generated from text and attributed to the wallet that shipped them.
-								</p>
-								<div className="text-muted text-sm">AI image creations</div>
-							</div>
-							<div className="flex items-center gap-3">
-								<Link href="/studio/new" className="btn-primary btn-lg">
-									Publish
-								</Link>
-							</div>
-						</div>
-
-						{/* Premium Search & Filters */}
-						<form onSubmit={onSearch} className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
-							<div className="flex items-center gap-3 glass rounded-xl px-4 py-3 focus-within:border-hero-blue/50 transition-colors" style={{ borderColor: 'rgba(0, 84, 249, 0.3)' }}>
-								<Search className="w-5 h-5 text-muted" />
-								<input
-									value={search}
-									onChange={(e) => setSearch(e.target.value)}
-									className="bg-transparent flex-1 outline-none text-sm placeholder:text-muted"
-									style={{ color: 'var(--foreground)' }}
-									placeholder="Search title, creator address, or handle"
-								/>
-							</div>
-							<div className="hidden lg:block" />
-							<div className="flex items-center lg:justify-end gap-3">
-								<button type="submit" className="btn-secondary">Search</button>
-							</div>
-						</form>
+		<div className="min-h-screen flex flex-col text-[var(--ink)]">
+			<main className="flex-1 container-premium pb-[calc(var(--aoa-dock-offset)+2rem)] pt-[calc(var(--aoa-header-h)+1.5rem)]">
+				<div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+					<div>
+						<BroadcastLabel>Transmission lab</BroadcastLabel>
+						<h1 className="type-hero-home mt-4 max-w-[8ch]">AOA Lab</h1>
+						<p className="mt-4 max-w-xl text-lg">Create. Publish. Transmit.</p>
+						<p className="mt-2 max-w-xl text-sm text-[var(--ink-dim)]">Visual artifacts created by the AOA network.</p>
 					</div>
+					<Link href="/studio/new" className="aoa-home-cta aoa-home-cta-solid w-full sm:w-auto">Create transmission</Link>
 				</div>
+
+				<form onSubmit={onSearch} className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end">
+					<div className="min-w-0 flex-1">
+						<label htmlFor="studio-search" className="aoa-meta">Search</label>
+						<input
+							id="studio-search"
+							value={search}
+							onChange={(e) => setSearch(e.target.value)}
+							className="mt-2 w-full min-h-11 border border-[rgba(243,238,228,0.18)] bg-transparent px-3 text-sm text-[var(--ink)]"
+							placeholder="Title, address, or handle"
+						/>
+					</div>
+					<button type="submit" className="aoa-home-cta aoa-home-cta-ghost">Search</button>
+				</form>
 
 				<DailyEngagementStudioSection userId={privyUserId} />
 
 				{/* Loading State */}
 				{loading && (
-					<div className="flex items-center justify-center gap-3 text-muted py-20">
-						<Loader2 className="w-5 h-5 animate-spin text-hero-blue" />
-						<span>Loading feed…</span>
-					</div>
+					<p className="aoa-meta py-16 text-center">Scanning the lab...</p>
 				)}
 				
-				{/* Error State */}
 				{error && (
-					<div className="card-premium border-red-500/30 bg-red-500/5 p-6 text-red-400">
-						{error}
-					</div>
+					<p className="border border-red-400/40 p-4 text-sm text-red-300" role="alert">{error}</p>
 				)}
 				
-				{/* Empty State */}
 				{!loading && !error && creations.length === 0 && (
-					<div className="card-premium text-center p-12">
-						<p className="text-muted text-lg mb-4">
-							No creations yet. Be the first to{' '}
-							<Link href="/studio/new" className="text-hero-blue hover:underline font-semibold">
-								publish
-							</Link>.
-						</p>
+					<div className="border border-[rgba(243,238,228,0.12)] px-6 py-16 text-center">
+						<p className="type-section">No visual transmissions yet.</p>
+						<Link href="/studio/new" className="aoa-home-cta aoa-home-cta-solid mt-6">Create the first signal</Link>
 					</div>
 				)}
 
-				{/* Sort chips */}
 				{!loading && !error && creations.length > 0 && (
-					<div className="flex items-center justify-between gap-3 mb-6 text-xs md:text-sm">
-						<p className="text-muted">
-							Showing {creations.length} creation{creations.length !== 1 ? 's' : ''}.
-						</p>
-						<div className="inline-flex items-center gap-2 rounded-full bg-black/40 border border-white/10 px-2 py-1">
-							<button
-								type="button"
-								onClick={() => setSortMode('newest')}
-								className={`px-3 py-1.5 rounded-full transition-colors ${
-									sortMode === 'newest'
-										? 'bg-hero-blue text-black font-semibold'
-										: 'text-muted hover:text-hero-blue'
-								}`}
-							>
-								Newest
-							</button>
-							<button
-								type="button"
-								onClick={() => setSortMode('oldest')}
-								className={`px-3 py-1.5 rounded-full transition-colors ${
-									sortMode === 'oldest'
-										? 'bg-hero-blue text-black font-semibold'
-										: 'text-muted hover:text-hero-blue'
-								}`}
-							>
-								Oldest
-							</button>
+					<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+						<p className="aoa-meta">{creations.length} transmission{creations.length === 1 ? '' : 's'}</p>
+						<div className="flex gap-2">
+							<button type="button" onClick={() => setSortMode('newest')} className={`aoa-home-cta ${sortMode === 'newest' ? 'aoa-home-cta-solid' : 'aoa-home-cta-ghost'}`}>Newest</button>
+							<button type="button" onClick={() => setSortMode('oldest')} className={`aoa-home-cta ${sortMode === 'oldest' ? 'aoa-home-cta-solid' : 'aoa-home-cta-ghost'}`}>Oldest</button>
 						</div>
 					</div>
 				)}
 
-				{/* Premium Creation Grid */}
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					{[...creations]
 						.sort((a, b) =>
 							sortMode === 'newest'
@@ -210,62 +149,38 @@ export default function StudioExplorePage() {
 								: new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
 						)
 						.map((creation) => (
-						<Link
-							key={creation.id}
-							href={`/studio/${creation.id}`}
-							className="group card-premium overflow-hidden flex flex-col hover:border-hero-blue/50 transition-all duration-500"
-						>
-							<div className="relative aspect-[4/3] w-full overflow-hidden bg-background-surface rounded-xl mb-4">
-								{renderPreview(creation)}
-								<div className="absolute top-3 left-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs glass font-medium" style={{ borderColor: 'rgba(0, 84, 249, 0.3)' }}>
-									<ImageIcon className="w-3.5 h-3.5" />
-									<span>{typeLabels[creation.type]}</span>
+						<article key={creation.id} className="flex min-w-0 flex-col border border-[rgba(243,238,228,0.12)]">
+							<Link href={`/studio/${creation.id}`} className="block min-w-0">
+								<div className="relative aspect-[4/3] overflow-hidden bg-black/40">
+									{renderPreview(creation)}
 								</div>
-								<div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-									<span className="text-xs md:text-sm font-semibold text-off-white/90 px-3 py-1 rounded-full bg-black/60 border border-white/20">
-										View details
-									</span>
-								</div>
-							</div>
-							<div className="space-y-3 flex-1 flex flex-col">
-								<div className="flex items-start justify-between gap-2">
-									<h3 className="font-bold text-lg line-clamp-1 group-hover:text-hero-blue transition-colors">
-										{creation.title}
-									</h3>
-									<span className="text-xs text-muted whitespace-nowrap">{formatTimeAgo(creation.createdAt)}</span>
-								</div>
-								<p className="text-sm text-muted line-clamp-2 leading-relaxed flex-1">
-									{creation.description}
-								</p>
-								<div className="flex items-center gap-2 text-xs flex-wrap">
-									<Link
-										href={
-											creation.glyphProfile?.xHandle
-												? `/studio/creator/${creation.glyphProfile.xHandle.toLowerCase()}`
-												: `/studio/creator/${creation.creatorAddress.toLowerCase()}`
-										}
-										onClick={(e) => e.stopPropagation()}
-										className="text-hero-blue hover:underline underline-offset-2 font-medium"
-									>
-										{creation.glyphProfile?.xHandle ? `@${creation.glyphProfile.xHandle}` : shortAddress(creation.creatorAddress)}
-									</Link>
-									{creation.glyphProfile?.verified ? (
-										<span className="inline-flex items-center gap-1 text-accent-green badge-primary text-xs">
-											<BadgeCheck className="w-3 h-3" /> Verified
-										</span>
+								<div className="space-y-2 p-3">
+									<p className="aoa-meta text-[var(--signal)]">Artifact // {creation.id.slice(0, 8)}</p>
+									<h3 className="line-clamp-1 text-base font-semibold">{creation.title}</h3>
+									<p className="aoa-meta" title={new Date(creation.createdAt).toLocaleString()}>{formatTimeAgo(creation.createdAt)}</p>
+									{(creation.artifact?.prompt || creation.description) ? (
+										<p className="line-clamp-2 text-sm text-[var(--ink-dim)]">{creation.artifact?.prompt || creation.description}</p>
 									) : null}
 								</div>
-								{creation.tags && creation.tags.length > 0 && (
-									<div className="flex flex-wrap gap-2 pt-2">
-										{creation.tags.map((tag) => (
-											<span key={tag} className="badge text-xs">
-												#{tag}
-											</span>
-										))}
-									</div>
-								)}
+							</Link>
+							<div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+								<span className="relative h-7 w-7 shrink-0 overflow-hidden bg-black">
+									<ApeMark username={creation.glyphProfile?.xHandle} />
+								</span>
+								<ApeIdentityLink
+									username={creation.glyphProfile?.xHandle}
+									fallbackHref={`/studio/creator/${(creation.glyphProfile?.xHandle || creation.creatorAddress).toLowerCase()}/`}
+									className="aoa-meta text-[var(--signal)]"
+								>
+									{creation.glyphProfile?.xHandle ? `@${creation.glyphProfile.xHandle}` : shortAddress(creation.creatorAddress)}
+								</ApeIdentityLink>
+								{creation.glyphProfile?.verified ? (
+									<span className="aoa-meta inline-flex items-center gap-1">
+										<BadgeCheck className="h-3 w-3" /> Verified
+									</span>
+								) : null}
 							</div>
-						</Link>
+						</article>
 					))}
 				</div>
 			</main>

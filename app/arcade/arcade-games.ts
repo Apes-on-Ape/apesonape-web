@@ -36,12 +36,6 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     description: 'Simple controls, brutal timing.',
     path: '/arcade/flappy-ape/index.html',
   },
-  {
-    slug: 'tailstrike-arena',
-    title: 'Tailstrike Arena',
-    description: 'Arcade arena combat and movement mastery.',
-    path: '/arcade/tailstrike-arena/dist/index.html',
-  },
 ];
 
 export function getArcadeGame(slug: string) {
@@ -55,5 +49,4 @@ export const ARCADE_LEADERBOARD_GAMES: { slug: string; title: string; gameId: st
   { slug: 'galaxy-ape', title: 'Galaxy Ape', gameId: 'galaxy_ape' },
   { slug: 'ape-man', title: 'Ape Man', gameId: 'ape_man' },
   { slug: 'flappy-ape', title: 'Flappy Ape', gameId: 'flappy_ape' },
-  { slug: 'tailstrike-arena', title: 'Tailstrike Arena', gameId: 'tailstrike_arena' },
 ];

@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authFailure, requireAuthenticatedApe } from '@/lib/auth/ape';
 import { resolveCanonicalArcadeWallet } from '@/lib/arcade-canonical-wallet';
 import { getForeverApeForWallet } from '@/lib/arcade-forever-ape';
 import { buildSelectedApePayloadForArcade } from '@/lib/arcade-forever-ape';
-import {
-  resolveGlyphUserIdFromStudioWallet,
-  resolveGlyphUserIdFromUserProfileWallet,
-} from '@/lib/arcade-glyph-resolve';
 import { getArcadeSupabase, normalizeWallet } from '@/lib/arcade-db';
+import { arcadePersonalBestDedupe, arcadeRunDedupe, awardArcadePersonalBest, awardArcadeRun } from '@/lib/progress/hooks';
+import { recordUserActivity } from '@/lib/progress/activity';
+import { recordEraRun } from '@/lib/progress/era';
+import { aoaMetadata, createNotification } from '@/lib/notifications/create';
+import { AOA_REWARDS } from '@/lib/progress/rewards';
+import { ARCADE_LEADERBOARD_GAMES } from '@/app/arcade/arcade-games';
 
 const GAME_SCORE_COLUMN: Record<string, string> = {
   block_dodger: 'block_dodger_score',
@@ -48,77 +51,32 @@ function isMissingGameScoresTableError(error: unknown): boolean {
 
 export async function POST(req: NextRequest) {
   try {
+    const ape = await requireAuthenticatedApe(req);
     const body = await req.json();
     let wallet = normalizeWallet(body.wallet_address || '');
-    const glyphEvmHint =
-      typeof body.glyph_evm_wallet === 'string' && body.glyph_evm_wallet.trim()
-        ? normalizeWallet(body.glyph_evm_wallet)
-        : '';
-    const glyphUserIdRaw = body.glyph_user_id;
-    let glyphUserId =
-      typeof glyphUserIdRaw === 'string' && glyphUserIdRaw.trim().length > 0
-        ? glyphUserIdRaw.trim()
-        : null;
-    if (!glyphUserId && glyphEvmHint) {
-      glyphUserId = await resolveGlyphUserIdFromUserProfileWallet(glyphEvmHint);
+    if (wallet && !ape.wallets.includes(wallet)) {
+      return NextResponse.json({ error: 'That wallet is not linked to this Ape.' }, { status: 403 });
     }
-    if (!glyphUserId && glyphEvmHint) {
-      glyphUserId = await resolveGlyphUserIdFromStudioWallet(glyphEvmHint);
-    }
-    if (!glyphUserId) {
-      glyphUserId = await resolveGlyphUserIdFromStudioWallet(wallet);
-    }
-    if (!glyphUserId) {
-      glyphUserId = await resolveGlyphUserIdFromUserProfileWallet(wallet);
-    }
+    if (!wallet) wallet = ape.primaryWallet || '';
+    const glyphUserId = ape.userId;
     const gameId = String(body.game_id || '');
-    const score = Math.max(0, parseInt(String(body.score ?? 0), 10) || 0);
-    const isRecordedGameRun =
-      Boolean(gameId) && gameId !== 'experience_update' && score > 0;
+    const activeGame = ARCADE_LEADERBOARD_GAMES.some((game) => game.gameId === gameId);
+    if (!activeGame) {
+      return NextResponse.json({ error: 'Unknown game.' }, { status: 400 });
+    }
+    const score = Math.max(0, Math.floor(Number(body.score)));
+    if (!Number.isFinite(score)) {
+      return NextResponse.json({ error: 'Score must be a number.' }, { status: 400 });
+    }
+    const isRecordedGameRun = Boolean(gameId) && score > 0;
 
     if (!wallet) {
-      return NextResponse.json({ error: 'wallet_address required' }, { status: 400 });
-    }
-    if (!glyphUserId && !glyphEvmHint) {
-      return NextResponse.json(
-        { error: 'glyph identity required (glyph_user_id or glyph_evm_wallet)' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Link a wallet before saving a score.' }, { status: 400 });
     }
 
     const supabase = getArcadeSupabase();
-
-    const resolved = await resolveCanonicalArcadeWallet(
-      supabase,
-      wallet,
-      glyphUserId,
-      glyphEvmHint || null
-    );
-    wallet = resolved.wallet;
-    if (!glyphUserId) {
-      glyphUserId = await resolveGlyphUserIdFromUserProfileWallet(wallet);
-    }
-    if (!glyphUserId) {
-      glyphUserId = await resolveGlyphUserIdFromStudioWallet(wallet);
-    }
-
-    // Never write to a non-Glyph wallet: prefer explicit Glyph EVM hint, then DB-resolved wallet by glyph id.
-    let glyphCanonicalWallet = glyphEvmHint;
-    if (!glyphCanonicalWallet && glyphUserId) {
-      const { data: glyphProfile } = await supabase
-        .from('user_profiles')
-        .select('wallet_address')
-        .eq('glyph_user_id', glyphUserId)
-        .maybeSingle();
-      glyphCanonicalWallet = normalizeWallet(String(glyphProfile?.wallet_address ?? ''));
-    }
-    if (!glyphCanonicalWallet) {
-      glyphCanonicalWallet = wallet;
-    }
-    if (wallet !== glyphCanonicalWallet) {
-      await resolveCanonicalArcadeWallet(supabase, wallet, glyphUserId, glyphCanonicalWallet);
-      wallet = glyphCanonicalWallet;
-    }
+    const resolved = await resolveCanonicalArcadeWallet(supabase, wallet, glyphUserId, ape.primaryWallet);
+    if (resolved.wallet && ape.wallets.includes(resolved.wallet)) wallet = resolved.wallet;
 
     const { data: existingProfile } = await supabase
       .from('user_profiles')
@@ -127,32 +85,15 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     const existingGid = String(existingProfile?.glyph_user_id ?? '').trim();
-    /** Prefer existing non-legacy id (e.g. Privy from init-user) — do not overwrite with Glyph SDK id. */
-    let effectiveGlyphId = existingGid || glyphUserId;
-    if (existingGid.startsWith('legacy:') && glyphUserId) {
-      effectiveGlyphId = glyphUserId;
+    if (existingGid && existingGid !== glyphUserId && !existingGid.startsWith('legacy:')) {
+      return NextResponse.json({ error: 'That wallet belongs to another Ape.' }, { status: 403 });
     }
+    const effectiveGlyphId = glyphUserId;
 
     const patch: Record<string, unknown> = {
-      last_game_played: body.last_game_played || new Date().toISOString(),
+      last_game_played: new Date().toISOString(),
+      glyph_user_id: effectiveGlyphId,
     };
-    if (effectiveGlyphId) patch.glyph_user_id = effectiveGlyphId;
-
-    if (body.first_game_played) patch.first_game_played = body.first_game_played;
-    if (typeof body.total_games === 'number') patch.total_games_played = body.total_games;
-    if (typeof body.total_points === 'number' && !isRecordedGameRun) {
-      patch.total_points = body.total_points;
-    }
-    if (typeof body.block_dodger_games === 'number') patch.block_dodger_games = body.block_dodger_games;
-    if (typeof body.neon_racer_games === 'number') patch.neon_racer_games = body.neon_racer_games;
-    if (typeof body.ape_man_games === 'number') patch.ape_man_games = body.ape_man_games;
-    if (typeof body.flappy_ape_games === 'number') patch.flappy_ape_games = body.flappy_ape_games;
-    if (typeof body.galaxy_ape_games === 'number') patch.galaxy_ape_games = body.galaxy_ape_games;
-    if (typeof body.tailstrike_arena_games === 'number') {
-      patch.tailstrike_arena_games = body.tailstrike_arena_games;
-    }
-    if (typeof body.clubroom_visits === 'number') patch.clubroom_visits = body.clubroom_visits;
-    // Level/experience are server-owned via add_experience RPC; never trust client snapshots here.
 
     const fa = await getForeverApeForWallet(wallet);
     if (fa.forever_ape_id != null) {
@@ -212,6 +153,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: currentErr.message }, { status: 500 });
       }
 
+      const previousBest = Math.max(
+        existingGameScore,
+        scoreCol ? Number((currentRow as Record<string, unknown> | null)?.[scoreCol] ?? 0) : 0,
+      );
+      const isPersonalBest = score > previousBest;
       let bestScore = Math.max(existingGameScore, score);
       if (scoreCol) {
         bestScore = Math.max(bestScore, Number((currentRow as Record<string, unknown> | null)?.[scoreCol] ?? 0));
@@ -273,6 +219,48 @@ export async function POST(req: NextRequest) {
         console.error('[save_game_stats] user_profiles score update', scoreUpdateErr);
         return NextResponse.json({ error: scoreUpdateErr.message }, { status: 500 });
       }
+
+      if (effectiveGlyphId) {
+        try {
+          await recordUserActivity({
+            userId: effectiveGlyphId,
+            source: 'arcade',
+            action: 'run_completed',
+            referenceId: gameId,
+            dedupeKey: arcadeRunDedupe(effectiveGlyphId, gameId, score),
+            metadata: { gameId, score },
+          });
+          await awardArcadeRun(effectiveGlyphId, gameId, score);
+          if (isPersonalBest) {
+            await recordUserActivity({
+              userId: effectiveGlyphId,
+              source: 'arcade',
+              action: 'personal_best',
+              referenceId: gameId,
+              dedupeKey: arcadePersonalBestDedupe(effectiveGlyphId, gameId, score),
+              metadata: { gameId, score },
+            });
+            const personalBest = await awardArcadePersonalBest(effectiveGlyphId, gameId, score);
+            const gameTitle = ARCADE_LEADERBOARD_GAMES.find((game) => game.gameId === gameId)?.title ?? gameId;
+            await createNotification({
+              userId: effectiveGlyphId,
+              type: 'personal_best',
+              category: 'arcade',
+              title: 'New personal best',
+              message: `${gameTitle} // ${score.toLocaleString('en-US')}`,
+              actionLabel: 'View record',
+              actionUrl: '/profile/?tab=arcade',
+              referenceType: 'arcade_game',
+              referenceId: gameId,
+              metadata: aoaMetadata(personalBest.awarded ? AOA_REWARDS.arcadePersonalBest : 0),
+              dedupeKey: `arcade-personal-best:${gameId}:${score}:${effectiveGlyphId}`,
+            });
+          }
+          await recordEraRun(effectiveGlyphId, gameId, score);
+        } catch (progressErr) {
+          console.error('[save_game_stats] aoa', progressErr);
+        }
+      }
     }
 
     /** Re-read the persisted profile after score/stats updates. */
@@ -294,6 +282,8 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (e) {
+    const denied = authFailure(e);
+    if (denied) return denied;
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: msg }, { status: 500 });
   }

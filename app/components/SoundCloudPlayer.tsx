@@ -12,6 +12,7 @@ import {
   AOA_RADIO_PLAY_EVENT,
   AOA_RADIO_STATE_EVENT,
   isArcadeGamePath,
+  sameRadioUrl,
   type AoaRadioCommand,
   type AoaRadioStateDetail,
   type AoaRadioTrack,
@@ -90,6 +91,7 @@ export default function SoundCloudPlayer() {
   const boundRef = useRef(false);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playOnReadyRef = useRef(false);
+  const widgetReadyRef = useRef(false);
   const userStartedRef = useRef(false);
   const playlistUrlRef = useRef('');
   const volumeRef = useRef(70);
@@ -97,6 +99,8 @@ export default function SoundCloudPlayer() {
   const lastTrackSigRef = useRef('');
 
   const [playlistUrl, setPlaylistUrl] = useState('');
+  /** Iframe source. Stays on the first URL so later albums load through the widget API. */
+  const [frameUrl, setFrameUrl] = useState('');
   const [albumTitle, setAlbumTitle] = useState('AOA Radio');
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -117,9 +121,9 @@ export default function SoundCloudPlayer() {
   volumeRef.current = volume;
 
   const playerSrc = useMemo(() => {
-    if (!playlistUrl) return '';
+    if (!frameUrl) return '';
     const params = new URLSearchParams({
-      url: playlistUrl,
+      url: frameUrl,
       auto_play: 'false',
       hide_related: 'true',
       show_comments: 'false',
@@ -129,7 +133,7 @@ export default function SoundCloudPlayer() {
       visual: 'false',
     });
     return `https://w.soundcloud.com/player/?${params.toString()}`;
-  }, [playlistUrl]);
+  }, [frameUrl]);
 
   function stopPoll() {
     if (progressRef.current) {
@@ -184,11 +188,16 @@ export default function SoundCloudPlayer() {
       .then((response) => response.json())
       .then((data) => {
         if (cancelled) return;
-        setPlaylistUrl((current) => current || data.url || FALLBACK_URL);
+        const next = data.url || FALLBACK_URL;
+        setPlaylistUrl((current) => current || next);
+        setFrameUrl((current) => current || next);
         if (data.title) setAlbumTitle((current) => (current === 'AOA Radio' ? data.title : current));
       })
       .catch(() => {
-        if (!cancelled) setPlaylistUrl((current) => current || FALLBACK_URL);
+        if (!cancelled) {
+          setPlaylistUrl((current) => current || FALLBACK_URL);
+          setFrameUrl((current) => current || FALLBACK_URL);
+        }
       });
     return () => { cancelled = true; };
   }, []);
@@ -219,6 +228,7 @@ export default function SoundCloudPlayer() {
 
       widget.bind(Widget.Events.READY, () => {
         if (cancelled) return;
+        widgetReadyRef.current = true;
         setIsReady(true);
         queueMicrotask(() => {
           if (!cancelled) widget.getSounds((sounds) => rememberTracks(sounds));
@@ -294,6 +304,7 @@ export default function SoundCloudPlayer() {
 
     return () => {
       cancelled = true;
+      widgetReadyRef.current = false;
       stopPoll();
       boundRef.current = false;
       widgetRef.current = null;
@@ -325,13 +336,48 @@ export default function SoundCloudPlayer() {
         const url = command.url?.trim();
         if (command.title) setAlbumTitle(command.title);
         if (!url) return;
-        const same = url.replace(/\/+$/, '') === playlistUrlRef.current.replace(/\/+$/, '');
-        if (!same) {
-          playOnReadyRef.current = !!command.play;
-          setPlaylistUrl(url);
+        const same = sameRadioUrl(url, playlistUrlRef.current);
+        if (same) {
+          if (typeof command.startTrack === 'number' && widget) {
+            try { widget.seekTo(0); } catch { /* ignore */ }
+          }
+          if (command.play) playWidget();
           return;
         }
-        if (command.play) playWidget();
+        setPlaylistUrl(url);
+        playlistUrlRef.current = url;
+        setCurrentTitle('');
+        setCurrentTrackId('');
+        setTracks([]);
+        lastTrackSigRef.current = '';
+        if (!widget || !widgetReadyRef.current) {
+          playOnReadyRef.current = !!command.play;
+          setFrameUrl(url);
+          return;
+        }
+        playOnReadyRef.current = false;
+        if (command.play) {
+          userStartedRef.current = true;
+          const level = volumeRef.current || 70;
+          setVolume(level);
+          setIsMuted(false);
+          try { widget.setVolume(level); } catch { /* ignore */ }
+        }
+        try { widget.pause(); } catch { /* ignore */ }
+        widget.load(url, {
+          auto_play: !!command.play,
+          visual: false,
+          show_comments: false,
+          hide_related: true,
+          show_reposts: false,
+          show_user: true,
+          show_teaser: false,
+          start_track: command.startTrack ?? 0,
+          callback: () => {
+            if (command.play) beginAudiblePlayback(widget);
+            try { widget.getSounds((sounds) => rememberTracks(sounds)); } catch { /* ignore */ }
+          },
+        });
         return;
       }
       if (command.type === 'toggle' || command.type === 'play') {

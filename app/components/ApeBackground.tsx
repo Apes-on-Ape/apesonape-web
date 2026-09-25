@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 const THUMBS_BASE =
   'https://bqcrbcpmimfojnjdhvrz.supabase.co/storage/v1/object/public/collection/collection-thumbs';
@@ -50,6 +51,9 @@ function buildTiles(): Tile[] {
 }
 
 export default function ApeBackground() {
+  const pathname = usePathname();
+  const onProfile = pathname === '/profile' || pathname.startsWith('/profile/');
+  const onSettings = pathname.startsWith('/settings');
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [visible, setVisible] = useState(false);
 
@@ -60,7 +64,7 @@ export default function ApeBackground() {
     return () => clearTimeout(t);
   }, []);
 
-  if (tiles.length === 0) return null;
+  if (onSettings || tiles.length === 0) return null;
 
   return (
     <div
@@ -68,7 +72,7 @@ export default function ApeBackground() {
       className="fixed inset-0 overflow-hidden pointer-events-none select-none"
       style={{
         zIndex: -1,
-        opacity: visible ? 1 : 0,
+        opacity: visible ? (onProfile ? 0.22 : 1) : 0,
         transition: 'opacity 1.2s ease',
       }}
     >

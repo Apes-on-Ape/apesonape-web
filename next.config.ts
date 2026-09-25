@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Turbopack alias map — mirrors the webpack resolve.alias below so shims work in dev
   turbopack: {
+    root: process.cwd(),
     resolveAlias: {
       '@react-native-async-storage/async-storage': './shims/empty.js',
       '@solana-program/system':    './shims/solana-system.js',
@@ -74,6 +75,14 @@ const nextConfig: NextConfig = {
     ],
   },
   trailingSlash: true,
+  async redirects() {
+    return [
+      { source: '/live', destination: '/music', permanent: true },
+      { source: '/open-mic', destination: '/music', permanent: true },
+      { source: '/wtf', destination: '/story', permanent: true },
+      { source: '/arcade/achievements', destination: '/profile', permanent: true },
+    ];
+  },
   reactStrictMode: true,
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
   // Environment variables that are safe to expose to the browser

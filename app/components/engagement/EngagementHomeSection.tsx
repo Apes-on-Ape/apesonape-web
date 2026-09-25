@@ -8,7 +8,10 @@ import TodayOnApeMosaic from './TodayOnApeMosaic';
 import WeeklyStudioLeaderboard from './WeeklyStudioLeaderboard';
 
 export default function EngagementHomeSection() {
-	const { user } = (usePrivy() as unknown) as { user?: { id?: string } };
+	const { user, getAccessToken } = (usePrivy() as unknown) as {
+		user?: { id?: string };
+		getAccessToken?: () => Promise<string | null>;
+	};
 	const userId = user?.id?.trim() || null;
 	const rootRef = useRef<HTMLDivElement>(null);
 	const checkinSent = useRef(false);
@@ -21,17 +24,20 @@ export default function EngagementHomeSection() {
 			(entries) => {
 				if (!entries[0]?.isIntersecting || checkinSent.current) return;
 				checkinSent.current = true;
-				void fetch('/api/engagement/daily-checkin', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ userId }),
-				});
+				void (async () => {
+					const token = await getAccessToken?.();
+					if (!token) return;
+					await fetch('/api/engagement/daily-checkin', {
+						method: 'POST',
+						headers: { Authorization: `Bearer ${token}` },
+					});
+				})();
 			},
 			{ threshold: 0.2 },
 		);
 		io.observe(el);
 		return () => io.disconnect();
-	}, [userId]);
+	}, [userId, getAccessToken]);
 
 	return (
 		<section ref={rootRef} className="py-16 md:py-20 border-y border-white/8 bg-white/[0.02]">

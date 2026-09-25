@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePrivy } from '@privy-io/react-auth';
 import { Flame, Sparkles } from 'lucide-react';
 import TodayOnApeMosaic from './TodayOnApeMosaic';
 import WeeklyStudioLeaderboard from './WeeklyStudioLeaderboard';
@@ -15,18 +16,22 @@ type EngagementSummary = {
  * Studio page: mosaic + weekly slice + server check-in for daily visit quest + streak.
  */
 export default function DailyEngagementStudioSection({ userId }: { userId: string | null }) {
+	const { getAccessToken } = (usePrivy() as unknown) as { getAccessToken?: () => Promise<string | null> };
 	const checkinOnce = useRef(false);
 	const [summary, setSummary] = useState<EngagementSummary | null>(null);
 
 	useEffect(() => {
 		if (!userId || checkinOnce.current) return;
 		checkinOnce.current = true;
-		void fetch('/api/engagement/daily-checkin', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ userId }),
-		}).catch(() => {});
-	}, [userId]);
+		void (async () => {
+			const token = await getAccessToken?.();
+			if (!token) return;
+			await fetch('/api/engagement/daily-checkin', {
+				method: 'POST',
+				headers: { Authorization: `Bearer ${token}` },
+			}).catch(() => {});
+		})();
+	}, [userId, getAccessToken]);
 
 	useEffect(() => {
 		if (!userId) return;

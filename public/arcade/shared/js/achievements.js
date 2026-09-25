@@ -491,11 +491,9 @@ class AchievementSystem {
         return 100; // Max level
     }
 
-    async addExperience(amount, source = 'unknown') {
-        if (!this.currentUser || amount <= 0) {
-            console.log('⚠️ Cannot add experience: no user or invalid amount');
-            return;
-        }
+    async addExperience() {
+        return;
+        if (!this.currentUser) {
 
         const oldLevel = this.userStats.level;
         const oldXP = this.userStats.experience;
@@ -980,7 +978,8 @@ class AchievementSystem {
     }
 
     // Achievement Unlocking
-    async unlockAchievement(achievementId) {
+    async unlockAchievement() {
+        return;
         if (this.unlockedAchievements.has(achievementId)) {
             console.log(`⚠️ Achievement ${achievementId} already unlocked`);
             return; // Already unlocked
@@ -1290,7 +1289,14 @@ class AchievementSystem {
             
             const response = await fetch('/api/achievements/save_game_stats', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: (function () {
+                    var headers = { 'Content-Type': 'application/json' };
+                    try {
+                        var token = localStorage.getItem('aoaAccessToken');
+                        if (token) headers.Authorization = 'Bearer ' + token;
+                    } catch (e) { /* ignore */ }
+                    return headers;
+                })(),
                 body: JSON.stringify(requestData)
             });
             
@@ -1919,7 +1925,14 @@ window.debugDatabaseOperations = async () => {
     try {
         const response = await fetch('/api/achievements/save_game_stats', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: (function () {
+                var headers = { 'Content-Type': 'application/json' };
+                try {
+                    var token = localStorage.getItem('aoaAccessToken');
+                    if (token) headers.Authorization = 'Bearer ' + token;
+                } catch (e) { /* ignore */ }
+                return headers;
+            })(),
             body: JSON.stringify({
                 wallet_address: wallet,
                 game_id: 'debug_test',
@@ -1953,55 +1966,7 @@ window.debugDatabaseOperations = async () => {
         console.error('❌ Error saving game stats:', error);
     }
 
-    // Test 3: Add experience
-    console.log('📈 Test 3: Adding experience...');
-    try {
-        const response = await fetch('/api/achievements/add_experience', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                wallet_address: wallet,
-                experience: 50,
-                source: 'debug_test',
-                ...getArcadeGlyphSessionPayload()
-            })
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('✅ Experience added:', data);
-        } else {
-            console.error('❌ Failed to add experience, status:', response.status);
-            const errorText = await response.text();
-            console.error('❌ Error response:', errorText);
-        }
-    } catch (error) {
-        console.error('❌ Error adding experience:', error);
-    }
-
-    // Test 4: Unlock achievement
-    console.log('🏆 Test 4: Unlocking achievement...');
-    try {
-        const response = await fetch('/api/achievements/unlock', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                wallet_address: wallet,
-                achievement_id: 'debug_test'
-            })
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('✅ Achievement unlocked:', data);
-        } else {
-            console.error('❌ Failed to unlock achievement, status:', response.status);
-            const errorText = await response.text();
-            console.error('❌ Error response:', errorText);
-        }
-    } catch (error) {
-        console.error('❌ Error unlocking achievement:', error);
-    }
+    console.log('Arcade XP and client achievement unlocks are retired. Scores use save_game_stats only.');
 
     console.log('🔍 Database debug completed');
 };

@@ -1,678 +1,243 @@
-'use client';
-
-import { useRef } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
-import {
-  ArrowRight, ExternalLink, CheckCircle2, Zap, Music2,
-  Palette, Gamepad2, Users, AlertTriangle, RefreshCw, Rocket, TrendingUp,
-} from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
+import { CONTRACT_APESCAN, SOCIALS } from '@/app/data/site';
+import { getArtist } from '@/app/data/artists';
+import BroadcastLabel from '@/app/components/signal/BroadcastLabel';
+import SectionMarker from '@/app/components/signal/SectionMarker';
+import NoiseOverlay from '@/app/components/signal/NoiseOverlay';
+import { CURRENT_ART, ORIGINAL_ART, STORY_FAQS, storyEntry } from './record';
 
-const CDN_THUMB = 'https://bqcrbcpmimfojnjdhvrz.supabase.co/storage/v1/object/public/collection/collection-thumbs';
+const discord = SOCIALS.find((item) => item.platform === 'discord');
 
-const TIMELINE = [
-  {
-    date: 'April 2021',
-    title: 'BAYC Goes Live',
-    body: 'Bored Ape Yacht Club launches on Ethereum. 10,000 apes, commercial IP rights, a culture built on "Apes Together Strong." The blueprint is set.',
-    icon: Zap,
-    color: 'text-amber-400',
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/25',
-  },
-  {
-    date: 'March 2022',
-    title: 'ApeCoin Launches',
-    body: '$APE drops via a major airdrop to BAYC, MAYC, and Kennel Club holders. Governance. Utility. A token tied to culture — not just speculation.',
-    icon: Zap,
-    color: 'text-hero-blue',
-    bg: 'bg-hero-blue/10',
-    border: 'border-hero-blue/25',
-  },
-  {
-    date: 'October 2024',
-    title: 'ApeChain Launches',
-    body: 'Arbitrum Orbit Layer-3. Native $APE gas. Near-zero fees. Built for NFTs, gaming, and creators. The stage is set for a chain-native ape project.',
-    icon: Zap,
-    color: 'text-accent-cyan',
-    bg: 'bg-accent-cyan/10',
-    border: 'border-accent-cyan/25',
-  },
-  {
-    date: 'October 2024',
-    title: 'Apes on Ape Launches',
-    body: 'The moment ApeChain goes live, Apes on Ape is there. One of the very first NFT projects to deploy natively on the new chain. Early believers mint in — with placeholder art for now — trusting the team and the vision. The OG collection on ApeChain.',
-    icon: Rocket,
-    color: 'text-green-400',
-    bg: 'bg-green-500/10',
-    border: 'border-green-500/25',
-  },
-  {
-    date: 'December 2024',
-    title: 'The DMCA',
-    body: 'Yuga Labs issues a DMCA takedown against the original collection. Art too close to BAYC. Platforms delist. The project goes dark. Many wrote it off. But within the Ape community, something different started — a rallying call.',
-    icon: AlertTriangle,
-    color: 'text-red-400',
-    bg: 'bg-red-500/10',
-    border: 'border-red-500/25',
-  },
-  {
-    date: 'Late 2024 – Early 2025',
-    title: 'The Rebirth',
-    body: 'The community didn\'t scatter. BAYC holders, Ape ecosystem veterans, and true believers showed up. "Apes Together Strong" wasn\'t a slogan — it was a plan. The team scrapped every pixel of the original art and built a completely fresh 10,000-piece generative collection from scratch. Original traits. Original soul. Same rebellious energy.',
-    icon: RefreshCw,
-    color: 'text-purple-400',
-    bg: 'bg-purple-500/10',
-    border: 'border-purple-500/25',
-  },
-  {
-    date: 'June 29, 2025',
-    title: 'All-Time High',
-    body: 'Floor hits ~$67.35 / 111 APE. The "only Apes on ApeChain" narrative peaks. Music plays climb into the millions. Arcade testing kicks off. The community that held through the DMCA and the rebuild reaps the moment.',
-    icon: TrendingUp,
-    color: 'text-amber-400',
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/25',
-  },
-  {
-    date: 'October 2025',
-    title: 'New Art Team',
-    body: 'The original art team is out. SmokeThatDank and ApeProfessore step up and take over — two artists already deep in the AOA community who believe in the project. They commit to building the definitive generative collection from scratch: 10,000 fully original pieces, new traits, new soul. The art is no longer outsourced — it\'s made by the community, for the community.',
-    icon: Palette,
-    color: 'text-purple-400',
-    bg: 'bg-purple-500/10',
-    border: 'border-purple-500/25',
-  },
-  {
-    date: 'December 2025',
-    title: 'New Art Delivered',
-    body: 'The moment holders had been waiting for. Metadata is updated on-chain and every holder receives their fully original, generative Ape — replacing the placeholder that launched with the mint. apesonape.io goes live as a creator-first playground: SoundCloud integration, AI studio, AOA Arcade, 3D avatars for the Otherside. The real AOA era begins.',
-    icon: Palette,
-    color: 'text-hero-blue',
-    bg: 'bg-hero-blue/10',
-    border: 'border-hero-blue/25',
-  },
-  {
-    date: 'Today',
-    title: 'Creative Powerhouse',
-    body: 'AOA doubles down on culture. NoTime, 2Real2x, SmokeThatDank, ApeProfessore — real artists releasing real music. 2M+ SoundCloud plays. Arcade games. Wardrobe drops. A community that ships daily and measures success in plays, not price. The DMCA story isn\'t baggage — it\'s the badge.',
-    icon: Music2,
-    color: 'text-hero-blue',
-    bg: 'bg-hero-blue/10',
-    border: 'border-hero-blue/25',
-  },
-];
+const NEXT_ROUTES = [
+  { href: '/music', label: 'Listen', note: 'AOA Records' },
+  { href: '/collection', label: 'Explore the apes', note: '10,000' },
+  { href: '/studio', label: 'Create', note: 'Studio' },
+  { href: '/arcade', label: 'Play', note: 'Arcade' },
+  { href: '/wardrobe', label: 'Wardrobe', note: 'Dress the ape' },
+  { href: '/creative', label: 'Tools', note: 'Creative' },
+] as const;
 
-const STATS = [
-  { label: 'Unique Holders',     value: '1,500+' },
-  { label: 'Total Supply',       value: '10,000' },
-  { label: 'SoundCloud Plays',   value: '2M+' },
-  { label: 'X Community',        value: '3,500+' },
-];
-
-const PERKS = [
-  { icon: Music2,   title: 'AOA Records',      desc: 'Release music under the AOA label. SoundCloud integration for every holder. Drop singles, EPs, and albums with your Ape as the face.' },
-  { icon: Palette,  title: 'Creative Studio',  desc: 'AI-powered art generation, PFP borders, custom banners, QR codes. Holder-only creative tools that actually ship product.' },
-  { icon: Gamepad2, title: 'AOA Arcade',        desc: 'Browser-based games built by holder-devs on ApeChain. NFT incentives. New titles dropping as the community builds.' },
-  { icon: Users,    title: '3D Avatars',        desc: 'Export your Ape as a 3D avatar for use in Otherside and metaverse experiences. Your NFT, your presence.' },
-  { icon: Zap,      title: 'Rarity & Trading',  desc: 'Track your portfolio rarity, find rare trait combinations, and trade on OpenSea — all on ApeChain.' },
-];
-
-const ECOSYSTEM_APPS = [
-  { name: 'OpenSea',     href: 'https://opensea.io/collection/apes-on-apechain',        tag: 'Marketplace' },
-  { name: 'Otherside',   href: 'https://apechain.com/apps/otherside',                   tag: 'Metaverse' },
-  { name: 'Camelot DEX', href: 'https://apechain.com/apps/camelot',                     tag: 'DeFi' },
-  { name: 'Ape Portal',  href: 'https://apechain.com/apps/ape-portal',                  tag: 'Bridge' },
-];
-
-const FAQS = [
-  {
-    q: 'What is the DMCA story?',
-    a: 'The original collection was hit with a DMCA from Yuga Labs for art too similar to BAYC. Rather than fold, the community rallied, scrapped the old art entirely, and launched a brand-new original collection. That rebirth is now foundational lore — a badge of resilience worn with pride.',
-  },
-  {
-    q: 'What is ApeChain?',
-    a: 'ApeChain is a Layer-3 blockchain built on Arbitrum Orbit, with native $APE as gas. Launched October 2024, it\'s built for NFTs, gaming, and creator tools. Transactions cost fractions of a cent. It\'s the official chain of the BAYC ecosystem. Every gas fee burns $APE and is matched by ApeCoin.',
-  },
-  {
-    q: 'What is ApeCoin ($APE)?',
-    a: 'The official token of BAYC, Otherside, and ApeChain. Total supply: 1 billion APE (98.5% circulating). Governance token, cultural currency, and gas on ApeChain. apecoin.com for live tokenomics.',
-  },
-  {
-    q: 'When did AOA mint?',
-    a: 'AOA originally launched in October 2024 — the same month ApeChain went live — with placeholder art. After a DMCA in December 2024 and a full art rebuild, the collection minted out as 10,000 generative apes on January 8–9, 2025. In December 2025, the metadata was updated on-chain and every holder received their fully original, final artwork.',
-  },
-  {
-    q: 'What is the contract address?',
-    a: '0xa6babe18f2318d2880dd7da3126c19536048f8b0 on ApeChain (Chain ID: 33139). Verify on ApeScan.',
-  },
-  {
-    q: 'Can I use my Ape commercially?',
-    a: 'Yes. AOA holders have full commercial rights to their token\'s artwork for personal and commercial projects.',
-  },
-  {
-    q: 'How do I get started?',
-    a: 'Get $APE → bridge via the Ape Portal → pick up an Ape on OpenSea → sign in to apesonape.io → instant access to music tools, creative studio, and arcade.',
-  },
-];
+function Chapter({
+  index,
+  title,
+  date,
+  children,
+}: {
+  index: string;
+  title: string;
+  date?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="border-t border-[rgba(243,238,228,0.12)]">
+      <div className="container-premium py-14 md:py-20">
+        <SectionMarker index={index} title={title} />
+        {date ? <p className="type-section mt-6 text-[var(--signal)]">{date}</p> : null}
+        <div className="mt-6 max-w-3xl space-y-4 text-base leading-relaxed text-[var(--ink-dim)]">{children}</div>
+      </div>
+    </section>
+  );
+}
 
 export default function StoryClient() {
-  const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
-  const heroY = useTransform(scrollYProgress, [0, 1], [0, 80]);
+  const bayc = storyEntry('BAYC Goes Live');
+  const apecoin = storyEntry('ApeCoin Launches');
+  const chain = storyEntry('ApeChain Launches');
+  const launch = storyEntry('Apes on Ape Launches');
+  const dmca = storyEntry('The DMCA');
+  const rebirth = storyEntry('The Rebirth');
+  const ath = storyEntry('All-Time High');
+  const artTeam = storyEntry('New Art Team');
+  const delivery = storyEntry('New Art Delivered');
+  const today = storyEntry('Creative Powerhouse');
+  const mint = STORY_FAQS.find((item) => item.q === 'When did AOA mint?');
+  const smoke = getArtist('smokethatdank1');
+  const professore = getArtist('apeprofessore');
 
   return (
-    <div className="overflow-x-hidden">
-      <section ref={heroRef} className="relative min-h-[90vh] flex items-end overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-hero-blue/8 rounded-full blur-[120px]" />
-          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-accent-cyan/5 rounded-full blur-[100px]" />
+    <div className="overflow-x-clip text-[var(--ink)]">
+      <header className="relative min-h-[100dvh] overflow-hidden">
+        <NoiseOverlay />
+        <div className="container-premium relative z-10 flex min-h-[100dvh] flex-col justify-end pb-[calc(var(--aoa-dock-offset)+1.5rem)] pt-[calc(var(--aoa-header-h)+2rem)]">
+          <BroadcastLabel>Case file</BroadcastLabel>
+          <h1 className="type-hero-home mt-6 max-w-[14ch] text-[var(--ink)]">
+            Born from chaos.
+            <br />
+            Built for culture.
+          </h1>
+          <p className="mt-6 max-w-md text-lg text-[var(--ink)]">A collection that had to rebuild itself.</p>
+          <p className="aoa-meta mt-8">ApeChain // 33139</p>
         </div>
+      </header>
 
-        <motion.div
-          style={{ opacity: heroOpacity, y: heroY }}
-          className="relative z-10 w-full container-premium pt-32 pb-20"
-        >
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-hero-blue/10 border border-hero-blue/30 mb-8"
-          >
-            <Zap className="w-4 h-4 text-hero-blue" />
-            <span className="text-sm font-semibold tracking-widest uppercase text-hero-blue">Our Story</span>
-          </motion.div>
+      <Chapter index="01" title="Genesis" date={launch.date}>
+        <p className="text-[var(--ink)]">{launch.body}</p>
+        <p>{chain.body}</p>
+        <div className="grid gap-3 pt-4 sm:grid-cols-2">
+          {[bayc, apecoin].map((item) => (
+            <article key={item.title} className="border border-[rgba(243,238,228,0.12)] p-4">
+              <p className="aoa-meta text-[var(--signal)]">{item.date}</p>
+              <h3 className="mt-2 font-semibold text-[var(--ink)]">{item.title}</h3>
+              <p className="mt-2 text-sm">{item.body}</p>
+            </article>
+          ))}
+        </div>
+      </Chapter>
 
-          <div className="grid lg:grid-cols-2 gap-16 items-end">
-            <motion.div
-              initial={{ opacity: 0, x: -40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.1 }}
-            >
-              <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-none mb-8">
-                <span className="text-white">Born from</span>{' '}
-                <span className="text-gradient">Chaos.</span>
-                <br />
-                <span className="text-white">Built for</span>{' '}
-                <span className="text-gradient">Culture.</span>
-              </h1>
-              <p className="text-xl text-white/55 leading-relaxed max-w-lg mb-10">
-                A DMCA takedown. A community that didn&apos;t quit. A full rebuild from scratch.
-                10,000 original apes minted natively on ApeChain — now a decentralized
-                creative collective for musicians, artists, builders, and game devs.
-              </p>
-              <div className="flex flex-wrap gap-4">
+      <section className="border-t border-[rgba(243,238,228,0.12)] bg-[var(--background-elevated)]">
+        <div className="container-premium py-16 md:py-24">
+          <p className="aoa-meta text-[var(--signal)]">02 // Takedown</p>
+          <p className="type-hero-home mt-4 max-w-[12ch] text-[var(--ink)]">{dmca.date}</p>
+          <h2 className="type-section mt-6 text-[var(--ink)]">{dmca.title}</h2>
+          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[var(--ink-dim)]">{dmca.body}</p>
+        </div>
+      </section>
+
+      <Chapter index="03" title="The rebuild" date={rebirth.date}>
+        <p className="text-[var(--ink)]">{rebirth.body}</p>
+        {mint ? <p>{mint.a}</p> : null}
+      </Chapter>
+
+      <section className="border-t border-[rgba(243,238,228,0.12)]">
+        <div className="container-premium py-10">
+          <article className="max-w-xl border border-[rgba(243,238,228,0.12)] p-5">
+            <p className="aoa-meta">Record · {ath.date}</p>
+            <h2 className="mt-3 text-lg font-semibold text-[var(--ink)]">{ath.title}</h2>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--ink-dim)]">{ath.body}</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="border-t border-[rgba(243,238,228,0.12)]">
+        <div className="container-premium py-14 md:py-20">
+          <SectionMarker index="04" title="New art" />
+          <p className="aoa-meta mt-4">{artTeam.date}</p>
+          <p className="mt-6 max-w-3xl leading-relaxed text-[var(--ink-dim)]">{artTeam.body}</p>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            {[smoke, professore].map((artist) =>
+              artist ? (
                 <Link
-                  href="/collection"
-                  className="inline-flex items-center gap-2 px-7 py-4 rounded-xl bg-hero-blue hover:bg-hero-blue-light text-white font-bold transition-all shadow-lg shadow-hero-blue/30 hover:-translate-y-0.5"
+                  key={artist.slug}
+                  href={`/artist/${artist.slug}`}
+                  className="border border-[rgba(243,238,228,0.12)] p-4 hover:border-[rgba(0,84,250,0.45)]"
                 >
-                  Explore Collection <ArrowRight className="w-4 h-4" />
+                  <p className="font-semibold text-[var(--ink)]">{artist.name}</p>
+                  <p className="aoa-meta mt-1">{artist.role}</p>
                 </Link>
-                <a
-                  href="https://opensea.io/collection/apes-on-apechain"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-7 py-4 rounded-xl border border-white/20 hover:border-hero-blue/50 text-white/80 hover:text-white font-medium transition-all hover:-translate-y-0.5"
-                >
-                  Buy on OpenSea <ExternalLink className="w-4 h-4" />
-                </a>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.25 }}
-              className="flex gap-4 items-end"
-            >
-              <div className="flex-1 group relative">
-                <div className="relative rounded-2xl overflow-hidden border border-red-500/30 shadow-xl shadow-red-500/10">
-                  <Image
-                    src="/aoa-original-7650.png"
-                    alt="AOA Original Art #7649 — Before DMCA"
-                    width={400}
-                    height={400}
-                    className="w-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
-                    priority
-                  />
-                  <div className="absolute inset-0 bg-red-900/20 group-hover:bg-transparent transition-colors duration-700" />
-                  <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/90 backdrop-blur-sm">
-                    <AlertTriangle className="w-3 h-3 text-white" />
-                    <span className="text-[10px] font-bold text-white uppercase tracking-wider">DMCA&apos;d</span>
-                  </div>
-                  <div className="absolute bottom-3 left-3 right-3 px-3 py-2 rounded-lg bg-black/80 backdrop-blur-sm">
-                    <div className="text-xs font-bold text-red-400">Original Art #7649</div>
-                    <div className="text-[10px] text-white/40 mt-0.5">The art that started it all — taken down in late 2024</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-1 group relative">
-                <div className="relative rounded-2xl overflow-hidden border border-hero-blue/40 shadow-xl shadow-hero-blue/15">
-                  <Image
-                    src={`${CDN_THUMB}/7649.webp`}
-                    alt="AOA Reborn Art #7649 — After Rebirth"
-                    width={400}
-                    height={400}
-                    className="w-full object-cover"
-                    unoptimized
-                    priority
-                  />
-                  <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-hero-blue/90 backdrop-blur-sm">
-                    <CheckCircle2 className="w-3 h-3 text-white" />
-                    <span className="text-[10px] font-bold text-white uppercase tracking-wider">Reborn</span>
-                  </div>
-                  <div className="absolute bottom-3 left-3 right-3 px-3 py-2 rounded-lg bg-black/80 backdrop-blur-sm">
-                    <div className="text-xs font-bold text-hero-blue">New Art #7649</div>
-                    <div className="text-[10px] text-white/40 mt-0.5">100% original. Delivered to holders Dec 2025.</div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+              ) : null,
+            )}
           </div>
-        </motion.div>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+            <figure>
+              <img
+                src={ORIGINAL_ART}
+                alt="Original Apes on Ape art, file aoa-original-7650"
+                width={800}
+                height={800}
+                loading="lazy"
+                className="aspect-square w-full object-cover"
+              />
+              <figcaption className="aoa-meta mt-3">
+                Original art on file · Ape 7650
+              </figcaption>
+            </figure>
+            <figure>
+              <img
+                src={CURRENT_ART}
+                alt="Current collection thumbnail for Ape 7650"
+                width={800}
+                height={800}
+                loading="lazy"
+                className="aspect-square w-full object-cover"
+              />
+              <figcaption className="aoa-meta mt-3">
+                Current collection thumbnail · Ape 7650
+              </figcaption>
+            </figure>
+          </div>
+          <p className="aoa-meta mt-4 max-w-2xl">
+            Same token number. The left file is the original art kept in the site archive. The right image is the live collection thumbnail.
+          </p>
+          <Link href="/collection/7650" className="aoa-meta mt-4 inline-block text-[var(--signal)]">
+            Open Ape 7650
+          </Link>
+        </div>
       </section>
 
-      <section className="border-y border-white/8 bg-white/[0.02]">
-        <div className="container-premium">
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/8">
-            {STATS.map((s, i) => (
-              <motion.div
-                key={s.label}
-                className="flex flex-col items-center gap-1 px-6 py-8 text-center"
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1, duration: 0.5 }}
-              >
-                <span className="text-3xl md:text-4xl font-black text-white">{s.value}</span>
-                <span className="text-xs uppercase tracking-[0.18em] text-white/35 font-semibold">{s.label}</span>
-              </motion.div>
+      <Chapter index="05" title="Delivery" date={delivery.date}>
+        <p className="text-[var(--ink)]">{delivery.body}</p>
+      </Chapter>
+
+      <Chapter index="06" title="AOA Records" date="December 2025">
+        <p>
+          The December 2025 delivery is when apesonape.io goes live with SoundCloud. NoTime, 2Real2x, SmokeThatDank, and ApeProfessore are releasing music.
+        </p>
+        <Link href="/music" className="aoa-home-cta aoa-home-cta-solid mt-4 inline-flex">
+          Enter AOA Records
+        </Link>
+      </Chapter>
+
+      <section className="border-t border-[rgba(243,238,228,0.12)]">
+        <div className="container-premium py-14 md:py-20">
+          <SectionMarker index="07" title="The signal" />
+          <p className="mt-6 max-w-2xl text-[var(--ink-dim)]">{today.body}</p>
+          <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {NEXT_ROUTES.map((route) => (
+              <li key={route.href}>
+                <Link
+                  href={route.href}
+                  className="flex min-h-[5.5rem] flex-col justify-between border border-[rgba(243,238,228,0.12)] p-4 hover:border-[rgba(0,84,250,0.45)]"
+                >
+                  <span className="aoa-meta text-[var(--signal)]">{route.note}</span>
+                  <span className="mt-3 text-lg font-semibold uppercase tracking-wide text-[var(--ink)]">{route.label}</span>
+                </Link>
+              </li>
             ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="border-t border-[rgba(243,238,228,0.12)]">
+        <div className="container-premium py-16 md:py-24">
+          <p className="aoa-meta">08 // Today</p>
+          <h2 className="type-hero-home mt-4 max-w-[12ch] text-[var(--ink)]">
+            The story
+            <br />
+            is still being written.
+          </h2>
+          <div className="mt-8 flex flex-col gap-3 min-[420px]:flex-row min-[420px]:flex-wrap">
+            <Link href="/music" className="aoa-home-cta aoa-home-cta-solid w-full min-[420px]:w-auto">Listen</Link>
+            <Link href="/collection" className="aoa-home-cta aoa-home-cta-ghost w-full min-[420px]:w-auto">Explore the apes</Link>
+            <Link href="/studio" className="aoa-home-cta aoa-home-cta-ghost w-full min-[420px]:w-auto">Create</Link>
+            <Link href="/arcade" className="aoa-home-cta aoa-home-cta-ghost w-full min-[420px]:w-auto">Play</Link>
+            <Link href="/join" className="aoa-home-cta aoa-home-cta-ghost w-full min-[420px]:w-auto">Join</Link>
           </div>
         </div>
       </section>
 
-      <section className="py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-hero-blue/3 to-transparent pointer-events-none" />
-        <div className="container-premium relative z-10 max-w-4xl">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
-          >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/15 mb-8">
-              <span className="text-xs uppercase tracking-widest text-white/50">The Origin</span>
-            </div>
-
-            <blockquote className="relative mb-10">
-              <div className="absolute -left-4 -top-2 text-[120px] leading-none text-hero-blue/10 font-black select-none">&ldquo;</div>
-              <p className="text-3xl md:text-4xl font-black text-white leading-tight relative z-10">
-                The DMCA didn&apos;t kill Apes on Ape.<br />
-                <span className="text-gradient">It created it.</span>
-              </p>
-            </blockquote>
-
-            <div className="grid md:grid-cols-2 gap-8 text-white/60 leading-relaxed text-lg">
-              <div className="space-y-5">
-                <p>
-                  It started with ambition: be the first NFT project to launch natively on ApeChain the moment it went live in October 2024. The timing was right. The vision was clear. Holders minted in with placeholder art, trusting the team to deliver. Then, in December 2024, Yuga Labs issued a DMCA takedown — the original art was too close to BAYC&apos;s DNA.
-                </p>
-                <p>
-                  Platforms delisted. The project went dark. Most wrote it off. But within the Ape community, something different happened — a rallying call. BAYC holders and Ape ecosystem supporters showed up and said: <em className="text-white/85 not-italic font-semibold">&quot;We don&apos;t abandon builders. We help them rebuild.&quot;</em>
-                </p>
+      <section className="border-t border-[rgba(243,238,228,0.12)]">
+        <div className="container-premium py-14 md:py-20">
+          <SectionMarker title="Archive notes" />
+          <dl className="mt-8 max-w-3xl space-y-6">
+            {STORY_FAQS.map((faq) => (
+              <div key={faq.q}>
+                <dt className="font-semibold text-[var(--ink)]">{faq.q}</dt>
+                <dd className="mt-2 text-sm leading-relaxed text-[var(--ink-dim)]">{faq.a}</dd>
               </div>
-              <div className="space-y-5">
-                <p>
-                  The team scrapped every pixel of the original art and started fresh. New traits. New palette. New soul. The same rebellious, loud, creative ape energy — now entirely original, entirely theirs. On January 8–9, 2025, Apes on Ape minted out as a 10,000-piece generative collection — the OG ape project on ApeChain.
-                </p>
-                <p>
-                  In December 2025, the metadata was updated on-chain and every holder received their fully original generative Ape — replacing the placeholder from launch day. The DMCA story isn&apos;t a cautionary tale. It&apos;s the founding myth. <span className="text-white/85 font-semibold">Apes Together Strong wasn&apos;t just a slogan. It was what actually happened.</span>
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      <section className="py-16 border-y border-white/6">
-        <div className="container-premium">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-4xl font-black text-white mb-3">Before & After</h2>
-            <p className="text-white/40 max-w-lg mx-auto">
-              Same token ID. Different eras. The left is where it started — taken down. The right is where AOA lives now.
-            </p>
-          </motion.div>
-
-          <div className="relative max-w-3xl mx-auto">
-            <div className="grid grid-cols-2 gap-0 rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
-              <motion.div
-                initial={{ opacity: 0, x: -30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6 }}
-                className="relative aspect-square"
-              >
-                <Image
-                  src="/aoa-original-7650.png"
-                  alt="Original AOA #7650"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 50vw, 25vw"
-                />
-                <div className="absolute inset-0 bg-gradient-to-br from-red-900/40 via-transparent to-transparent" />
-                <div className="absolute inset-0 bg-black/10" />
-                <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-                  <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-500/80 mb-2">
-                    <AlertTriangle className="w-3 h-3 text-white" />
-                    <span className="text-[10px] font-bold text-white uppercase">DMCA&apos;d · Late 2024</span>
-                  </div>
-                  <div className="text-sm font-bold text-white">AOA #7650 — Original</div>
-                  <div className="text-[11px] text-white/50">The art that started the story</div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, x: 30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                className="relative aspect-square"
-              >
-                <Image
-                  src={`${CDN_THUMB}/7649.webp`}
-                  alt="Reborn AOA #7649"
-                  fill
-                  unoptimized
-                  className="object-cover"
-                  sizes="(max-width: 768px) 50vw, 25vw"
-                />
-                <div className="absolute inset-0 bg-gradient-to-bl from-hero-blue/25 via-transparent to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-                  <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-hero-blue/90 mb-2">
-                    <CheckCircle2 className="w-3 h-3 text-white" />
-                    <span className="text-[10px] font-bold text-white uppercase">New Art · Dec 2025</span>
-                  </div>
-                  <div className="text-sm font-bold text-white">AOA #7649 — Reborn</div>
-                  <div className="text-[11px] text-white/50">100% original art, delivered Dec 2025</div>
-                </div>
-              </motion.div>
-            </div>
-
-            <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-white/20 z-10 -translate-x-1/2" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-              <div className="w-10 h-10 rounded-full bg-background border-2 border-white/20 flex items-center justify-center shadow-xl">
-                <RefreshCw className="w-4 h-4 text-white/50" />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-center gap-6 mt-8 text-sm">
-            <Link href="/collection/7649" className="inline-flex items-center gap-1.5 text-hero-blue hover:text-hero-blue-light transition-colors font-medium">
-              View Ape #7649 rarity <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-            <Link href="/collection" className="inline-flex items-center gap-1.5 text-white/40 hover:text-white transition-colors">
-              Browse full collection <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-24">
-        <div className="container-premium">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mb-14"
-          >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/15 mb-5">
-              <span className="text-xs uppercase tracking-widest text-white/50">Timeline</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-black text-white">The Full Journey</h2>
-          </motion.div>
-
-          <div className="relative">
-            <div className="absolute left-[19px] top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent md:left-1/2 md:-translate-x-px" />
-
-            <div className="space-y-10 md:space-y-0">
-              {TIMELINE.map((item, i) => {
-                const Icon = item.icon;
-                const isLeft = i % 2 === 0;
-                return (
-                  <motion.div
-                    key={`${item.date}-${item.title}`}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: '-60px' }}
-                    transition={{ duration: 0.5, delay: 0.1 }}
-                    className={`relative flex gap-6 md:gap-0 md:w-full ${isLeft ? 'md:flex-row' : 'md:flex-row-reverse'} md:mb-10`}
-                  >
-                    <div className={`pl-10 md:pl-0 flex-1 ${isLeft ? 'md:pr-12' : 'md:pl-12'}`}>
-                      <div className={`p-6 rounded-2xl border transition-all hover:shadow-lg ${item.bg} ${item.border}`}>
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className={`w-7 h-7 rounded-lg ${item.bg} flex items-center justify-center border ${item.border}`}>
-                            <Icon className={`w-3.5 h-3.5 ${item.color}`} />
-                          </div>
-                          <span className={`text-xs font-bold uppercase tracking-wider ${item.color}`}>{item.date}</span>
-                        </div>
-                        <h3 className="text-lg font-black text-white mb-2">{item.title}</h3>
-                        <p className="text-sm text-white/55 leading-relaxed">{item.body}</p>
-                      </div>
-                    </div>
-
-                    <div className="hidden md:flex absolute left-1/2 top-6 -translate-x-1/2 z-10 w-10 h-10 rounded-full items-center justify-center border-2 border-white/20 bg-background shadow-xl">
-                      <Icon className={`w-4 h-4 ${item.color}`} />
-                    </div>
-
-                    <div className={`absolute left-0 top-6 md:hidden w-10 h-10 rounded-full flex items-center justify-center border-2 ${item.border} ${item.bg} shadow-lg`}>
-                      <Icon className={`w-4 h-4 ${item.color}`} />
-                    </div>
-
-                    <div className="hidden md:block flex-1" />
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-16 border-y border-white/6">
-        <div className="container-premium">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-            >
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/15 mb-5">
-                <span className="text-xs uppercase tracking-widest text-white/50">The Chain</span>
-              </div>
-              <h2 className="text-4xl font-black text-white mb-5">Built on ApeChain</h2>
-              <div className="space-y-4 text-white/60 leading-relaxed">
-                <p>
-                  ApeChain is the official blockchain of the Bored Ape Yacht Club ecosystem — built on Arbitrum Orbit as a Layer-3 with <strong className="text-white/85">native $APE as gas</strong>. Launched October 2024, it was purpose-built for gaming, NFTs, and creator tools.
-                </p>
-                <p>
-                  Every transaction burns its gas in $APE, and ApeCoin matches every burn — creating an economically self-reinforcing loop. With a total supply of <strong className="text-white/85">1 billion APE</strong>, it&apos;s the currency of Ape culture.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mt-8">
-                {[
-                  { label: 'Chain ID',      value: '33139' },
-                  { label: 'Gas Token',     value: 'APE' },
-                  { label: 'APE Supply',    value: '1 Billion' },
-                  { label: 'Gas Model',     value: 'Burn + Match' },
-                ].map(s => (
-                  <div key={s.label} className="p-4 rounded-xl bg-white/3 border border-white/10">
-                    <div className="text-[10px] uppercase tracking-widest text-white/35 mb-1">{s.label}</div>
-                    <div className="text-lg font-black text-hero-blue">{s.value}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <a href="https://apecoin.com" target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/15 text-white/60 hover:text-white hover:border-hero-blue/40 transition-all text-sm">
-                  apecoin.com <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-                <a href="https://apechain.com" target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/15 text-white/60 hover:text-white hover:border-hero-blue/40 transition-all text-sm">
-                  apechain.com <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.15 }}
-              className="grid grid-cols-2 gap-3"
-            >
-              {ECOSYSTEM_APPS.map((app) => (
-                <a
-                  key={app.name}
-                  href={app.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group p-5 rounded-2xl bg-white/3 border border-white/10 hover:border-hero-blue/40 hover:bg-hero-blue/5 transition-all"
-                >
-                  <div className="text-[10px] uppercase tracking-widest text-hero-blue font-bold mb-2">{app.tag}</div>
-                  <div className="font-bold text-white group-hover:text-hero-blue transition-colors">{app.name}</div>
-                  <ExternalLink className="w-3.5 h-3.5 text-white/15 mt-2 group-hover:text-hero-blue/50 transition-colors" />
-                </a>
-              ))}
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-24">
-        <div className="container-premium">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-14"
-          >
-            <h2 className="text-4xl md:text-5xl font-black text-white mb-3">Own one? There&apos;s more inside.</h2>
-            <p className="text-white/40 max-w-lg mx-auto">Music, games, tools. The ape was the start.</p>
-          </motion.div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {PERKS.map((perk, i) => {
-              const Icon = perk.icon;
-              return (
-                <motion.div
-                  key={perk.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.07, duration: 0.5 }}
-                  className="group p-6 rounded-2xl bg-white/3 border border-white/10 hover:border-hero-blue/40 hover:bg-hero-blue/5 transition-all duration-300"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-hero-blue/10 flex items-center justify-center mb-4 group-hover:bg-hero-blue/20 transition-colors">
-                    <Icon className="w-6 h-6 text-hero-blue" />
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">{perk.title}</h3>
-                  <p className="text-sm text-white/50 leading-relaxed">{perk.desc}</p>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className="py-20 border-t border-white/6">
-        <div className="container-premium">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-14"
-          >
-            <h2 className="text-4xl font-black text-white">FAQ</h2>
-          </motion.div>
-          <div className="max-w-3xl mx-auto space-y-3">
-            {FAQS.map((faq, i) => (
-              <motion.div
-                key={faq.q}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.05 }}
-                className="p-6 rounded-2xl bg-white/3 border border-white/10 hover:border-hero-blue/25 transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-hero-blue flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h3 className="font-bold text-white mb-2">{faq.q}</h3>
-                    <p className="text-sm text-white/55 leading-relaxed">{faq.a}</p>
-                  </div>
-                </div>
-              </motion.div>
             ))}
-          </div>
+          </dl>
+          <p className="aoa-meta mt-8 flex flex-wrap gap-x-4 gap-y-2">
+            <a href={CONTRACT_APESCAN} target="_blank" rel="noreferrer" className="text-[var(--ink)]">ApeScan ↗</a>
+            <a href="https://opensea.io/collection/apes-on-apechain" target="_blank" rel="noreferrer" className="text-[var(--ink)]">OpenSea ↗</a>
+            <a href="https://apechain.com" target="_blank" rel="noreferrer" className="text-[var(--ink)]">apechain.com ↗</a>
+            <a href="https://apecoin.com" target="_blank" rel="noreferrer" className="text-[var(--ink)]">apecoin.com ↗</a>
+            <a href="https://apechain.com/apps/otherside" target="_blank" rel="noreferrer" className="text-[var(--ink)]">Otherside ↗</a>
+            {discord ? (
+              <a href={discord.href} target="_blank" rel="noreferrer" className="text-[var(--ink)]">Discord ↗</a>
+            ) : null}
+          </p>
         </div>
-      </section>
-
-      <section className="container-premium pb-24">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="relative rounded-3xl overflow-hidden border border-hero-blue/30 p-12 md:p-16 text-center"
-          style={{ background: 'linear-gradient(135deg, rgba(0,84,249,0.12) 0%, rgba(0,217,255,0.06) 100%)' }}
-        >
-          <div className="absolute inset-0 bg-hero-blue/5 blur-3xl rounded-3xl pointer-events-none" />
-          <div className="absolute top-0 left-1/3 w-[400px] h-[200px] bg-hero-blue/8 rounded-full blur-[80px] pointer-events-none" />
-          <div className="relative z-10">
-            <div className="text-xs uppercase tracking-[0.25em] text-hero-blue/70 font-bold mb-4">Still Building. Still Loud. Still Together.</div>
-            <h2 className="text-4xl md:text-6xl font-black text-white mb-5">
-              Apes on <span className="text-gradient">ApeChain.</span>
-            </h2>
-            <p className="text-white/50 mb-10 max-w-md mx-auto leading-relaxed">
-              From DMCA to mint-out. From setback to 2M+ plays.
-              The story isn&apos;t over — it&apos;s just warming up.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <a
-                href="https://opensea.io/collection/apes-on-apechain"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-8 py-4 rounded-xl bg-hero-blue hover:bg-hero-blue-light text-white font-bold transition-all shadow-lg shadow-hero-blue/30 hover:-translate-y-0.5"
-              >
-                Buy on OpenSea
-              </a>
-              <Link
-                href="/collection"
-                className="px-8 py-4 rounded-xl border border-white/25 hover:border-hero-blue/50 text-white/80 hover:text-white font-medium transition-all hover:-translate-y-0.5"
-              >
-                Browse Collection
-              </Link>
-              <a
-                href="https://discord.gg/gVmqW6SExU"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-8 py-4 rounded-xl border border-white/25 hover:border-hero-blue/50 text-white/80 hover:text-white font-medium transition-all hover:-translate-y-0.5"
-              >
-                Join Discord
-              </a>
-            </div>
-          </div>
-        </motion.div>
       </section>
     </div>
   );

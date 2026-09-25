@@ -4,11 +4,12 @@ import Footer from '@/app/components/Footer';
 import JoinClient from './JoinClient';
 
 export const metadata: Metadata = {
-  title: 'Enter',
-  description: "Don't watch. Make it. You can be here before you own anything.",
+  title: 'Join the signal',
+  description: 'Discord, X, AOA Records, the collection, the studio, and the arcade.',
+  alternates: { canonical: '/join' },
   openGraph: {
-    title: 'Join AOA — Apes On Ape',
-    description: "Don't watch the culture. Make it.",
+    title: 'Join the signal — Apes On Ape',
+    description: 'Discord, X, AOA Records, the collection, the studio, and the arcade.',
     type: 'website',
   },
 };

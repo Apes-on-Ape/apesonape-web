@@ -28,7 +28,7 @@ export const SITE_MODE = {
     enabled: false,
     title: '11:11',
     message: 'Turn it up.',
-    href: '/live',
+    href: '/music',
   },
 } as const;
 
@@ -57,9 +57,7 @@ export const PRIMARY_NAV: NavLink[] = [
 ];
 
 /** Right-side nav. Connect stays in AuthNavControls. */
-export const NAV_CTAS: NavLink[] = [
-  { label: 'Live', href: '/live' },
-];
+export const NAV_CTAS: NavLink[] = [];
 
 export interface SocialLink {
   label: string;
@@ -83,24 +81,23 @@ export const FOOTER_SECTIONS: FooterSection[] = [
   {
     heading: 'Music',
     links: [
-      { label: 'Radio', href: '/live' },
-      { label: 'Records', href: '/music' },
+      { label: 'Radio', href: '/music' },
       { label: 'Artists', href: '/music#artists' },
-      { label: 'Open Mic', href: '/open-mic' },
     ],
   },
   {
-    heading: 'Community',
+    heading: 'Make',
     links: [
-      { label: 'WTF', href: '/wtf' },
+      { label: 'Studio', href: '/studio' },
+      { label: 'Toolbox', href: '/creative' },
+      { label: 'Arcade', href: '/arcade' },
+    ],
+  },
+  {
+    heading: 'Network',
+    links: [
       { label: 'Story', href: '/story' },
       { label: 'Join', href: '/join' },
-      { label: 'Create', href: '/creative' },
-    ],
-  },
-  {
-    heading: 'Apes',
-    links: [
       { label: 'Collection', href: '/collection' },
       { label: 'Wardrobe', href: '/wardrobe' },
       { label: 'OpenSea', href: 'https://opensea.io/collection/apes-on-apechain', external: true },
@@ -114,6 +111,6 @@ export const CONTRACT_APESCAN = 'https://apescan.io/address/0xa6babe18f2318d2880
 /** Homepage CTA buttons */
 export const HOME_CTAS = {
   primary: { label: 'Listen', href: '/music' },
-  secondary: { label: 'Enter', href: '/wtf' },
+  secondary: { label: 'Join', href: '/join' },
   tertiary: { label: 'The long version', href: '/story' },
 } as const;

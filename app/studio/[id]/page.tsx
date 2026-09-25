@@ -26,7 +26,7 @@ export default async function StudioDetailPage({ params }: { params: Promise<{ i
 
 	return (
 		<div className="min-h-screen flex flex-col">
-			<main className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16">
+			<main className="container-premium flex-1 pb-[calc(var(--aoa-dock-offset)+2rem)] pt-[calc(var(--aoa-header-h)+1.5rem)]">
 				<CreationDetailClient creation={creation} />
 			</main>
 			<Footer />

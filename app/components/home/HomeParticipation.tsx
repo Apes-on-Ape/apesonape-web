@@ -71,9 +71,6 @@ export default function HomeParticipation() {
               Join AOA
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
             </Link>
-            <Link href="/open-mic" className="btn-secondary btn-lg">
-              Open Mic
-            </Link>
           </div>
 
           <p

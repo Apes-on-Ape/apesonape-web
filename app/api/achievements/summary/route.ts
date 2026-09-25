@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getArcadeSupabase, normalizeWallet } from '@/lib/arcade-db';
+import { arcadeAchievementAoa, ecosystemCategory } from '@/lib/progress/rewards';
 
 type AchievementCatalogRow = {
   id: string;
@@ -42,15 +43,48 @@ export async function GET(req: NextRequest) {
     }
 
     const catalog = (catalogRaw ?? []) as AchievementCatalogRow[];
+    if (!catalog.some((row) => row.id === 'first_studio_transmission')) {
+      catalog.push(
+        {
+          id: 'first_studio_transmission',
+          name: 'First transmission',
+          description: 'Publish a studio piece',
+          category: 'studio',
+          icon: '✦',
+          requirements: null,
+          reward_xp: 750,
+          is_hidden: false,
+        },
+        {
+          id: 'ten_transmissions',
+          name: 'Ten transmissions',
+          description: 'Publish ten studio pieces',
+          category: 'studio',
+          icon: '✦',
+          requirements: null,
+          reward_xp: 3750,
+          is_hidden: false,
+        },
+      );
+    }
 
-    const { data: uaRaw, error: uaErr } = await supabase
-      .from('user_achievements')
-      .select('achievement_id, unlocked_at')
+    const { data: profileRows } = await supabase
+      .from('user_profiles')
+      .select('glyph_user_id')
       .in('wallet_address', addresses);
+    const userIds = (profileRows ?? [])
+      .map((row) => String(row.glyph_user_id ?? '').trim())
+      .filter(Boolean);
+
+    const { data: uaRaw, error: uaErr } = userIds.length
+      ? await supabase
+          .from('aoa_achievement_unlocks')
+          .select('achievement_id, unlocked_at')
+          .in('user_id', userIds)
+      : { data: [], error: null };
 
     if (uaErr) {
-      console.error('[achievements/summary] user_achievements', uaErr);
-      return NextResponse.json({ error: uaErr.message }, { status: 500 });
+      console.error('[achievements/summary] aoa_achievement_unlocks', uaErr.message);
     }
 
     const earnedKeys = new Set<string>();
@@ -77,6 +111,8 @@ export async function GET(req: NextRequest) {
         icon: c.icon,
         requirements: c.requirements,
         reward_xp: c.reward_xp ?? 0,
+        aoa_reward: arcadeAchievementAoa(c.reward_xp ?? 0),
+        ecosystem_category: ecosystemCategory(c.category),
         is_hidden: !!c.is_hidden,
         earned,
         unlocked_at: earned ? earliestUnlock.get(c.id) ?? null : null,

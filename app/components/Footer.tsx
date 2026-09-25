@@ -45,7 +45,7 @@ export default function Footer() {
               {BRAND.tagline}
             </p>
 
-            <p className="text-sm leading-relaxed max-w-xs font-semibold tracking-wide" style={{ color: 'var(--text-dim)' }}>
+            <p className="text-sm leading-relaxed max-w-xs font-semibold tracking-wide" style={{ color: 'var(--text-dim)' }} suppressHydrationWarning>
               {FOOTER_WHISPERS[new Date().getUTCDate() % FOOTER_WHISPERS.length]}
             </p>
 
@@ -116,7 +116,7 @@ export default function Footer() {
           </p>
 
           <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-            <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-dim)' }} suppressHydrationWarning>
               © {currentYear} {BRAND.name}. All rights reserved.
             </p>
             <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-dim)' }}>

@@ -4,13 +4,15 @@ import Footer from '@/app/components/Footer';
 import StoryClient from './StoryClient';
 
 export const metadata: Metadata = {
-  title: 'Our Story — Apes On Ape',
+  title: 'Apes on Ape Story',
   description:
-    'In December 2024 the art disappeared. The community didn\'t. This is the story of how Apes On Ape went from an NFT collection to a music and culture collective.',
+    'From the October 2024 launch on ApeChain, through the December 2024 DMCA and the rebuild, to AOA Records.',
+  alternates: { canonical: '/story' },
   openGraph: {
-    title: 'Our Story — Apes On Ape',
-    description: 'The art disappeared. The community didn\'t.',
+    title: 'Apes on Ape Story',
+    description: 'From launch to rebuild, and the station that followed.',
     type: 'article',
+    url: '/story',
   },
 };
 

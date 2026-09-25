@@ -18,6 +18,9 @@ export async function generateMetadata({
   return {
     title: `${artist.name} — AOA Records | Apes On Ape`,
     description: `${artist.bio} — Hear ${artist.name} on AOA Records, the music label of the Apes On Ape community.`,
+    alternates: {
+      canonical: `/artist/${slug}`,
+    },
     openGraph: {
       title: `${artist.name} — AOA Records`,
       description: artist.bio,

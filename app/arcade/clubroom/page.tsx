@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function ClubroomMaintenancePage() {
   return (
-    <section className="section-spacing pt-24 md:pt-32">
+    <section className="pb-[calc(var(--aoa-dock-offset)+2rem)] pt-[calc(var(--aoa-header-h)+2rem)]">
       <div className="container-premium">
         <div className="arcade-cabinet mx-auto max-w-2xl">
           <div className="arcade-cabinet-inner p-8 text-center sm:p-10">

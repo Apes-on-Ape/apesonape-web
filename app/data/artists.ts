@@ -2,6 +2,8 @@ export type Artist = {
   slug: string;
   name: string;
   handle: string;          // Twitter handle without @
+  /** AOA profile username when it differs from `handle`. Defaults to `handle`. */
+  profileUsername?: string;
   apeId?: number;
   avatar: string;          // URL or /public path
   coverImage?: string;
@@ -36,8 +38,8 @@ export const ARTISTS: Artist[] = [
     slug: 'apeprofessore',
     name: 'ApeProfessore',
     handle: 'ApeProfessore',
-    apeId: 2191,
-    avatar: '/artists/apeprofessore.png',
+    apeId: 6909,
+    avatar: `${CDN_THUMB}/6909.webp`,
     bio: 'Bringing academic energy and creative intellect to the AOA community. A true scholar of the Ape culture.',
     role: 'Artist / Community',
     genres: ['Hip-Hop', 'Experimental'],

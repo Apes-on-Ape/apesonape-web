@@ -1,60 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const DEFAULT_GATEWAYS = [
+const GATEWAYS = [
 	'https://ipfs.io/ipfs/',
 	'https://cloudflare-ipfs.com/ipfs/',
 	'https://gateway.pinata.cloud/ipfs/',
+	'https://moccasin-brilliant-silkworm-382.mypinata.cloud/ipfs/',
 ];
 
-function extractCid(input: string): string | null {
-	if (input.startsWith('ipfs://')) {
-		return input.replace('ipfs://', '').replace(/^ipfs\//, '');
+const CID = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[a-z0-9]{20,})$/;
+
+function cidFrom(raw: string): string | null {
+	const value = raw.trim();
+	if (CID.test(value)) return value;
+	if (value.startsWith('ipfs://')) {
+		const cid = value.slice('ipfs://'.length).replace(/^ipfs\//, '').split('/')[0] || '';
+		return CID.test(cid) ? cid : null;
 	}
-	const match = input.match(/\/ipfs\/([a-zA-Z0-9]+)(\/.*)?$/);
-	return match ? match[1] : null;
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		return null;
+	}
+	if (url.protocol !== 'https:') return null;
+	const allowed = GATEWAYS.some((gateway) => value.startsWith(gateway));
+	if (!allowed) return null;
+	const match = url.pathname.match(/\/ipfs\/([^/]+)/);
+	const cid = match?.[1] || '';
+	return CID.test(cid) ? cid : null;
 }
 
 export async function GET(req: NextRequest) {
-	try {
-		const { searchParams } = new URL(req.url);
-		const raw = searchParams.get('url');
-		if (!raw) {
-			return NextResponse.json({ error: 'Missing url' }, { status: 400 });
-		}
-		const url = new URL(raw);
-		if (!['http:', 'https:', 'ipfs:'].includes(url.protocol)) {
-			return NextResponse.json({ error: 'Invalid url' }, { status: 400 });
-		}
+	const raw = new URL(req.url).searchParams.get('url') || new URL(req.url).searchParams.get('cid') || '';
+	const cid = cidFrom(raw);
+	if (!cid) {
+		return NextResponse.json({ error: 'Only an IPFS CID or an approved gateway URL is allowed.' }, { status: 400 });
+	}
 
-		const cid = extractCid(raw);
-		const gateways = cid ? DEFAULT_GATEWAYS.map((g) => `${g}${cid}`) : [url.toString()];
-		let lastStatus = 500;
-		let lastText = 'Fetch failed';
-
-		for (const gatewayUrl of gateways) {
-			try {
-				const res = await fetch(gatewayUrl, { cache: 'no-store' });
-				if (!res.ok) {
-					lastStatus = res.status;
-					lastText = await res.text().catch(() => 'Fetch failed');
-					continue;
-				}
-				const contentType = res.headers.get('content-type') || 'application/octet-stream';
-				const buffer = Buffer.from(await res.arrayBuffer());
-				return new NextResponse(buffer, {
-					headers: {
-						'Content-Type': contentType,
-						'Cache-Control': 's-maxage=120, stale-while-revalidate=60',
-					},
-				});
-			} catch {
+	let lastStatus = 502;
+	for (const gateway of GATEWAYS) {
+		try {
+			const res = await fetch(`${gateway}${cid}`, { cache: 'no-store', redirect: 'error' });
+			if (!res.ok) {
+				lastStatus = res.status;
 				continue;
 			}
+			const contentType = res.headers.get('content-type') || 'application/octet-stream';
+			const buffer = Buffer.from(await res.arrayBuffer());
+			return new NextResponse(buffer, {
+				headers: {
+					'Content-Type': contentType,
+					'Cache-Control': 's-maxage=120, stale-while-revalidate=60',
+				},
+			});
+		} catch {
+			continue;
 		}
-
-		return NextResponse.json({ error: lastText }, { status: lastStatus });
-	} catch (err: unknown) {
-		const msg = err instanceof Error ? err.message : 'Failed to fetch';
-		return NextResponse.json({ error: msg }, { status: 500 });
 	}
+	return NextResponse.json({ error: 'Could not load that IPFS file.' }, { status: lastStatus });
 }

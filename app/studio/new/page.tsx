@@ -22,7 +22,10 @@ function shortAddress(addr: string) {
 
 export default function StudioPublishPage() {
 	const session = useSessionWallets();
-	const privy = (usePrivy() as unknown) as { user?: (PrivyUser & { id?: string }) | null };
+	const privy = (usePrivy() as unknown) as {
+		user?: (PrivyUser & { id?: string }) | null;
+		getAccessToken?: () => Promise<string | null>;
+	};
 	const router = useRouter();
 
 	const type: CreationType = 'visual';
@@ -34,6 +37,7 @@ export default function StudioPublishPage() {
 	const [status, setStatus] = useState('');
 	const [error, setError] = useState<string | null>(null);
 	const [successId, setSuccessId] = useState<string | null>(null);
+	const [savedHash, setSavedHash] = useState<string | null>(null);
 
 	const isConnected = session.signedIn && !!session.primaryAddress;
 	const address = session.primaryAddress;
@@ -54,6 +58,7 @@ export default function StudioPublishPage() {
 		setArtifact(file);
 		setError(null);
 		setSuccessId(null);
+		setSavedHash(null);
 		if (artifactPreview) URL.revokeObjectURL(artifactPreview);
 		if (file) {
 			setArtifactPreview(URL.createObjectURL(file));
@@ -64,8 +69,10 @@ export default function StudioPublishPage() {
 
 	const handlePublish = async (e: React.FormEvent) => {
 		e.preventDefault();
+		if (busy) return;
 		setError(null);
 		setSuccessId(null);
+		setSavedHash(null);
 
 		if (!canPublish) {
 			setError('Connect your wallet with Glyph to publish.');
@@ -117,17 +124,21 @@ export default function StudioPublishPage() {
 
 		try {
 			setBusy(true);
-			setStatus('Uploading to storage...');
+			setStatus('Uploading artifact');
+			const token = await privy.getAccessToken?.();
 			const res = await fetch('/api/studio/creations', {
 				method: 'POST',
+				headers: token ? { Authorization: `Bearer ${token}` } : undefined,
 				body: form,
 			});
 			const json = await res.json();
 			if (!res.ok) {
 				throw new Error(json?.error || 'Publish failed');
 			}
-			setStatus('Saved! Redirecting...');
+			setStatus('Transmission complete');
 			const creationId = json?.creation?.id as string | undefined;
+			const hash = json?.creation?.contentHash;
+			if (typeof hash === 'string') setSavedHash(hash);
 			if (creationId) {
 				setSuccessId(creationId);
 				setTimeout(() => router.push(`/studio/${creationId}`), 650);
@@ -141,136 +152,132 @@ export default function StudioPublishPage() {
 	};
 
 	return (
-		<div className="min-h-screen flex flex-col">
-			<main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16">
-				<div className="glass-dark border border-white/10 rounded-2xl p-6 mb-8 shadow-2xl shadow-black/40">
-					<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-						<div>
-							<h1 className="text-3xl font-bold">Publish to AOA Studio</h1>
-							<p className="text-off-white/70 text-sm mt-1">
-								Publish your prompt with an image. Others can remix using the same prompt.
-							</p>
-						</div>
-						<div className="flex items-center gap-3 text-sm">
-							{isConnected ? (
-								<div className="px-3 py-2 rounded-lg border border-green-500/30 bg-green-500/10 text-green-200">
-									Connected {shortAddress(address)}
-								</div>
-							) : (
-								<button
-									onClick={() => { void session.login?.(); }}
-									className="btn-primary px-4 py-2"
-								>
-									Sign in
+		<div className="min-h-screen flex flex-col text-[var(--ink)]">
+			<main className="flex-1 container-premium pb-[calc(var(--aoa-dock-offset)+2rem)] pt-[calc(var(--aoa-header-h)+1.5rem)]">
+				<div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+					<div>
+						<p className="aoa-meta text-[var(--signal)]">AOA Lab</p>
+						<h1 className="type-section mt-2">Transmit an artifact</h1>
+						<p className="mt-2 max-w-xl text-sm text-[var(--ink-dim)]">Upload the image, add the title and prompt, then publish the record.</p>
+					</div>
+					{isConnected ? (
+						<p className="aoa-meta">Session ready · {shortAddress(address)}</p>
+					) : (
+						<button type="button" onClick={() => { void session.login?.(); }} className="aoa-home-cta aoa-home-cta-solid">
+							Sign in
+						</button>
+					)}
+				</div>
+
+				<form onSubmit={handlePublish} className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+					<div>
+						<p className="aoa-meta text-[var(--signal)]">01 // Artifact</p>
+						<label
+							htmlFor="studio-artifact"
+							className="mt-3 flex min-h-48 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-[rgba(243,238,228,0.28)] px-4 py-8 text-center"
+							onDragOver={(event) => {
+								event.preventDefault();
+							}}
+							onDrop={(event) => {
+								event.preventDefault();
+								if (!canPublish) return;
+								onFileChange(event.dataTransfer.files?.[0] || null);
+							}}
+						>
+							<input
+								id="studio-artifact"
+								type="file"
+								accept="image/*"
+								className="sr-only"
+								onChange={(e) => onFileChange(e.target.files?.[0] || null)}
+								disabled={!canPublish}
+							/>
+							<UploadCloud className="h-6 w-6" aria-hidden />
+							<span className="text-sm">Drop an image or choose a file</span>
+							<span className="aoa-meta">Images only · max {MAX_FILE_MB}MB</span>
+						</label>
+						{artifact ? (
+							<div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+								<p className="aoa-meta min-w-0 break-all">
+									{artifact.name} · {(artifact.size / (1024 * 1024)).toFixed(2)} MB
+								</p>
+								<button type="button" className="aoa-meta text-[var(--signal)]" onClick={() => onFileChange(null)}>
+									Remove
 								</button>
+							</div>
+						) : null}
+						<div className="relative mt-4 aspect-square overflow-hidden border border-[rgba(243,238,228,0.12)] bg-black/40">
+							{artifactPreview ? (
+								<img src={artifactPreview} alt="Artifact preview" className="h-full w-full object-contain" />
+							) : (
+								<p className="aoa-meta flex h-full items-center justify-center">No file selected</p>
 							)}
 						</div>
 					</div>
 
-					<form onSubmit={handlePublish} className="space-y-5">
+					<div className="space-y-5">
 						<div>
-							<label className="block text-sm mb-1">Title</label>
+							<p className="aoa-meta text-[var(--signal)]">02 // Context</p>
+							<label htmlFor="studio-title" className="mt-3 block text-sm">Title</label>
 							<input
+								id="studio-title"
 								value={title}
 								onChange={(e) => setTitle(e.target.value.slice(0, TITLE_LIMIT))}
 								required
-								className="w-full rounded-md bg-black/40 border border-white/10 p-3"
-								placeholder="Give your prompt a name"
+								className="mt-2 w-full min-h-11 border border-[rgba(243,238,228,0.18)] bg-transparent px-3 text-sm text-[var(--ink)]"
 								disabled={!canPublish}
 							/>
-							<div className="text-xs text-off-white/60 mt-1">{title.length}/{TITLE_LIMIT}</div>
+							<p className="aoa-meta mt-1">{title.length}/{TITLE_LIMIT}</p>
 						</div>
-
 						<div>
-							<label className="block text-sm mb-1">AI prompt</label>
+							<label htmlFor="studio-prompt" className="block text-sm">Prompt / creation context</label>
 							<textarea
+								id="studio-prompt"
 								value={prompt}
 								onChange={(e) => setPrompt(e.target.value.slice(0, PROMPT_LIMIT))}
-								rows={4}
-								className="w-full rounded-md bg-black/40 border border-white/10 p-3"
-								placeholder="Describe the image you want generated..."
+								rows={5}
+								required
+								className="mt-2 w-full border border-[rgba(243,238,228,0.18)] bg-transparent px-3 py-2 text-sm text-[var(--ink)]"
 								disabled={!canPublish}
 							/>
-							<div className="text-xs text-off-white/60 mt-1">{prompt.length}/{PROMPT_LIMIT}</div>
+							<p className="aoa-meta mt-1">{prompt.length}/{PROMPT_LIMIT}</p>
 						</div>
-
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<label className="block text-sm mb-2">Upload generated image</label>
-								<label className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-white/15 bg-black/40 hover:bg-black/30 transition-colors p-6 cursor-pointer">
-									<input
-										type="file"
-										accept="image/*"
-										className="hidden"
-										onChange={(e) => onFileChange(e.target.files?.[0] || null)}
-										disabled={!canPublish}
-									/>
-									<UploadCloud className="w-7 h-7 text-off-white/70" />
-									<div className="text-center text-sm text-off-white/80">Drag & drop or click to upload</div>
-									<div className="text-center text-xs text-off-white/60">Max {MAX_FILE_MB}MB</div>
-								</label>
-								{artifact && (
-									<div className="text-xs text-off-white/70 mt-2">Selected: {artifact.name}</div>
-								)}
-							</div>
-							<div>
-								<label className="block text-sm mb-2">Preview</label>
-								<div className="rounded-lg border border-white/15 bg-black/50 h-64 flex items-center justify-center overflow-hidden relative">
-									{artifactPreview ? (
-										<img
-											src={artifactPreview}
-											alt="Preview"
-											className="object-contain w-full h-full"
-											style={{ maxHeight: '16rem' }}
-										/>
-									) : (
-										<div className="text-off-white/50 text-sm">No file selected</div>
-									)}
-								</div>
-							</div>
-						</div>
-
-						<div className="rounded-lg border border-white/10 bg-black/40 p-4 text-sm text-off-white/80">
-							<div className="font-semibold mb-2">What happens on publish</div>
-							<ul className="list-disc list-inside space-y-1 text-off-white/70">
-								<li>Your prompt and image are uploaded (IPFS first; local fallback in dev).</li>
-								<li>Metadata JSON is built, hashed (keccak256), and pinned.</li>
-								<li>Glyph identity is stored ({glyphVerified ? 'verified' : 'not verified'}).</li>
-								<li>Your wallet ({shortAddress(address) || 'not connected'}) is attributed.</li>
+						<div>
+							<p className="aoa-meta text-[var(--signal)]">03 // Verify</p>
+							<ul className="mt-3 space-y-1 text-sm text-[var(--ink-dim)]">
+								<li>Image and prompt are stored. IPFS is tried first.</li>
+								<li>Metadata is hashed with keccak256.</li>
+								<li>Glyph: {glyphVerified ? 'verified' : 'not verified'}.</li>
+								<li>Wallet: {shortAddress(address) || 'not connected'}.</li>
 							</ul>
 						</div>
-
-						{error && (
-							<div className="flex items-center gap-2 text-red-300 text-sm">
-								<AlertCircle className="w-4 h-4" />
+						{error ? (
+							<p className="flex items-start gap-2 text-sm text-red-300" role="alert">
+								<AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
 								<span>{error}</span>
+							</p>
+						) : null}
+						{status ? <p className="aoa-meta text-[var(--signal)]">{status}</p> : null}
+						{successId ? (
+							<div className="border border-[rgba(243,238,228,0.12)] p-4">
+								<p className="flex items-center gap-2 text-sm">
+									<CheckCircle2 className="h-4 w-4 text-[var(--signal)]" />
+									Transmission complete.
+								</p>
+								<p className="aoa-meta mt-2 break-all">Artifact // {successId}</p>
+								{savedHash ? <p className="aoa-meta mt-1 break-all">Hash // {savedHash}</p> : null}
+								<Link href={`/studio/${successId}`} className="aoa-home-cta aoa-home-cta-solid mt-4">View artifact</Link>
 							</div>
-						)}
-						{status && (
-							<div className="text-sm text-off-white/70">{status}</div>
-						)}
-						{successId && (
-							<div className="flex items-center gap-2 text-green-300 text-sm">
-								<CheckCircle2 className="w-4 h-4" />
-								<span>Published! </span>
-								<Link href={`/studio/${successId}`} className="underline">View your experiment</Link>
-							</div>
-						)}
-
-						<div className="flex items-center gap-3">
-							<button
-								type="submit"
-								className="btn-primary px-5 py-2"
-								disabled={busy || !isConnected}
-							>
-								{busy ? 'Publishing…' : 'Publish'}
+						) : null}
+						<div className="flex flex-col gap-2 min-[420px]:flex-row">
+							<p className="aoa-meta text-[var(--signal)] min-[420px]:self-center">04 // Transmit</p>
+							<button type="submit" className="aoa-home-cta aoa-home-cta-solid" disabled={busy || !isConnected}>
+								{busy ? 'Uploading artifact' : 'Transmit artifact'}
 							</button>
-							<Link href="/studio" className="btn-secondary px-4 py-2 text-sm">
-								Back to Studio
-							</Link>
+							<Link href="/studio" className="aoa-home-cta aoa-home-cta-ghost">Back to the lab</Link>
 						</div>
-					</form>
-				</div>
+					</div>
+				</form>
 			</main>
 			<Footer />
 		</div>

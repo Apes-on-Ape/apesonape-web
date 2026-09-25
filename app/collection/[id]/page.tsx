@@ -3,9 +3,11 @@
 import React, { useState, useEffect } from 'react';
 
 type TierIcon = React.ComponentType<{ className?: string }>;
-import { motion } from 'framer-motion';
-import { Crown, Zap, Star, Shield, Circle, ArrowLeft, ExternalLink, Trophy, Layers, Wallet, Copy, Check } from 'lucide-react';
+import { Crown, Zap, Star, Shield, Circle } from 'lucide-react';
 import Footer from '@/app/components/Footer';
+import BroadcastLabel from '@/app/components/signal/BroadcastLabel';
+import TraitRecord from '@/app/components/collection/TraitRecord';
+import { APECHAIN_CHAIN_ID } from '@/lib/constants';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
@@ -133,249 +135,134 @@ export default function ApeDetailPage() {
   const cfg = rarity ? TIER_CONFIG[rarity.tier] : TIER_CONFIG['Common'];
   const TierIcon = cfg.icon;
   const osUrl = `https://opensea.io/assets/apechain/0xa6babe18f2318d2880dd7da3126c19536048f8b0/${id}`;
+  const prevToken = Number.isFinite(id) && id > 0 ? id - 1 : null;
+  const nextToken = Number.isFinite(id) && id < total - 1 ? id + 1 : null;
 
   // Sort traits by rarity desc (rarest first)
   const sortedTraits = rarity?.traits ? [...rarity.traits].sort((a, b) => b.rarity - a.rarity) : [];
 
   return (
-    <div className="min-h-screen">
-
-      <div className="container-premium pt-28 pb-16">
-        {/* Back */}
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <Link href="/collection" className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors mb-8">
-            <ArrowLeft className="w-4 h-4" /> Back to Collection
-          </Link>
-        </motion.div>
+    <div className="min-h-screen text-[var(--ink)]">
+      <div className="container-premium pb-[calc(var(--aoa-dock-offset)+2rem)] pt-[calc(var(--aoa-header-h)+1.5rem)]">
+        <Link href="/collection" className="aoa-meta text-[var(--signal)]">Return to the archive</Link>
 
         {loading ? (
-          <div className="grid md:grid-cols-2 gap-12">
-            <div className="aspect-square rounded-2xl bg-white/5 animate-pulse" />
-            <div className="space-y-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="h-12 rounded-xl bg-white/5 animate-pulse" style={{ width: `${60 + i * 5}%` }} />
+          <div className="mt-8 grid gap-8 md:grid-cols-2">
+            <div>
+              <p className="aoa-meta mb-3">Scanning archive...</p>
+              <div className="aspect-square animate-pulse bg-white/5" />
+            </div>
+            <div className="space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-12 animate-pulse bg-white/5" />
               ))}
             </div>
           </div>
         ) : !rarity ? (
-          <div className="text-center py-24 text-white/40">Ape #{id} not found.</div>
+          <p className="type-section mt-16">Ape #{id} is not in the archive.</p>
         ) : (
-          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-start">
-            {/* Image Column */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className={`relative rounded-2xl overflow-hidden border-2 ${cfg.border} shadow-2xl`}>
-                {/* Glow effect for rare+ */}
-                {rarity.tier !== 'Common' && (
-                  <div className={`absolute -inset-4 blur-xl opacity-30 ${cfg.bg} pointer-events-none`} />
-                )}
-                <div className="relative aspect-square">
-                  <Image
-                    src={imgSrc}
-                    alt={`Ape #${id}`}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    className={`object-cover transition-opacity duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
-                    onLoad={() => setImgLoaded(true)}
-                    onError={handleImgError}
-                    unoptimized
-                    priority
-                  />
-                  {!imgLoaded && <div className="absolute inset-0 bg-white/5 animate-pulse" />}
-                </div>
+          <div className="mt-8 grid items-start gap-8 md:grid-cols-2 md:gap-12">
+            <div>
+              <div className="relative aspect-square overflow-hidden border border-[rgba(243,238,228,0.12)]">
+                <Image
+                  src={imgSrc}
+                  alt={`Ape ${id}`}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className={`object-cover transition-opacity duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+                  onLoad={() => setImgLoaded(true)}
+                  onError={handleImgError}
+                  unoptimized
+                  priority
+                />
+                {!imgLoaded && <div className="absolute inset-0 animate-pulse bg-white/5" />}
               </div>
-
-              {/* Prev/Next Navigation */}
-              <div className="flex gap-3 mt-4">
-                {prevNext.prev ? (
-                  <Link href={`/collection/${prevNext.prev.id}`} className="flex-1 group relative overflow-hidden rounded-xl border border-white/10 hover:border-hero-blue/40 transition-all p-2">
-                    <div className="text-[10px] text-white/40 mb-1">← Higher Rank</div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-md overflow-hidden relative flex-shrink-0">
-                        <Image src={thumbUrl(prevNext.prev.id)} alt="" fill unoptimized className="object-cover" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-white">#{prevNext.prev.id}</div>
-                        <div className="text-[10px] text-white/40">Rank #{prevNext.prev.rank}</div>
-                      </div>
-                    </div>
-                  </Link>
-                ) : <div className="flex-1" />}
-                {prevNext.next ? (
-                  <Link href={`/collection/${prevNext.next.id}`} className="flex-1 group relative overflow-hidden rounded-xl border border-white/10 hover:border-hero-blue/40 transition-all p-2 text-right">
-                    <div className="text-[10px] text-white/40 mb-1">Lower Rank →</div>
-                    <div className="flex items-center justify-end gap-2">
-                      <div>
-                        <div className="text-xs font-bold text-white">#{prevNext.next.id}</div>
-                        <div className="text-[10px] text-white/40">Rank #{prevNext.next.rank}</div>
-                      </div>
-                      <div className="w-8 h-8 rounded-md overflow-hidden relative flex-shrink-0">
-                        <Image src={thumbUrl(prevNext.next.id)} alt="" fill unoptimized className="object-cover" />
-                      </div>
-                    </div>
-                  </Link>
-                ) : <div className="flex-1" />}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {prevToken !== null ? (
+                  <Link href={`/collection/${prevToken}`} className="aoa-home-cta aoa-home-cta-ghost">← Ape {String(prevToken).padStart(4, '0')}</Link>
+                ) : null}
+                {nextToken !== null ? (
+                  <Link href={`/collection/${nextToken}`} className="aoa-home-cta aoa-home-cta-ghost">Ape {String(nextToken).padStart(4, '0')} →</Link>
+                ) : null}
               </div>
-            </motion.div>
+              {(prevNext.prev || prevNext.next) && (
+                <p className="aoa-meta mt-3">
+                  {prevNext.prev ? <Link href={`/collection/${prevNext.prev.id}`} className="mr-4">Higher rank // #{prevNext.prev.id}</Link> : null}
+                  {prevNext.next ? <Link href={`/collection/${prevNext.next.id}`}>Lower rank // #{prevNext.next.id}</Link> : null}
+                </p>
+              )}
+            </div>
 
-            {/* Info Column */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.15 }}
-              className="space-y-6"
-            >
-              {/* Header */}
+            <div className="min-w-0 space-y-6">
               <div>
-                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-3 ${cfg.bg} ${cfg.border} border ${cfg.color}`}>
-                  <TierIcon className="w-3.5 h-3.5" />
-                  {rarity.tier}
-                </div>
-                <h1 className="text-4xl md:text-5xl font-black text-white mb-1">Ape #{id}</h1>
-                <p className="text-white/40">Apes On Ape Collection · Apechain</p>
+                <BroadcastLabel>Ape record</BroadcastLabel>
+                <h1 className="type-hero-home mt-3 max-w-[8ch] text-[var(--ink)]">Ape #{id}</h1>
+                <p className={`aoa-meta mt-4 inline-flex items-center gap-2 ${cfg.color}`}>
+                  <TierIcon className="h-3.5 w-3.5" />
+                  Tier // {rarity.tier}
+                </p>
               </div>
 
-              {/* Rank + Score Cards */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
-                  <Trophy className="w-5 h-5 text-hero-blue mx-auto mb-1" />
-                  <div className="text-2xl font-black text-white">#{rarity.rank}</div>
-                  <div className="text-[11px] text-white/40 uppercase tracking-wider">Rank</div>
+              <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <div className="border border-[rgba(243,238,228,0.12)] p-3">
+                  <dt className="aoa-meta">Rank</dt>
+                  <dd className="mt-1 text-lg font-semibold">#{rarity.rank}</dd>
                 </div>
-                <div className="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
-                  <Star className="w-5 h-5 text-accent-cyan mx-auto mb-1" />
-                  <div className="text-2xl font-black text-white">{rarity.score.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                  <div className="text-[11px] text-white/40 uppercase tracking-wider">Rarity Score</div>
+                <div className="border border-[rgba(243,238,228,0.12)] p-3">
+                  <dt className="aoa-meta">Rarity</dt>
+                  <dd className="mt-1 text-lg font-semibold">{rarity.score.toLocaleString(undefined, { maximumFractionDigits: 0 })}</dd>
                 </div>
-                <div className="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
-                  <Layers className="w-5 h-5 text-white/40 mx-auto mb-1" />
-                  <div className="text-2xl font-black text-white">{rarity.traits.length}</div>
-                  <div className="text-[11px] text-white/40 uppercase tracking-wider">Traits</div>
+                <div className="border border-[rgba(243,238,228,0.12)] p-3">
+                  <dt className="aoa-meta">Traits</dt>
+                  <dd className="mt-1 text-lg font-semibold">{rarity.traits.length}</dd>
                 </div>
-              </div>
+              </dl>
 
-              {/* Owner Card */}
-              <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Wallet className="w-4 h-4 text-hero-blue" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-white/40">Current Owner</span>
-                </div>
+              <p className="aoa-meta">
+                Network // ApeChain · Chain // {APECHAIN_CHAIN_ID} · Rank {rarity.rank} of {total.toLocaleString()} · Top {((rarity.rank / total) * 100).toFixed(2)}%
+              </p>
+
+              <div className="border border-[rgba(243,238,228,0.12)] p-4">
+                <p className="aoa-meta">Owner</p>
                 {ownerLoading ? (
-                  <div className="h-8 rounded-lg bg-white/10 animate-pulse w-48" />
+                  <p className="aoa-meta mt-3">Looking up owner...</p>
                 ) : ownerData ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-sm text-white font-semibold tracking-tight">
-                      {shortAddr(ownerData.owner)}
-                    </span>
-                    <button
-                      onClick={copyAddress}
-                      title="Copy address"
-                      className="p-1 rounded-md hover:bg-white/10 transition-colors text-white/40 hover:text-white"
-                    >
-                      {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <span className="break-all font-mono text-sm text-[var(--ink)]">{shortAddr(ownerData.owner)}</span>
+                    <button type="button" onClick={copyAddress} className="aoa-meta min-h-11 text-[var(--ink)]">
+                      {copied ? 'Copied' : 'Copy'}
                     </button>
-                    <a
-                      href={ownerData.apescanUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-hero-blue hover:text-hero-blue-light transition-colors"
-                    >
-                      Apescan <ExternalLink className="w-3 h-3" />
-                    </a>
-                    <a
-                      href={ownerData.openseaProfileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-white/40 hover:text-white transition-colors"
-                    >
-                      OpenSea <ExternalLink className="w-3 h-3" />
-                    </a>
+                    <a href={ownerData.apescanUrl} target="_blank" rel="noopener noreferrer" className="aoa-meta text-[var(--signal)]">Apescan ↗</a>
+                    <a href={ownerData.openseaProfileUrl} target="_blank" rel="noopener noreferrer" className="aoa-meta text-[var(--ink)]">OpenSea ↗</a>
                   </div>
                 ) : (
-                  <span className="text-xs text-white/30">Could not load owner</span>
+                  <p className="aoa-meta mt-3">Owner unavailable</p>
                 )}
               </div>
 
-              {/* Rarity percentile bar */}
-              <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                <div className="flex justify-between text-xs text-white/40 mb-2">
-                  <span>Rarity Percentile</span>
-                  <span>Top {((rarity.rank / total) * 100).toFixed(2)}%</span>
-                </div>
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-hero-blue to-accent-cyan rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${100 - (rarity.rank / total) * 100}%` }}
-                    transition={{ duration: 1, delay: 0.4, ease: 'easeOut' }}
-                  />
-                </div>
-                <div className="flex justify-between text-[10px] text-white/20 mt-1">
-                  <span>Rarest</span>
-                  <span>Most Common</span>
-                </div>
-              </div>
-
-              {/* Traits */}
               <div>
-                <h2 className="text-sm font-bold uppercase tracking-wider text-white/40 mb-3">Traits</h2>
-                <div className="grid grid-cols-2 gap-2">
+                <h2 className="aoa-meta mb-3 text-[var(--ink)]">Trait record</h2>
+                <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
                   {sortedTraits.map((trait, i) => {
                     const pct = ((trait.count / total) * 100).toFixed(2);
-                    const isRare = trait.rarity > 50;
                     return (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 + i * 0.04 }}
-                        className={`p-3 rounded-xl border transition-colors
-                          ${isRare ? 'bg-hero-blue/5 border-hero-blue/25' : 'bg-white/3 border-white/10'}`}
-                      >
-                        <div className="text-[10px] text-white/40 uppercase tracking-wider mb-0.5">{trait.name}</div>
-                        <div className="text-sm font-bold text-white truncate">{trait.value}</div>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className={`text-[10px] font-medium ${isRare ? 'text-hero-blue' : 'text-white/30'}`}>{pct}% have this</span>
-                          {isRare && <Star className="w-3 h-3 text-hero-blue" />}
-                        </div>
-                      </motion.div>
+                      <TraitRecord key={`${trait.name}-${trait.value}-${i}`} name={trait.name} value={trait.value} note={`${pct}% have this`} />
                     );
                   })}
                 </div>
               </div>
 
-              {/* Buy CTAs */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <a
-                  href={osUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl
-                    bg-hero-blue hover:bg-hero-blue-light text-white font-bold transition-all duration-300
-                    shadow-lg shadow-hero-blue/30 hover:shadow-hero-blue/50 hover:-translate-y-0.5"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Buy on OpenSea
-                </a>
+              <div className="flex flex-col gap-2 min-[420px]:flex-row min-[420px]:flex-wrap">
+                <a href={osUrl} target="_blank" rel="noopener noreferrer" className="aoa-home-cta aoa-home-cta-ghost w-full min-[420px]:w-auto">OpenSea ↗</a>
+                <Link href="/studio" className="aoa-home-cta aoa-home-cta-ghost w-full min-[420px]:w-auto">Open Studio</Link>
+                <Link href="/wardrobe" className="aoa-home-cta aoa-home-cta-ghost w-full min-[420px]:w-auto">Open Wardrobe</Link>
               </div>
 
-              {/* Links */}
-              <div className="flex gap-4 text-xs text-white/30">
-                <Link href="/collection" className="hover:text-hero-blue transition-colors flex items-center gap-1">
-                  <Trophy className="w-3 h-3" /> Rarity Rankings
-                </Link>
-                <Link href="/collection" className="hover:text-hero-blue transition-colors">
-                  Full Collection
-                </Link>
-              </div>
-            </motion.div>
+              <p className="aoa-meta">Part of {total.toLocaleString()}. <Link href="/collection" className="text-[var(--signal)]">Return to the archive</Link></p>
+            </div>
           </div>
         )}
       </div>
-
       <Footer />
     </div>
   );

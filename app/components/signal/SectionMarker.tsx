@@ -14,9 +14,9 @@ export default function SectionMarker({
   return (
     <header className={cn('aoa-section-marker', className)}>
       {kicker ? <p className="aoa-meta">{kicker}</p> : null}
-      <div className="flex items-baseline gap-3">
-        {index ? <span className="aoa-meta text-[var(--signal)]">{index}</span> : null}
-        <h2 className="type-chapter">{title}</h2>
+      <div className="flex min-w-0 items-baseline gap-3">
+        {index ? <span className="aoa-meta shrink-0 text-[var(--signal)]">{index}</span> : null}
+        <h2 className="type-chapter min-w-0 break-words">{title}</h2>
       </div>
     </header>
   );

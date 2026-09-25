@@ -6,7 +6,6 @@ import type { LucideIcon } from 'lucide-react';
 import { ARCADE_WALLET_SYNC_EVENT } from '@/lib/arcade-wallet';
 import { useSessionWallets } from '@/app/hooks/useSessionWallets';
 import {
-  Award,
   Bird,
   Car,
   Gamepad2,
@@ -18,6 +17,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { ARCADE_GAMES } from './arcade-games';
+import ArcadePlayerStatus from './ArcadePlayerStatus';
 
 /** One glance at genre / vibe — matches game slug from arcade-games */
 const GAME_PREVIEW_ICON: Record<string, LucideIcon> = {
@@ -104,8 +104,7 @@ const GAME_TILE_ACCENT: Record<
   },
 };
 
-const TICKER =
-  'HOLDER ARCADE  •  APECHAIN  •  HIGH SCORES  •  MAINTENANCE — SOCIAL LOUNGE CLOSED  •  PLAY ANYWHERE  •  ';
+const TICKER = `AOA ARCADE  •  APECHAIN  •  ${ARCADE_GAMES.length} CABINETS  •  SOCIAL LOUNGE CLOSED  •  `;
 
 export default function ArcadeHubClient() {
   const { signedIn, userId, primaryAddress, login } = useSessionWallets();
@@ -195,23 +194,30 @@ export default function ArcadeHubClient() {
   }, [primaryAddress]);
 
   return (
-    <section className="section-spacing pt-24 md:pt-32">
+    <section className="pb-[calc(var(--aoa-dock-offset)+2rem)] pt-[calc(var(--aoa-header-h)+1.5rem)]">
       <div className="container-premium">
-        {/* Hero */}
-        <div className="mb-10 text-center md:mb-14">
-          <p className="arcade-subline mb-4">/// INSERT COIN ///</p>
-          <h1 className="arcade-title-pixel arcade-flicker text-2xl sm:text-3xl md:text-4xl lg:text-5xl">
-            Apes On Ape
-            <br />
-            <span className="bg-gradient-to-r from-[var(--arcade-cyan)] via-white to-[var(--arcade-magenta)] bg-clip-text text-transparent">
-              ARCADE
-            </span>
-          </h1>
-          <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-[var(--text-sub)] md:text-base">
-            Insert coin, pick a cabinet, chase high scores on your phone or desktop. Sign in with your wallet — we unlock the floor
-            for verified holders and sync your runs to the leaderboard.
-          </p>
+        <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="arcade-subline mb-3">Insert coin.</p>
+            <h1 className="arcade-title-pixel arcade-flicker text-2xl sm:text-4xl md:text-5xl">
+              AOA
+              <br />
+              <span className="bg-gradient-to-r from-[var(--arcade-cyan)] via-white to-[var(--arcade-magenta)] bg-clip-text text-transparent">
+                ARCADE
+              </span>
+            </h1>
+            <p className="mt-4 max-w-md text-sm text-[var(--text-sub)]">Press start. Pick a cabinet.</p>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <ArcadePlayerStatus />
+            <p className="arcade-subline">Cabinets // {ARCADE_GAMES.length}</p>
+            <p className="arcade-subline">Network // ApeChain</p>
+          </div>
         </div>
+        <nav className="mb-8 flex flex-wrap gap-2" aria-label="Arcade">
+          <Link href="/arcade" className="arcade-btn-neon">Arcade</Link>
+          <Link href="/arcade/leaderboard" className="arcade-btn-ghost">High scores</Link>
+        </nav>
 
         {/* Ticker */}
         <div className="arcade-marquee mb-10 md:mb-12">
@@ -289,15 +295,6 @@ export default function ArcadeHubClient() {
                   <User className="h-3.5 w-3.5 opacity-80" aria-hidden />
                   PROFILE
                 </Link>
-                {wallet ? (
-                  <Link
-                    href="/arcade/achievements"
-                    className="arcade-btn-ghost inline-flex items-center justify-center gap-2 text-center"
-                  >
-                    <Award className="h-3.5 w-3.5 text-[var(--arcade-amber)] opacity-90" aria-hidden />
-                    ACHIEVEMENTS
-                  </Link>
-                ) : null}
                 {!hasGlyphSession ? (
                   <button
                     type="button"
@@ -350,47 +347,25 @@ export default function ArcadeHubClient() {
               <Link
                 key={game.slug}
                 href={`/arcade/${game.slug}`}
-                className="arcade-game-tile group relative z-0 flex min-h-[200px] flex-col p-5 sm:min-h-[220px] sm:p-6"
+                className="arcade-game-tile group relative z-0 flex min-h-[16rem] flex-col"
                 style={{ ['--arcade-tile-accent-rgb' as string]: accent.rgb }}
               >
                 <span className="arcade-corner-bracket tl" />
                 <span className="arcade-corner-bracket tr" />
                 <span className="arcade-corner-bracket bl" />
                 <span className="arcade-corner-bracket br" />
-                <div className="relative z-[1] flex flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
-                  <div
-                    className={`flex h-[4.5rem] w-full shrink-0 items-center justify-center rounded-xl border sm:h-[5.25rem] sm:w-[5.25rem] sm:max-w-[5.25rem] ${accent.iconPanel}`}
-                    aria-hidden
-                  >
-                    <PreviewIcon
-                      className={`h-9 w-9 opacity-[0.92] transition duration-300 sm:h-10 sm:w-10 ${accent.icon} ${accent.iconHover}`}
-                      strokeWidth={1.35}
-                    />
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <span
-                        className={`inline-flex items-center rounded-md border px-2 py-0.5 font-[family-name:var(--font-arcade-display)] text-[0.5rem] uppercase tracking-[0.18em] ${accent.slot}`}
-                      >
-                        Slot {String(i + 1).padStart(2, '0')}
-                      </span>
-                      <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-500">ApeChain</span>
-                    </div>
-                    <h3
-                      className={`mb-2 font-[family-name:var(--font-raleway)] text-lg font-bold leading-snug text-white transition sm:text-xl ${accent.titleHover}`}
-                    >
-                      {game.title}
-                    </h3>
-                    <p className="text-sm leading-relaxed text-zinc-300/95 sm:text-[15px]">{game.description}</p>
-                    <div className="mt-auto flex items-center justify-between border-t border-white/8 pt-4">
-                      <span className="arcade-insert-themed">▶ START</span>
-                      <span
-                        className={`text-[11px] font-semibold text-zinc-500 transition ${accent.openHover} group-hover:text-zinc-200`}
-                      >
-                        Open →
-                      </span>
-                    </div>
-                  </div>
+                <div className={`relative flex aspect-[16/10] items-center justify-center border-b ${accent.iconPanel}`} aria-hidden>
+                  <PreviewIcon className={`h-12 w-12 ${accent.icon} ${accent.iconHover}`} strokeWidth={1.35} />
+                </div>
+                <div className="relative z-[1] flex flex-1 flex-col p-4">
+                  <p className={`mb-2 inline-flex w-fit rounded-md border px-2 py-0.5 font-[family-name:var(--font-arcade-display)] text-[0.5rem] uppercase tracking-[0.18em] ${accent.slot}`}>
+                    Cabinet {String(i + 1).padStart(2, '0')}
+                  </p>
+                  <h3 className={`font-[family-name:var(--font-raleway)] text-lg font-bold text-white ${accent.titleHover}`}>
+                    {game.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-300">{game.description}</p>
+                  <span className="arcade-insert-themed mt-auto pt-4">Play</span>
                 </div>
               </Link>
             );

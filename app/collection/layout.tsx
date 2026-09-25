@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "The original 10,000",
-  description: "Before the music. Before the radio. There were 10,000.",
+  title: "The AOA Archive",
+  description: "10,000 Apes on ApeChain. Search the signal database, filter traits, and open each record.",
+  alternates: { canonical: "/collection" },
   openGraph: {
-    title: "The original 10,000. AOA",
-    description: "Before the music. Before the radio. There were 10,000.",
+    title: "The AOA Archive",
+    description: "10,000 Apes on ApeChain. Search, filter, and open each record.",
     images: ["/AoA-placeholder-apecoinblue.jpg"],
   },
 };

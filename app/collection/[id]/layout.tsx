@@ -9,16 +9,17 @@ export async function generateMetadata({
   const title = `Ape #${id}`;
   return {
     title,
-    description: 'The original 10,000. AOA.',
+    description: `Ape record ${id} in the AOA archive on ApeChain.`,
+    alternates: { canonical: `/collection/${id}` },
     openGraph: {
-      title: `${title} — the original 10,000`,
-      description: 'Still here. AOA.',
+      title: `${title} — AOA archive`,
+      description: `Ape record ${id} on ApeChain.`,
       images: [`https://bqcrbcpmimfojnjdhvrz.supabase.co/storage/v1/object/public/collection/collection-thumbs/${id}.webp`],
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${title} — the original 10,000`,
-      description: 'Still here. AOA.',
+      title: `${title} — AOA archive`,
+      description: `Ape record ${id} on ApeChain.`,
     },
   };
 }

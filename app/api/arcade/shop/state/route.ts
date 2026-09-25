@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getArcadeSupabase, normalizeWallet, upsertUserProfileByWallet } from '@/lib/arcade-db';
-import { resolveCanonicalArcadeWallet } from '@/lib/arcade-canonical-wallet';
-import {
-  resolveGlyphUserIdFromStudioWallet,
-  resolveGlyphUserIdFromUserProfileWallet,
-} from '@/lib/arcade-glyph-resolve';
+import { authFailure, requireAuthenticatedApe } from '@/lib/auth/ape';
+import { getArcadeSupabase, normalizeWallet } from '@/lib/arcade-db';
 
 type Body = {
   action?: 'get' | 'save_upgrade' | 'save_powerup' | 'save_selected_powerup' | 'set_points';
@@ -21,52 +17,23 @@ type Body = {
 
 const ALLOWED_GAMES = new Set(['block_dodger', 'neon_racer']);
 
-async function resolveIdentity(body: Body) {
+function readWallet(body: Body) {
   const supabase = getArcadeSupabase();
-  const walletInput = normalizeWallet(String(body.wallet_address ?? ''));
-  if (!walletInput) return { error: 'wallet_address required' as const };
-
-  const glyphEvmHint = normalizeWallet(String(body.glyph_evm_wallet ?? ''));
-  let glyphUserId = String(body.glyph_user_id ?? '').trim();
-
-  if (!glyphUserId && glyphEvmHint) {
-    glyphUserId = (await resolveGlyphUserIdFromUserProfileWallet(glyphEvmHint)) ?? '';
-  }
-  if (!glyphUserId && glyphEvmHint) {
-    glyphUserId = (await resolveGlyphUserIdFromStudioWallet(glyphEvmHint)) ?? '';
-  }
-  if (!glyphUserId) {
-    glyphUserId = (await resolveGlyphUserIdFromUserProfileWallet(walletInput)) ?? '';
-  }
-  if (!glyphUserId) {
-    glyphUserId = (await resolveGlyphUserIdFromStudioWallet(walletInput)) ?? '';
-  }
-
-  const resolved = await resolveCanonicalArcadeWallet(
-    supabase,
-    walletInput,
-    glyphUserId || null,
-    glyphEvmHint || null
-  );
-  const wallet = resolved.wallet;
-
-  if (glyphUserId) {
-    await upsertUserProfileByWallet(supabase, wallet, glyphUserId);
-  }
-
-  return { supabase, wallet, glyphUserId: glyphUserId || null };
+  const wallet = normalizeWallet(String(body.wallet_address ?? ''));
+  if (!wallet) return { error: 'wallet_address required' as const };
+  return { supabase, wallet };
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as Body;
     const action = body.action || 'get';
-    const identity = await resolveIdentity(body);
+    const identity = readWallet(body);
     if ('error' in identity) {
       return NextResponse.json({ error: identity.error }, { status: 400 });
     }
 
-    const { supabase, wallet } = identity;
+    let { supabase, wallet } = identity;
     const gameId = String(body.game_id ?? '').trim();
 
     if (!ALLOWED_GAMES.has(gameId)) {
@@ -112,6 +79,12 @@ export async function POST(req: NextRequest) {
         total_points: Number(prof?.total_points ?? 0),
       });
     }
+
+    const ape = await requireAuthenticatedApe(req);
+    const hinted = normalizeWallet(String(body.wallet_address ?? ''));
+    if (hinted && ape.wallets.includes(hinted)) wallet = hinted;
+    else if (ape.primaryWallet) wallet = ape.primaryWallet;
+    else return NextResponse.json({ error: 'Link a wallet before using the shop.' }, { status: 400 });
 
     if (action === 'save_upgrade') {
       const upgradeId = String(body.upgrade_id ?? '').trim();
@@ -187,16 +160,28 @@ export async function POST(req: NextRequest) {
 
     if (action === 'set_points') {
       const points = Math.max(0, Number(body.points ?? 0));
+      const current = await supabase
+        .from('user_profiles')
+        .select('total_points')
+        .ilike('wallet_address', wallet)
+        .maybeSingle();
+      if (current.error) return NextResponse.json({ error: current.error.message }, { status: 500 });
+      const held = Number(current.data?.total_points ?? 0);
+      if (!Number.isFinite(points) || points > held) {
+        return NextResponse.json({ error: 'Points cannot be increased from the client.' }, { status: 400 });
+      }
       const { error } = await supabase
         .from('user_profiles')
         .update({ total_points: points, updated_at: new Date().toISOString() })
-        .ilike('wallet_address', wallet);
+        .eq('glyph_user_id', ape.userId);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ success: true, total_points: points });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (e) {
+    const denied = authFailure(e);
+    if (denied) return denied;
     const msg = e instanceof Error ? e.message : 'Server error';
     return NextResponse.json({ error: msg }, { status: 500 });
   }

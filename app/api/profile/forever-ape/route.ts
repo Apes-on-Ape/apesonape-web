@@ -2,9 +2,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { buildSelectedApePayloadForArcade } from '@/lib/arcade-forever-ape';
-import { resolveGlyphUserIdFromStudioWallet } from '@/lib/arcade-glyph-resolve';
+import { authFailure, requireAuthenticatedApe } from '@/lib/auth/ape';
 import { normalizeWallet } from '@/lib/arcade-db';
+import { ownedApeIds } from '@/lib/profile/linked-wallets';
 import { getSupabaseServiceClient } from '@/lib/supabase';
+import { createNotification } from '@/lib/notifications/create';
 
 type Payload = {
   address?: string;
@@ -67,103 +69,70 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const ape = await requireAuthenticatedApe(req);
     const body = (await req.json().catch(() => ({}))) as Payload;
-    const address = normalizeWallet(body.address || '');
-    const rawApe = body.apeId ?? body.ape_id;
+    const rawApe = body.apeId ?? body.ape_id ?? (body as { tokenId?: number }).tokenId;
     const apeId = typeof rawApe === 'number' ? rawApe : Number(rawApe);
-    if (!address) return NextResponse.json({ error: 'address required' }, { status: 400 });
-    if (!Number.isFinite(apeId) || apeId < 0) {
-      return NextResponse.json({ error: 'apeId must be a valid number' }, { status: 400 });
+    if (!Number.isInteger(apeId) || apeId < 0) {
+      return NextResponse.json({ error: 'Choose an Ape you hold.' }, { status: 400 });
     }
     const svc = getSupabaseServiceClient();
     if (!svc) return NextResponse.json({ error: 'supabase missing' }, { status: 500 });
-
-    const { data: byWallet, error: wErr } = await svc
-      .from('user_profiles')
-      .select('glyph_user_id, wallet_address')
-      .ilike('wallet_address', address)
-      .maybeSingle();
-    if (wErr) return NextResponse.json({ error: wErr.message }, { status: 500 });
-
-    const fromWallet = byWallet?.glyph_user_id?.trim() || '';
-    const gidRaw = body.glyphUserId ?? body.glyph_user_id;
-    const bodyGid = typeof gidRaw === 'string' && gidRaw.trim() ? gidRaw.trim() : '';
-    const privyRaw = body.privyUserId ?? body.userId;
-    const bodyPrivy = typeof privyRaw === 'string' && privyRaw.trim() ? privyRaw.trim() : '';
-    /** Deferred: studio `glyphId` can differ from `user_profiles.glyph_user_id` when that column holds a Privy id. */
-    const fromStudio = (await resolveGlyphUserIdFromStudioWallet(address)) || '';
-
-    let glyphKey = '';
-
-    if (fromWallet) {
-      glyphKey = fromWallet;
-    } else if (bodyPrivy) {
-      /** `init-user` stores Privy `user.id` in `glyph_user_id`; `wallet_address` may still be null. */
-      const { data: byPrivy, error: pErr } = await svc
-        .from('user_profiles')
-        .select('glyph_user_id, wallet_address')
-        .eq('glyph_user_id', bodyPrivy)
-        .maybeSingle();
-      if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 });
-      if (byPrivy) {
-        const rowWallet = normalizeWallet(String(byPrivy.wallet_address ?? ''));
-        if (!rowWallet || rowWallet === address) {
-          glyphKey = bodyPrivy;
-        } else {
-          return NextResponse.json(
-            {
-              error:
-                'This site account is linked to a different wallet. Use the wallet connected to your profile.',
-            },
-            { status: 409 }
-          );
-        }
-      }
-    } else if (bodyGid) {
-      const { data: rowForGlyph, error: gErr } = await svc
-        .from('user_profiles')
-        .select('glyph_user_id, wallet_address')
-        .eq('glyph_user_id', bodyGid)
-        .maybeSingle();
-      if (gErr) return NextResponse.json({ error: gErr.message }, { status: 500 });
-
-      if (rowForGlyph) {
-        const rowWallet = normalizeWallet(String(rowForGlyph.wallet_address ?? ''));
-        if (!rowWallet || rowWallet === address) {
-          glyphKey = bodyGid;
-        } else {
-          return NextResponse.json(
-            {
-              error:
-                'This Glyph account is already linked to a different wallet in our database. Use the wallet that matches your Glyph account.',
-            },
-            { status: 409 }
-          );
-        }
-      } else {
-        /** No row yet — trust client Glyph id for a first-time `user_profiles` row. */
-        glyphKey = bodyGid;
-      }
-    } else if (fromStudio) {
-      glyphKey = fromStudio;
+    const owned = new Set(await ownedApeIds(ape.wallets));
+    if (!owned.has(apeId)) {
+      return NextResponse.json({ error: 'That Ape is not held by a linked wallet.' }, { status: 403 });
     }
+    const glyphKey = ape.userId;
+    const address = ape.primaryWallet || '';
 
     if (glyphKey) {
+      const previous = await svc.from('user_profiles').select('forever_ape_id').eq('glyph_user_id', glyphKey).maybeSingle();
+      const previousId = previous.data?.forever_ape_id != null ? Number(previous.data.forever_ape_id) : null;
       const selected_ape = await buildSelectedApePayloadForArcade(apeId);
-      const { error: upErr } = await svc
+      const patch: Record<string, unknown> = {
+        forever_ape_id: apeId,
+        selected_ape,
+        updated_at: new Date().toISOString(),
+      };
+      if (address) patch.wallet_address = address;
+      const { data: updated, error: upErr } = await svc
         .from('user_profiles')
-        .upsert(
-          {
-            glyph_user_id: glyphKey,
-            wallet_address: address,
-            forever_ape_id: apeId,
-            selected_ape,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'wallet_address' }
-        );
+        .update(patch)
+        .eq('glyph_user_id', glyphKey)
+        .select('glyph_user_id');
       if (upErr) {
-        if (/wallet_address/i.test(upErr.message) && /unique|duplicate/i.test(upErr.message)) {
+        return NextResponse.json({ error: upErr.message }, { status: 500 });
+      }
+      if (updated && updated.length > 0) {
+        if (!previous.error && previousId !== apeId) {
+          await createNotification({
+            userId: glyphKey,
+            type: 'forever_ape',
+            category: 'profile',
+            title: 'Forever Ape updated',
+            message: `Ape #${apeId} is now your Forever Ape.`,
+            actionLabel: 'View Ape',
+            actionUrl: `/collection/${apeId}/`,
+            referenceType: 'ape',
+            referenceId: String(apeId),
+            dedupeKey: `forever-ape:${apeId}:${glyphKey}`,
+          });
+        }
+        return NextResponse.json({ ok: true, apeId });
+      }
+
+      const { error: insErr } = await svc.from('user_profiles').insert({
+        glyph_user_id: glyphKey,
+        ...patch,
+      });
+      if (insErr) {
+        if (/glyph_user_id/i.test(insErr.message) && /unique|duplicate/i.test(insErr.message)) {
+          return NextResponse.json(
+            { error: 'This account already has a profile. Sign in again and retry.' },
+            { status: 409 }
+          );
+        }
+        if (/wallet_address/i.test(insErr.message) && /unique|duplicate/i.test(insErr.message)) {
           return NextResponse.json(
             {
               error:
@@ -172,19 +141,27 @@ export async function POST(req: NextRequest) {
             { status: 409 }
           );
         }
-        return NextResponse.json({ error: upErr.message }, { status: 500 });
+        return NextResponse.json({ error: insErr.message }, { status: 500 });
       }
+      await createNotification({
+        userId: glyphKey,
+        type: 'forever_ape',
+        category: 'profile',
+        title: 'Forever Ape updated',
+        message: `Ape #${apeId} is now your Forever Ape.`,
+        actionLabel: 'View Ape',
+        actionUrl: `/collection/${apeId}/`,
+        referenceType: 'ape',
+        referenceId: String(apeId),
+        dedupeKey: `forever-ape:${apeId}:${glyphKey}`,
+      });
       return NextResponse.json({ ok: true, apeId });
     }
 
-    return NextResponse.json(
-      {
-        error:
-          'No profile matched this wallet. Sign in (Glyph + X) so init-user creates your profile, then try again — or pass privyUserId (Privy) and/or glyphUserId (Glyph) in the request body.',
-      },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Sign in again so your profile exists.' }, { status: 404 });
   } catch (e: unknown) {
+    const denied = authFailure(e);
+    if (denied) return denied;
     const msg = e instanceof Error ? e.message : 'Failed to save';
     return NextResponse.json({ error: msg }, { status: 500 });
   }

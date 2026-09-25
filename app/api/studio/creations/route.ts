@@ -4,8 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { uploadArtifact, uploadMetadata } from '@/lib/studio/storage';
 import { createCreation, listCreations } from '@/lib/studio/persistence';
 import { CreationRecord, CreationType, GlyphProfile } from '@/lib/studio/types';
-import { addExperience } from '@/lib/studio/xp';
 import { getSupabaseServerClient } from '@/lib/supabase';
+import { authFailure, requireAuthenticatedApe } from '@/lib/auth/ape';
+import { awardDailyActivity } from '@/lib/progress/hooks';
+import { recordPersistedStudioCreation } from '@/lib/progress/studio-activity';
 
 const TITLE_LIMIT = 80;
 const TAG_LIMIT = 5;
@@ -85,19 +87,28 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
 	try {
+		const ape = await requireAuthenticatedApe(req);
 		const form = await req.formData();
 		const type = (form.get('type') as CreationType | null) || null;
 		const title = cleanText(String(form.get('title') || ''), TITLE_LIMIT);
 		const prompt = cleanText(String(form.get('prompt') || ''), PROMPT_LIMIT);
-		const creatorAddress = cleanText(String(form.get('creatorAddress') || ''), 200);
-		const glyphId = cleanText(String(form.get('glyphId') || ''), 120) || undefined;
-		const privyUserId = cleanText(String(form.get('privyUserId') || ''), 120) || undefined;
-		const gamifyUserId = privyUserId || glyphId;
-		const xHandle = cleanText(String(form.get('xHandle') || ''), 50) || undefined;
-		const glyphVerifiedRaw = form.get('glyphVerified');
-		const glyphVerified = glyphVerifiedRaw === 'true' || glyphVerifiedRaw === '1';
+		const requestedAddress = cleanText(String(form.get('creatorAddress') || ''), 200).toLowerCase();
+		const creatorAddress = ape.wallets.includes(requestedAddress) ? requestedAddress : (ape.primaryWallet || '');
+		const glyphId = ape.userId;
+		const privyUserId = ape.userId;
+		const gamifyUserId = ape.userId;
+		const xHandle = ape.handle || undefined;
+		const glyphVerified = Boolean(ape.handle);
 		const tags = parseTags(null);
 		const artifact = form.get('artifact') as File | null;
+
+		const remixFields = ['isRemix', 'remixOf', 'sourceCreationId', 'parentId', 'remixFrom', 'remixId'];
+		if (remixFields.some((field) => {
+			const value = String(form.get(field) || '').trim().toLowerCase();
+			return value === 'true' || value === '1' || (value && value !== 'false');
+		})) {
+			return validationError('Studio remixing is no longer supported.');
+		}
 
 		if (!type || !ALLOWED_TYPES.includes(type)) {
 			return validationError('Invalid creation type');
@@ -105,7 +116,7 @@ export async function POST(req: NextRequest) {
 		if (!title) return validationError('Title is required');
 		if (title.length > TITLE_LIMIT) return validationError('Title too long');
 		if (!prompt) return validationError('Prompt is required');
-		if (!creatorAddress) return validationError('Creator address is required');
+		if (!creatorAddress) return validationError('Link a wallet before publishing.');
 		if (tags.length > TAG_LIMIT) return validationError('Too many tags');
 
 		const id = crypto.randomUUID();
@@ -163,7 +174,28 @@ export async function POST(req: NextRequest) {
 		};
 
 		await createCreation(record);
-		await addExperience(creatorAddress, type);
+
+		const canonicalUserId = await recordPersistedStudioCreation({
+			creationId: id,
+			createdAt,
+			creatorAddress,
+			claimedIds: [privyUserId || '', glyphId || ''],
+			type,
+			title,
+		});
+		if (canonicalUserId) {
+			try {
+				await awardDailyActivity(canonicalUserId);
+			} catch (progressErr) {
+				console.error(JSON.stringify({
+					scope: 'studio-activity',
+					event: 'daily_activity_failed',
+					creationId: id,
+					userId: canonicalUserId,
+					reason: progressErr instanceof Error ? progressErr.message : 'unknown',
+				}));
+			}
+		}
 
 		if (gamifyUserId) {
 			try {
@@ -190,7 +222,9 @@ export async function POST(req: NextRequest) {
 			},
 			{ status: 201 },
 		);
-	} catch (e: unknown) {
+		} catch (e: unknown) {
+		const denied = authFailure(e);
+		if (denied) return denied;
 		const msg = e instanceof Error ? e.message : 'Failed to create';
 		return NextResponse.json({ error: msg }, { status: 500 });
 	}

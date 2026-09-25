@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { usePrivy } from '@privy-io/react-auth';
 import { ARCADE_WALLET_SYNC_EVENT } from '@/lib/arcade-wallet';
 
 type Props = {
@@ -23,6 +24,10 @@ function buildArcadeIframeSrc(base: string): string {
 }
 
 export default function ArcadeGameFrame({ title, src }: Props) {
+  const { getAccessToken, authenticated } = (usePrivy() as unknown) as {
+    getAccessToken?: () => Promise<string | null>;
+    authenticated?: boolean;
+  };
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [iframeSrc, setIframeSrc] = useState(src);
@@ -30,6 +35,24 @@ export default function ArcadeGameFrame({ title, src }: Props) {
   useLayoutEffect(() => {
     setIframeSrc(buildArcadeIframeSrc(src));
   }, [src]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const syncToken = async () => {
+      const token = authenticated ? await getAccessToken?.() : null;
+      if (cancelled) return;
+      try {
+        if (token) localStorage.setItem('aoaAccessToken', token);
+        else localStorage.removeItem('aoaAccessToken');
+      } catch {
+        /* private mode */
+      }
+    };
+    void syncToken();
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticated, getAccessToken]);
 
   useEffect(() => {
     const bump = () => setIframeSrc(buildArcadeIframeSrc(src));
@@ -55,12 +78,7 @@ export default function ArcadeGameFrame({ title, src }: Props) {
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-[calc(1rem-3px)] bg-black"
-      style={{
-        width: '100%',
-        height: 'calc(100dvh - var(--aoa-header-h) - var(--aoa-dock-offset) - 11rem)',
-        minHeight: '12rem',
-      }}
+      className="arcade-game-viewport relative w-full overflow-hidden rounded-[calc(1rem-3px)] bg-black"
     >
       <iframe
         title={title}

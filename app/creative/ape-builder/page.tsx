@@ -7,6 +7,7 @@ import {
   Layers, Sparkles, Info,
 } from 'lucide-react';
 import Footer from '@/app/components/Footer';
+import Link from 'next/link';
 import { useSessionWallets } from '@/app/hooks/useSessionWallets';
 
 // ── CDN & canvas constants ────────────────────────────────────────────────────
@@ -396,26 +397,21 @@ export default function ApeBuilderPage() {
   return (
     <div className="min-h-screen flex flex-col">
 
-      <main className="flex-1 pt-24 pb-16">
+      <main className="flex-1 pb-[calc(var(--aoa-dock-offset)+2rem)] pt-[calc(var(--aoa-header-h)+1.5rem)]">
         <div className="container-premium">
 
           {/* ── Hero ── */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-10"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-hero-blue/10 border border-hero-blue/30 mb-4">
-              <Wand2 className="w-4 h-4 text-hero-blue" />
-              <span className="text-sm font-bold uppercase tracking-widest text-hero-blue">Ape Builder</span>
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="aoa-meta text-[var(--signal)]">Module 01</p>
+              <h1 className="type-section mt-2">Ape Builder</h1>
+              <p className="mt-2 max-w-xl text-sm text-[var(--ink-dim)]">Mix traits from Apes in this wallet and download a PNG.</p>
             </div>
-            <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-3">
-              Build Your Ape
-            </h1>
-            <p className="text-white/45 text-lg max-w-xl">
-              Mix and match traits from the Apes you own. Only your traits. Your combinations.
-            </p>
-          </motion.div>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/creative" className="aoa-home-cta aoa-home-cta-ghost">All modules</Link>
+              <Link href="/studio/new" className="aoa-home-cta aoa-home-cta-ghost">Open Studio</Link>
+            </div>
+          </div>
 
           {/* ── Error / loading guards ── */}
           {portfolioError && (

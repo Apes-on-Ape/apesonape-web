@@ -15,9 +15,9 @@ export default {
         foreground: "var(--foreground)",
         ink: "var(--ink)",
         signal: {
-          DEFAULT: "#C6F135",
-          dim: "rgba(198, 241, 53, 0.14)",
-          ink: "#14180A",
+          DEFAULT: "#0054FA",
+          dim: "rgba(0, 84, 250, 0.14)",
+          ink: "#F3EEE4",
         },
         live: "#E10600",
         // Apechain blue theme

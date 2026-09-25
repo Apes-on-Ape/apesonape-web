@@ -1,0 +1,4 @@
+-- WITHDRAWN. Do not run.
+-- The AOA launch starts at zero. Old bananas balances are not seeded into the ledger.
+-- sql/021_aoa_progress.sql is the active migration.
+-- sql/022_reset_aoa_progress.sql is the optional dev reset. It is not part of launch.

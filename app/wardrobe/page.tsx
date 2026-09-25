@@ -2,9 +2,8 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
 import Footer from '../components/Footer';
-import { Download, Shirt, Crown, ShirtIcon, Hand, Sparkles, User } from 'lucide-react';
+import { Download, Shirt, Sparkles } from 'lucide-react';
 import { useToolTracking } from '@/app/hooks/useToolTracking';
 import { magicEdenAPI } from '@/lib/magic-eden';
 import { baycAPI } from '@/lib/bayc-api';
@@ -329,6 +328,16 @@ const CLOTHES: ClothingItem[] = [
 ];
 
 const CATEGORIES: Array<ClothingItem['category']> = ['Hats', 'Clothes', 'Hands', 'Accessories', 'Suits'];
+type WardrobeSlot = 'Head' | 'Eyes' | 'Body' | 'Accessories';
+const WARDROBE_FILTERS: Array<'All' | WardrobeSlot> = ['All', 'Head', 'Eyes', 'Body', 'Accessories'];
+
+function wardrobeSlot(item: ClothingItem): WardrobeSlot {
+  const name = `${item.name} ${item.id}`.toLowerCase();
+  if (item.category === 'Hats' && /glass|eye|visor|sunglass|blindfold/.test(name)) return 'Eyes';
+  if (item.category === 'Hats') return 'Head';
+  if (item.category === 'Clothes' || item.category === 'Suits') return 'Body';
+  return 'Accessories';
+}
 
 const OUTPUT_SIZE = 4096;
 
@@ -358,6 +367,7 @@ export default function WardrobePage() {
   const [loadingNft, setLoadingNft] = useState(false);
   const [baseSrc, setBaseSrc] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<ClothingItem['category']>('Hats');
+  const [filter, setFilter] = useState<'All' | WardrobeSlot>('All');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [note, setNote] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -688,24 +698,26 @@ export default function WardrobePage() {
     return canvas.toDataURL('image/png');
   }, []);
 
-  const handleLoadById = useCallback(async () => {
-    if (!tokenId.trim() || loadingNft) return;
+  const loadApe = useCallback(async (rawId?: string, source?: 'aoa' | 'bayc' | 'mayc') => {
+    const id = (rawId ?? tokenId).trim();
+    const which = source ?? collection;
+    if (!id || loadingNft) return;
+    setTokenId(id);
     setLoadingNft(true);
     setNote(null);
     setSelectedIds(new Set());
     setPreviewUrl(null);
     setLoadedTraits(null);
     try {
-      if (!/^\d+$/.test(tokenId.trim())) {
-        setNote('Please enter a numeric token ID (e.g., 1234).');
+      if (!/^\d+$/.test(id)) {
+        setNote('Enter a numeric token ID.');
         return;
       }
-      // Use different API based on collection selection
-      const nft = collection === 'bayc' 
-        ? await baycAPI.getNFTByTokenId(tokenId.trim())
-        : collection === 'mayc'
-        ? await maycAPI.getNFTByTokenId(tokenId.trim())
-        : await magicEdenAPI.getNFTByTokenId(tokenId.trim());
+      const nft = which === 'bayc'
+        ? await baycAPI.getNFTByTokenId(id)
+        : which === 'mayc'
+        ? await maycAPI.getNFTByTokenId(id)
+        : await magicEdenAPI.getNFTByTokenId(id);
       
       if (!nft) {
         setNote('Token not found. Check the ID and try again.');
@@ -714,7 +726,7 @@ export default function WardrobePage() {
       
       // For MAYC, extract mutant type from trait prefixes (most reliable method)
       let detectedMutantType: 'm1' | 'm2' = 'm1';
-      if (collection === 'mayc') {
+      if (which === 'mayc') {
         // MAYC traits include M1/M2 prefix in values (e.g., "M1 Dark Brown", "M2 Blue")
         // Check any trait for M1/M2 prefix
         const anyTraitWithPrefix = nft.traits.find(t => 
@@ -733,26 +745,21 @@ export default function WardrobePage() {
         let furValue = furTrait.value;
         
         // For MAYC, strip "M1 " or "M2 " prefix from fur value
-        if (collection === 'mayc') {
+        if (which === 'mayc') {
           furValue = furValue.replace(/^M[12]\s+/, '');
-          console.log(`Token ${tokenId} - Original fur: ${furTrait.value}, Cleaned: ${furValue}`);
         }
         
         if (furColors.includes(furValue as FurColor)) {
           setFurColor(furValue as FurColor);
-        } else {
-          console.log(`Token ${tokenId} - Fur color not recognized:`, furValue);
         }
       }
       
       setLoadedTraits(nft.traits);
       
-      // Calculate base stats from NFT traits
-      const calculatedStats = calculateBaseStats(tokenId.trim(), nft.traits);
+      const calculatedStats = calculateBaseStats(id, nft.traits);
       setBaseStats(calculatedStats);
       
-      // For BAYC/MAYC, only use traits if available; otherwise use image directly
-      if (collection === 'bayc' || collection === 'mayc') {
+      if (which === 'bayc' || which === 'mayc') {
         // Build a base image from traits for BAYC/MAYC
         const composed = await composeBaseFromTraits(nft.traits, {
           includeHat: keepHat,
@@ -788,7 +795,7 @@ export default function WardrobePage() {
     } finally {
       setLoadingNft(false);
     }
-  }, [tokenId, loadingNft, collection, furColors, composeBaseFromTraits, keepHat, keepClothes, keepEyes, keepMouth]);
+  }, [tokenId, loadingNft, collection, furColors, composeBaseFromTraits, keepHat, keepClothes, keepEyes, keepMouth, backgroundColor]);
 
   // Attempt to prime audio on first interaction to avoid autoplay restrictions
   useEffect(() => {
@@ -900,6 +907,7 @@ export default function WardrobePage() {
   }, [baseStats, selectedIds, clothesAvailable]);
 
   const toggleSelect = useCallback((id: string) => {
+    setPreviewUrl(null);
     setSelectedIds((prev) => {
       const item = clothesAvailable.find((c) => c.id === id);
       if (!item) return prev;
@@ -1033,7 +1041,9 @@ export default function WardrobePage() {
   }, [baseSrc, previewUrl, compose]);
 
   // Filter by active category for both collections
-  const filtered = clothesAvailable.filter((c) => c.category === activeCategory);
+  const filtered = filter === 'All'
+    ? clothesAvailable
+    : clothesAvailable.filter((item) => wardrobeSlot(item) === filter);
 
   // When keep toggles change, rebuild base from traits (if present) to reflect selection
   useEffect(() => {
@@ -1055,23 +1065,33 @@ export default function WardrobePage() {
     return () => { cancelled = true; };
   }, [loadedTraits, keepHat, keepClothes, keepEyes, keepMouth, backgroundColor, composeBaseFromTraits]);
 
-  // When collection changes, reset state and clear preview
-  useEffect(() => {
-    if (collection === 'bayc' || collection === 'mayc') {
-      setActiveCategory('Hands');
-      setBackgroundColor(''); // Clear background color for BAYC/MAYC (not supported)
-    }
-    // Clear selection, preview, base image, loaded traits, and stats when switching collections
+  const chooseCollection = (next: 'aoa' | 'bayc' | 'mayc') => {
+    if (next === collection) return;
+    setCollection(next);
+    setActiveCategory(next === 'aoa' ? 'Hats' : 'Hands');
+    setFilter(next === 'aoa' ? 'All' : 'Accessories');
+    setBackgroundColor('');
     setSelectedIds(new Set());
     setPreviewUrl(null);
     setBaseSrc('');
     setLoadedTraits(null);
-    setTokenId('');
     setNote(null);
     setBaseStats({ strength: 0, intelligence: 0, agility: 0, vitality: 0, luck: 0, charisma: 0 });
-    setMaycMutantType('m1'); // Reset to M1 by default
-    setActualMugPath(''); // Clear mug path
-  }, [collection]);
+    setMaycMutantType('m1');
+    setActualMugPath('');
+    setKeepHat(false);
+    setKeepClothes(false);
+    setKeepEyes(true);
+    setKeepMouth(true);
+    if (next === 'aoa' && bootId) {
+      setTokenId(bootId);
+      loadedFor.current = bootId;
+      void loadApe(bootId, 'aoa');
+      return;
+    }
+    setTokenId('');
+    loadedFor.current = '';
+  };
 
   // When background color is changed from original to custom, uncheck hat and clothes
   useEffect(() => {
@@ -1081,6 +1101,88 @@ export default function WardrobePage() {
       setKeepClothes(false);
     }
   }, [backgroundColor, collection]);
+
+  const [bootId, setBootId] = useState('');
+  const booted = useRef(false);
+  useEffect(() => {
+    if (booted.current) return;
+    booted.current = true;
+    const fromQuery = new URLSearchParams(window.location.search).get('ape');
+    if (fromQuery && /^\d+$/.test(fromQuery)) {
+      setBootId(fromQuery);
+      return;
+    }
+    let cancelled = false;
+    fetch('/api/profile/identity?lite=1', { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((json: { foreverApeId?: number } | null) => {
+        if (!cancelled && typeof json?.foreverApeId === 'number') setBootId(String(json.foreverApeId));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (bootId) setTokenId(bootId);
+  }, [bootId]);
+
+  const loadedFor = useRef('');
+  useEffect(() => {
+    if (!bootId || tokenId !== bootId || loadedFor.current === bootId || loadingNft) return;
+    loadedFor.current = bootId;
+    void loadApe(bootId, 'aoa');
+  }, [bootId, tokenId, loadingNft, loadApe]);
+
+  const traitValue = (name: string) => loadedTraits?.find((trait) => trait.name.toLowerCase() === name.toLowerCase())?.value || null;
+  const itemsInSlot = (slot: WardrobeSlot) => clothesAvailable.filter((item) => selectedIds.has(item.id) && wardrobeSlot(item) === slot);
+  const slotState = (slot: WardrobeSlot) => {
+    const worn = itemsInSlot(slot);
+    if (worn.length) return { name: worn.map((item) => item.name).join(', '), removable: true };
+    if (slot === 'Head' && keepHat && traitValue('Hat')) return { name: traitValue('Hat') as string, removable: true };
+    if (slot === 'Eyes' && keepEyes && traitValue('Eyes')) return { name: traitValue('Eyes') as string, removable: true };
+    if (slot === 'Body' && keepClothes && traitValue('Clothes')) return { name: traitValue('Clothes') as string, removable: true };
+    return { name: 'None', removable: false };
+  };
+  const equippedLines: Array<[WardrobeSlot, string, boolean]> = (['Head', 'Eyes', 'Body', 'Accessories'] as WardrobeSlot[]).map((slot) => {
+    const state = slotState(slot);
+    return [slot, state.name, state.removable];
+  });
+
+  const removeSlot = (slot: WardrobeSlot) => {
+    setPreviewUrl(null);
+    const worn = itemsInSlot(slot);
+    if (worn.length) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const item of worn) next.delete(item.id);
+        return next;
+      });
+      return;
+    }
+    if (slot === 'Head') setKeepHat(false);
+    if (slot === 'Eyes') setKeepEyes(false);
+    if (slot === 'Body') setKeepClothes(false);
+  };
+
+  const clearAll = () => {
+    setPreviewUrl(null);
+    setSelectedIds(new Set());
+    setKeepHat(false);
+    setKeepClothes(false);
+    setKeepEyes(false);
+  };
+
+  const resetLook = () => {
+    setPreviewUrl(null);
+    setSelectedIds(new Set());
+    setKeepHat(false);
+    setKeepClothes(false);
+    setKeepEyes(true);
+    setKeepMouth(true);
+    setBackgroundColor('');
+  };
 
   return (
     <div className="min-h-screen relative">
@@ -1095,365 +1197,196 @@ export default function WardrobePage() {
       />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16">
 
-        {/* ── PAGE HEADER ──────────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div className="mb-4">
+          <h1 className="font-[family-name:var(--font-signal-display)] text-3xl font-bold uppercase leading-none sm:text-4xl">Wardrobe</h1>
+          <p className="mt-2 text-lg text-[var(--ink)]">
+            {tokenId
+              ? `${collection === 'bayc' ? 'Bored Ape' : collection === 'mayc' ? 'Mutant Ape' : 'Ape'} #${tokenId}`
+              : collection === 'bayc' ? 'Bored Ape' : collection === 'mayc' ? 'Mutant Ape' : 'Ape'}
+          </p>
+          <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-hero-blue/30 bg-hero-blue/8 mb-3">
-                <Shirt className="w-3.5 h-3.5 text-hero-blue" />
-                <span className="text-xs font-bold text-hero-blue uppercase tracking-widest">Wardrobe</span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight">
-                Dress Your <span className="bg-gradient-to-r from-hero-blue-light to-accent-cyan bg-clip-text text-transparent">Ape.</span>
-              </h1>
-              <p className="text-white/40 mt-2 text-sm max-w-lg">
-                Customize any Apes On Ape, BAYC, or MAYC with exclusive items. Download or share your creation.
-              </p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* ── CHARACTER SELECTOR ───────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-          className="mb-5"
-        >
-          <div className="rpg-card">
-            <div className="p-4">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                {/* Collection pills */}
-                <div className="flex gap-2 flex-shrink-0">
-                  {(['aoa', 'bayc', 'mayc'] as const).map((col) => (
-                    <button
-                      key={col}
-                      className={`rpg-button flex-1 sm:flex-none ${collection === col ? 'rpg-button-active' : ''}`}
-                      onClick={() => setCollection(col)}
-                    >
-                      {col === 'aoa' ? 'Apes On Ape' : col.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Divider */}
-                <div className="hidden sm:block w-px self-stretch bg-white/10" />
-
-                {/* Token input */}
-                <div className="flex items-center gap-2 flex-1">
-                  <label className="text-xs font-semibold text-hero-blue/60 uppercase tracking-widest whitespace-nowrap hidden sm:block">
-                    {collection === 'bayc' ? 'BAYC' : collection === 'mayc' ? 'MAYC' : 'Token'} #
-                  </label>
-                  <input
-                    value={tokenId}
-                    onChange={(e) => setTokenId(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleLoadById()}
-                    placeholder="Enter token ID…"
-                    className="flex-1 min-w-0 rounded-lg bg-white/5 border border-white/12 px-3 py-2.5 text-sm text-white/90 placeholder:text-white/20 outline-none focus:border-hero-blue/70 focus:ring-1 focus:ring-hero-blue/20 transition-all"
-                  />
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-mute)]">Dress any of these</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {([
+                  ['aoa', 'Apes On Ape'],
+                  ['bayc', 'Bored Apes'],
+                  ['mayc', 'Mutant Apes'],
+                ] as const).map(([id, label]) => (
                   <button
-                    className="rpg-button-small flex-shrink-0"
-                    onClick={handleLoadById}
-                    disabled={!tokenId.trim() || loadingNft}
+                    key={id}
+                    type="button"
+                    onClick={() => chooseCollection(id)}
+                    className={`min-h-11 border px-3 text-[12px] font-semibold uppercase tracking-[0.12em] ${collection === id ? 'border-[var(--signal)] bg-[var(--signal)] text-white' : 'border-white/20 text-[var(--ink)] hover:border-[var(--signal)]'}`}
                   >
-                    {loadingNft ? (
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded-full border-2 border-hero-blue border-t-transparent animate-spin inline-block" />
-                        <span className="hidden sm:inline">Loading</span>
-                      </span>
-                    ) : 'Load'}
+                    {label}
                   </button>
-                </div>
+                ))}
               </div>
-
-              {note && (
-                <div className="mt-3 px-3 py-2 rounded-lg bg-red-900/15 border border-red-500/25 text-xs text-red-400 font-medium">
-                  {note}
-                </div>
-              )}
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:max-w-md sm:flex-row sm:items-center">
+              <input
+                value={tokenId}
+                onChange={(e) => setTokenId(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onKeyDown={(e) => { if (e.key === 'Enter') { loadedFor.current = ''; void loadApe(); } }}
+                placeholder={collection === 'bayc' ? 'Bored Ape ID, 0–9999' : collection === 'mayc' ? 'Mutant Ape ID, 0–19999' : 'Ape ID'}
+                aria-label="Ape ID"
+                className="min-w-0 flex-1 border border-white/15 bg-black/50 px-3 py-2.5 text-sm text-[var(--ink)] outline-none focus:border-[var(--signal)]"
+              />
+              <button type="button" className="rpg-button-small min-h-11" onClick={() => { loadedFor.current = ''; void loadApe(); }} disabled={!tokenId.trim() || loadingNft}>
+                {loadingNft ? 'Loading' : 'Load'}
+              </button>
+              {collection !== 'aoa' ? (
+                <button type="button" className="min-h-11 shrink-0 border border-white/20 px-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--ink)] hover:border-[var(--signal)]" onClick={() => { loadedFor.current = ''; void loadApe('1', collection); }}>
+                  Try #1
+                </button>
+              ) : null}
             </div>
           </div>
-        </motion.div>
+          {note ? <p className="mt-3 text-sm text-red-300">{note}</p> : null}
+        </div>
 
-        {/* ── MAIN DRESSING AREA ───────────────────────────────────── */}
-        {/*
-          Layout strategy:
-          - Mobile: Preview → Inventory → Equipment/Traits (using CSS order)
-          - Desktop (lg): 3-column grid: Equipment | Preview | Inventory
-        */}
-        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-5 lg:items-start">
-
-          {/* ── EQUIPMENT + TRAITS (order-3 on mobile, col 1 on lg) ── */}
-          <div className="order-3 lg:order-none lg:col-span-3 flex flex-col gap-4">
-
-            {/* Equipped items */}
-            <div className="rpg-card">
-              <div className="rpg-card-header">
-                <h3 className="text-xs font-bold uppercase tracking-widest">Equipped</h3>
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12 lg:items-stretch">
+          <div className="wardrobe-side order-2 flex min-h-0 flex-col lg:order-none lg:col-span-3">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto border border-white/10 bg-black/40 p-4">
+            <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[var(--ink-mute)]">Equipped</p>
+            <ul className="mt-2">
+              {equippedLines.map(([slot, name, removable]) => (
+                <li key={slot} className="flex items-center justify-between gap-3 border-t border-white/10 py-2.5 first:border-t-0">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-mute)]">{slot}</p>
+                    <p className="mt-0.5 truncate text-sm text-[var(--ink)]">{name}</p>
+                  </div>
+                  {removable ? (
+                    <button type="button" onClick={() => removeSlot(slot)} className="inline-flex h-11 shrink-0 items-center border border-white/20 px-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--ink)] hover:border-[var(--signal)]">
+                      Remove
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[12px] leading-relaxed text-[var(--ink-mute)]">The preview updates now. Download keeps a copy on this device. This look is not stored on your profile.</p>
+            <div className="mt-3 flex flex-col gap-2">
+              <button type="button" className="rpg-button-primary min-h-11" onClick={handleGeneratePreview} disabled={isGenerating || !baseSrc}>
+                <Sparkles className="mr-2 inline h-4 w-4" />
+                Export look
+              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" className="rpg-button min-h-11" onClick={resetLook} disabled={!baseSrc}>Reset</button>
+                <button type="button" className="rpg-button min-h-11" onClick={clearAll} disabled={!baseSrc}>Clear all</button>
               </div>
-              <div className="p-3 space-y-2">
-                {CATEGORIES.map((cat) => {
-                  if (collection === 'bayc' || collection === 'mayc') {
-                    if (cat !== 'Hands' && cat !== 'Accessories') return null;
-                  }
-                  const equippedItem = clothesAvailable.find(item => item.category === cat && selectedIds.has(item.id));
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" className="rpg-button flex min-h-11 items-center justify-center gap-2" onClick={handleDownload} disabled={!baseSrc}>
+                  <Download className="h-3.5 w-3.5" />
+                  Download
+                </button>
+                <button type="button" className="rpg-button min-h-11" onClick={handleShare} disabled={!baseSrc}>Share</button>
+              </div>
+            </div>
+          {collection === 'aoa' && baseSrc ? (
+            <details className="mt-3 border border-white/10 px-4 py-3">
+              <summary className="cursor-pointer text-[13px] uppercase tracking-[0.12em] text-[var(--ink-mute)]">Original traits and background</summary>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {([
+                  ['Hat', keepHat, setKeepHat],
+                  ['Clothes', keepClothes, setKeepClothes],
+                  ['Eyes', keepEyes, setKeepEyes],
+                  ['Mouth', keepMouth, setKeepMouth],
+                ] as [string, boolean, React.Dispatch<React.SetStateAction<boolean>>][]).map(([label, val, setter]) => (
+                  <label key={label} className="rpg-checkbox-label">
+                    <input type="checkbox" checked={val} onChange={() => setter((v) => !v)} className="rpg-checkbox" />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="mt-3 grid grid-cols-5 gap-2">
+                <button type="button" onClick={() => setBackgroundColor('')} className={`aspect-square border-2 ${backgroundColor === '' ? 'border-[var(--signal)]' : 'border-white/15'}`} style={{ background: 'linear-gradient(135deg,#a0522d,#654321)' }} title="Original" />
+                {['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DFE6E9','#2D3436','#6C5CE7','#FD79A8'].map((color) => (
+                  <button key={color} type="button" onClick={() => setBackgroundColor(color)} className={`aspect-square border-2 ${backgroundColor === color ? 'border-[var(--signal)]' : 'border-white/15'}`} style={{ backgroundColor: color }} title={color} />
+                ))}
+              </div>
+            </details>
+          ) : null}
+          </div>
+          </div>
+
+          <div className="order-1 lg:order-none lg:col-span-6">
+          <div className="character-preview-frame w-full">
+            <div className="character-preview-corner character-preview-corner-tl" />
+            <div className="character-preview-corner character-preview-corner-tr" />
+            <div className="character-preview-corner character-preview-corner-bl" />
+            <div className="character-preview-corner character-preview-corner-br" />
+            {baseSrc ? (
+              previewUrl ? (
+                <img src={previewUrl} alt="Wardrobe preview" className="wardrobe-layer" />
+              ) : (
+                <>
+                  <img src={baseSrc} alt="Base Ape" className="wardrobe-layer" />
+                  {clothesAvailable.filter((c) => selectedIds.has(c.id)).map((item) => (
+                    <img key={item.id} src={item.src} alt={item.name} className="wardrobe-layer wardrobe-layer-item" />
+                  ))}
+                </>
+              )
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
+                <Shirt className="mb-3 h-8 w-8 text-white/25" />
+                <p className="text-sm text-[var(--ink)]">{loadingNft ? 'Loading' : collection === 'bayc' ? 'Load a Bored Ape' : collection === 'mayc' ? 'Load a Mutant Ape' : 'Load an Ape'}</p>
+                <p className="mt-1 max-w-[220px] text-[13px] text-[var(--ink-mute)]">{loadingNft ? `${collection === 'bayc' ? 'Bored Ape' : collection === 'mayc' ? 'Mutant Ape' : 'Ape'} #${tokenId}` : 'Apes On Ape, Bored Apes, and Mutant Apes can all be dressed here.'}</p>
+              </div>
+            )}
+            {loadingNft ? (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80">
+                <p className="text-sm uppercase tracking-widest text-white">Loading {collection === 'bayc' ? 'Bored Ape' : collection === 'mayc' ? 'Mutant Ape' : 'Ape'} #{tokenId}</p>
+              </div>
+            ) : null}
+            {isGenerating ? (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/75">
+                <p className="text-sm uppercase tracking-widest text-white">Applying</p>
+              </div>
+            ) : null}
+            {flashOn ? <div className="pointer-events-none absolute inset-0 z-30 bg-hero-blue/30" style={{ animation: 'flashPop 300ms ease-out forwards' }} /> : null}
+          </div>
+          </div>
+
+          <div className="wardrobe-side order-3 flex min-h-0 flex-col border border-white/10 bg-black/40 p-4 lg:order-none lg:col-span-3">
+          <h2 className="font-[family-name:var(--font-signal-display)] text-xl uppercase leading-none">{collection === 'bayc' ? 'Bored Ape wardrobe' : collection === 'mayc' ? 'Mutant Ape wardrobe' : 'Your wardrobe'}</h2>
+          <p className="mt-1 text-[12px] text-[var(--ink-mute)]">{collection === 'aoa' ? 'Switch to Bored Apes or Mutant Apes to dress those collections.' : 'Pieces for this collection.'}</p>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {WARDROBE_FILTERS.map((slot) => (
+              <button
+                key={slot}
+                type="button"
+                onClick={() => setFilter(slot)}
+                className={`shrink-0 border px-3 py-2 text-[12px] font-semibold uppercase tracking-[0.12em] ${filter === slot ? 'border-[var(--signal)] bg-[var(--signal)] text-white' : 'border-white/15 text-[var(--ink-mute)]'}`}
+              >
+                {slot}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1 lg:max-h-none">
+            {filtered.length === 0 ? (
+              <p className="py-8 text-sm text-[var(--ink-mute)]">No items in this category.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {filtered.map((item) => {
+                  const isOn = selectedIds.has(item.id);
                   return (
-                    <div key={cat}>
-                      <div className="text-[10px] font-bold text-hero-blue/40 uppercase tracking-widest mb-1">{cat}</div>
-                      <div className={`equipment-slot ${equippedItem ? 'equipment-slot-filled' : ''}`}>
-                        {equippedItem ? (
-                          <div className="flex items-center gap-2">
-                            <SafeImage src={equippedItem.previewSrc || equippedItem.src} alt={equippedItem.name} className="w-7 h-7 object-contain flex-shrink-0" width={28} height={28} unoptimized />
-                            <span className="text-xs text-white/80 truncate flex-1 font-medium">{equippedItem.name}</span>
-                            <button
-                              onClick={() => toggleSelect(equippedItem.id)}
-                              className="text-white/30 hover:text-hero-blue transition-colors text-xs ml-auto flex-shrink-0"
-                              title="Remove"
-                            >✕</button>
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-white/20 italic">Empty slot</span>
-                        )}
-                      </div>
+                    <div key={item.id} className={`inventory-item ${isOn ? 'inventory-item-selected' : ''}`}>
+                      <button type="button" className="w-full text-left" onClick={() => toggleSelect(item.id)} title={item.name}>
+                        <SafeImage src={item.previewSrc || item.src} alt={item.name} className="aspect-square w-full object-contain" width={80} height={80} unoptimized />
+                        <div className="inventory-item-name">{item.name}</div>
+                      </button>
+                      {isOn ? (
+                        <button type="button" onClick={() => toggleSelect(item.id)} className="inline-flex h-11 w-full items-center justify-center border border-white/20 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ink)]">
+                          Remove
+                        </button>
+                      ) : null}
                     </div>
                   );
                 })}
               </div>
-            </div>
-
-            {/* Trait toggles — AoA only */}
-            {collection === 'aoa' && (
-              <div className="rpg-card">
-                <div className="rpg-card-header">
-                  <h3 className="text-xs font-bold uppercase tracking-widest">Keep Original Traits</h3>
-                </div>
-                <div className="p-3 grid grid-cols-2 gap-2">
-                  {([
-                    ['Hat', keepHat, setKeepHat],
-                    ['Clothes', keepClothes, setKeepClothes],
-                    ['Eyes', keepEyes, setKeepEyes],
-                    ['Mouth', keepMouth, setKeepMouth],
-                  ] as [string, boolean, React.Dispatch<React.SetStateAction<boolean>>][]).map(([label, val, setter]) => (
-                    <label key={label} className="rpg-checkbox-label">
-                      <input type="checkbox" checked={val} onChange={() => setter((v) => !v)} className="rpg-checkbox" />
-                      <span>{label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
             )}
           </div>
-
-          {/* ── CHARACTER PREVIEW (order-1 on mobile, col 2 on lg) ── */}
-          <div className="order-1 lg:order-none lg:col-span-6">
-            <div className="rpg-card">
-              <div className="rpg-card-header flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-widest">Preview</h3>
-                {baseSrc && (
-                  <span className="text-[10px] text-hero-blue/50 font-semibold">
-                    {selectedIds.size > 0 ? `${selectedIds.size} item${selectedIds.size > 1 ? 's' : ''} equipped` : 'No items equipped'}
-                  </span>
-                )}
-              </div>
-              <div className="p-3 sm:p-4">
-                {/* Preview frame */}
-                <div className="character-preview-frame">
-                  <div className="character-preview-corner character-preview-corner-tl" />
-                  <div className="character-preview-corner character-preview-corner-tr" />
-                  <div className="character-preview-corner character-preview-corner-bl" />
-                  <div className="character-preview-corner character-preview-corner-br" />
-
-                  {baseSrc ? (
-                    <>
-                      {previewUrl ? (
-                        <SafeImage src={previewUrl} alt="Generated Preview" className="absolute inset-0 w-full h-full object-contain p-3" fill unoptimized />
-                      ) : (
-                        <>
-                          <SafeImage src={baseSrc} alt="Base Ape" className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none p-3" fill unoptimized />
-                          {clothesAvailable.filter((c) => selectedIds.has(c.id)).map((item) => (
-                            <SafeImage key={item.id} src={item.src} alt={item.name} className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none p-3" fill unoptimized sizes="100vw" />
-                          ))}
-                        </>
-                      )}
-                    </>
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
-                      <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-white/12 flex items-center justify-center mb-4">
-                        <Shirt className="w-8 h-8 text-white/20" />
-                      </div>
-                      <div className="text-hero-blue/60 text-sm font-semibold mb-1">No Character Loaded</div>
-                      <div className="text-white/25 text-xs max-w-[200px]">Enter a token ID above and tap Load</div>
-                    </div>
-                  )}
-
-                  {/* Loading NFT overlay */}
-                  {loadingNft && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/85 backdrop-blur-sm z-20">
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="relative w-14 h-14">
-                          <div className="absolute inset-0 rounded-full border-[3px] border-hero-blue/20" />
-                          <div className="absolute inset-0 rounded-full border-[3px] border-t-hero-blue border-r-transparent border-b-transparent border-l-transparent animate-spin" />
-                          <div className="absolute inset-2 rounded-full border-[3px] border-t-transparent border-r-accent-cyan/60 border-b-transparent border-l-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.7s' }} />
-                        </div>
-                        <div className="text-center">
-                          <div className="text-white font-black text-sm uppercase tracking-widest">Loading</div>
-                          <div className="text-hero-blue/60 text-xs mt-0.5">Token #{tokenId}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Generating overlay */}
-                  {isGenerating && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/75 backdrop-blur-sm z-20">
-                      <div className="flex flex-col items-center gap-3">
-                        <Shirt className="w-10 h-10 text-hero-blue animate-pulse" />
-                        <div className="text-white font-black text-sm uppercase tracking-widest">Forging…</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {flashOn && (
-                    <div className="absolute inset-0 pointer-events-none bg-hero-blue/30 z-30" style={{ animation: 'flashPop 300ms ease-out forwards' }} />
-                  )}
-                </div>
-
-                {/* Action buttons */}
-                {baseSrc && (
-                  <div className="mt-3 flex flex-col gap-2">
-                    <button
-                      className="rpg-button-primary w-full"
-                      onClick={handleGeneratePreview}
-                      disabled={isGenerating || !baseSrc}
-                    >
-                      <Sparkles className="w-4 h-4 inline mr-2" />
-                      Generate Preview
-                    </button>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        className="rpg-button flex items-center justify-center gap-2 w-full"
-                        onClick={handleDownload}
-                        disabled={!baseSrc}
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        Download
-                      </button>
-                      <button
-                        className="rpg-button flex items-center justify-center gap-2 w-full"
-                        onClick={handleShare}
-                        disabled={!baseSrc}
-                      >
-                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.743l7.732-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                        Share
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Background Color Picker — AoA Only */}
-                {collection === 'aoa' && baseSrc && (
-                  <div className="mt-3 rpg-card">
-                    <div className="rpg-card-header">
-                      <h3 className="text-[10px] font-bold uppercase tracking-widest">Background</h3>
-                    </div>
-                    <div className="p-3 space-y-2.5">
-                      <div className="grid grid-cols-5 gap-2">
-                        <button
-                          onClick={() => setBackgroundColor('')}
-                          className={`w-full aspect-square rounded-lg border-2 transition-all ${backgroundColor === '' ? 'border-hero-blue scale-105 shadow-md shadow-hero-blue/30' : 'border-white/10 hover:border-hero-blue/40'}`}
-                          style={{ background: 'linear-gradient(135deg,#a0522d,#654321)', position: 'relative' }}
-                          title="Original"
-                        >
-                          {backgroundColor === '' && <div className="absolute inset-0 flex items-center justify-center text-white text-sm font-black">✓</div>}
-                        </button>
-                        {['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DFE6E9','#2D3436','#6C5CE7','#FD79A8'].map((color) => (
-                          <button
-                            key={color}
-                            onClick={() => setBackgroundColor(color)}
-                            className={`w-full aspect-square rounded-lg border-2 transition-all ${backgroundColor === color ? 'border-hero-blue scale-105 shadow-md shadow-hero-blue/30' : 'border-white/10 hover:border-hero-blue/40'}`}
-                            style={{ backgroundColor: color, position: 'relative' }}
-                            title={color}
-                          >
-                            {backgroundColor === color && <div className="absolute inset-0 flex items-center justify-center text-white text-sm font-black drop-shadow">✓</div>}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex gap-2 items-center pt-1 border-t border-white/8">
-                        <input type="color" value={backgroundColor || '#0054F9'} onChange={(e) => setBackgroundColor(e.target.value)} className="w-10 h-9 rounded border border-white/15 bg-black/60 cursor-pointer" />
-                        <input type="text" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} placeholder="#0054F9" className="flex-1 rounded bg-white/5 border border-white/12 px-3 py-2 text-xs font-mono text-white/80 placeholder:text-white/20 outline-none focus:border-hero-blue/60 transition-all" />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* ── INVENTORY (order-2 on mobile, col 3 on lg) ─────────── */}
-          <div className="order-2 lg:order-none lg:col-span-3">
-            <div className="rpg-card flex flex-col">
-              <div className="rpg-card-header">
-                <h3 className="text-xs font-bold uppercase tracking-widest">Inventory</h3>
-              </div>
-
-              {/* Category tabs — horizontally scrollable on mobile */}
-              <div className="px-3 pt-3 pb-1 flex-shrink-0">
-                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  {(collection === 'aoa' ? CATEGORIES : (['Hands', 'Accessories'] as const)).map((cat) => {
-                    const icons: Record<string, React.ReactNode> = {
-                      Hats: <Crown className="w-3 h-3" />,
-                      Clothes: <ShirtIcon className="w-3 h-3" />,
-                      Hands: <Hand className="w-3 h-3" />,
-                      Accessories: <Sparkles className="w-3 h-3" />,
-                      Suits: <User className="w-3 h-3" />,
-                    };
-                    return (
-                      <button
-                        key={cat}
-                        className={`rpg-tab flex-shrink-0 ${activeCategory === cat ? 'rpg-tab-active' : ''}`}
-                        onClick={() => setActiveCategory(cat as typeof activeCategory)}
-                      >
-                        <span className="flex items-center gap-1.5">
-                          {icons[cat]}
-                          <span className="hidden sm:inline">{cat}</span>
-                          <span className="sm:hidden">{cat.slice(0,3)}</span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Items grid */}
-              <div className="p-3 overflow-y-auto" style={{ maxHeight: '520px' }}>
-                {filtered.length === 0 ? (
-                  <div className="text-center py-10 text-white/20 text-xs italic">No items in this category</div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-2">
-                    {filtered.map((item) => {
-                      const isOn = selectedIds.has(item.id);
-                      return (
-                        <button
-                          key={item.id}
-                          className={`inventory-item ${isOn ? 'inventory-item-selected' : ''}`}
-                          onClick={() => toggleSelect(item.id)}
-                          title={item.name}
-                        >
-                          <SafeImage src={item.previewSrc || item.src} alt={item.name} className="w-full aspect-square object-contain" width={80} height={80} unoptimized />
-                          <div className="inventory-item-name">{item.name}</div>
-                          {isOn && <div className="inventory-item-badge">✓</div>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -1718,6 +1651,29 @@ export default function WardrobePage() {
         }
         
         /* Character Preview Frame */
+        @media (min-width: 1024px) {
+          :global(.wardrobe-side) {
+            height: 0;
+            min-height: 100%;
+            overflow: hidden;
+          }
+        }
+
+        :global(.wardrobe-layer) {
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          pointer-events: none;
+          user-select: none;
+        }
+
+        :global(.wardrobe-layer-item) {
+          z-index: 2;
+        }
+
         :global(.character-preview-frame) {
           position: relative;
           width: 100%;
@@ -1846,6 +1802,7 @@ export default function WardrobePage() {
           right: 0;
           height: 1px;
           background: linear-gradient(90deg, transparent, rgba(0, 84, 249, 0.3), transparent);
+          pointer-events: none;
         }
         
         :global(.inventory-item):hover {
@@ -2221,6 +2178,7 @@ export default function WardrobePage() {
           opacity: 0;
           transition: opacity 0.3s ease;
           border-radius: 10px;
+          pointer-events: none;
         }
         
         :global(.inventory-item):hover:after {

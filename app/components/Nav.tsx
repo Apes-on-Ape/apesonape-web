@@ -54,6 +54,7 @@ export default function Nav() {
   const isActive = (href: string) => {
     const target = normalizePath(href);
     if (target === '/') return current === '/';
+    if (target === '/music' && current.startsWith('/artist')) return true;
     return current === target || current.startsWith(`${target}/`);
   };
 
@@ -63,9 +64,8 @@ export default function Nav() {
         Skip to content
       </a>
       <div className="container-premium flex h-full items-center gap-3">
-        <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="Apes On Ape — home">
-          <BrandLogo className="h-8 w-14 shrink-0" priority />
-          <span className="font-display text-[1.35rem] leading-none tracking-wide text-[var(--ink)]">AOA</span>
+        <Link href="/" className="flex min-w-0 items-center" aria-label="Apes On Ape — home">
+          <BrandLogo className="h-8 w-[4.75rem] shrink-0" priority />
         </Link>
 
         <nav className="mx-auto hidden items-center xl:flex" aria-label="Main navigation">
@@ -122,7 +122,7 @@ export default function Nav() {
                   aria-current={isActive(link.href) ? 'page' : undefined}
                   onClick={() => setOpen(false)}
                 >
-                  <span className="font-display text-4xl uppercase tracking-wide text-[var(--ink)]">{link.label}</span>
+                  <span className={`font-display text-4xl uppercase tracking-wide ${isActive(link.href) ? 'text-[var(--signal)]' : 'text-[var(--ink)]'}`}>{link.label}</span>
                   <span className="aoa-meta">{String(index + 1).padStart(2, '0')}</span>
                 </Link>
               ))}

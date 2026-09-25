@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authFailure, requireAuthenticatedApe } from '@/lib/auth/ape';
 import { getSupabaseServerClient } from '@/lib/supabase';
+import { awardDailyActivity } from '@/lib/progress/hooks';
 
 /**
- * POST /api/engagement/daily-checkin
- * Records a qualifying visit (mosaic / studio surface) once per UTC day for quests + streak.
- * Body: { userId: string } — same trust model as other gamify routes (client supplies Privy id).
+ * Records a qualifying visit once per UTC day. The Ape comes from the Privy session.
  */
 export async function POST(req: NextRequest) {
 	try {
-		const body = (await req.json().catch(() => ({}))) as { userId?: string };
-		const userId = String(body?.userId || '').trim();
-		if (!userId) {
-			return NextResponse.json({ error: 'userId required' }, { status: 400 });
-		}
+		const ape = await requireAuthenticatedApe(req);
+		const userId = ape.userId;
 
 		const supabase = getSupabaseServerClient();
 
@@ -34,14 +31,22 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: sErr.message }, { status: 500 });
 		}
 
+		try {
+			await awardDailyActivity(userId);
+		} catch (progressErr) {
+			console.error('daily-checkin aoa:', progressErr);
+		}
+
 		return NextResponse.json({
 			ok: true,
 			mosaicQuestCompleted: !!questDone,
 			streak: streakJson,
 		});
 	} catch (e: unknown) {
+		const denied = authFailure(e);
+		if (denied) return denied;
 		const message = e instanceof Error ? e.message : 'Unknown error';
 		console.error('daily-checkin:', message);
-		return NextResponse.json({ error: message }, { status: 500 });
+		return NextResponse.json({ error: 'Could not record this visit.' }, { status: 500 });
 	}
 }

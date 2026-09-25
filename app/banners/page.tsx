@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
-import { motion } from 'framer-motion';
-import { magicEdenAPI, type MagicEdenNFT } from '@/lib/magic-eden';
 import { Download, ImagePlus, Loader2, Wand2, Plus, Minus, Palette } from 'lucide-react';
-import Footer from '../components/Footer';
+import { magicEdenAPI, type MagicEdenNFT } from '@/lib/magic-eden';
+import ToolChrome from '@/app/components/creative/ToolChrome';
 import NextImage from 'next/image';
 import { useToolTracking } from '@/app/hooks/useToolTracking';
 
@@ -925,27 +924,8 @@ export default function BannersPage() {
   }, [gridRows, gridCols, gridTokenIds, settings, ensureGridSize]);
 
   return (
-    <div className="min-h-screen relative">
-      {/* Decorative background glows */}
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full blur-3xl" style={{ background: 'radial-gradient(closest-side, rgba(34,211,238,0.18), transparent)' }} />
-        <div className="absolute top-1/3 -right-16 w-[28rem] h-[28rem] rounded-full blur-3xl" style={{ background: 'radial-gradient(closest-side, rgba(16,185,129,0.16), transparent)' }} />
-      </div>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pt-28">
-        <motion.h1
-          className="text-4xl md:text-5xl font-bold mb-6 text-hero-blue"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          AoA Banner Generator
-        </motion.h1>
-        <p className="text-off-white/80 max-w-3xl mb-6">
-          Create a customizable Social profile banner from your NFT token ID. Tune the background style, colors, glow, and layout, then download your banner.
-        </p>
-
-        
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <ToolChrome index="02" title="Banners" purpose="Build a 1500×500 banner from a token id and download a PNG. The same tool is at /banners/ and /creative/banners/.">
+        <div className="aoa-tool-split grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Controls */}
           <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-28 self-start">
             {/* Style & Colors */}
@@ -1282,11 +1262,7 @@ export default function BannersPage() {
             </div>
           </div>
         </div>
-
-        {/* Gallery removed */}
-      </div>
-      <Footer />
-    </div>
+    </ToolChrome>
   );
 }
 
