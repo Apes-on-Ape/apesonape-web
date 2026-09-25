@@ -117,9 +117,9 @@ export async function readProgress(userId: string): Promise<ProgressView | null>
 		.order('created_at', { ascending: false })
 		.limit(1000);
 
-	if (eventError) return emptyProgress();
-
-	const rows = events ?? [];
+	const rows = eventError ? [] : (events ?? []);
+	const ledger = await supabase.from('user_progress').select('total_aoa').eq('user_id', id).maybeSingle();
+	const ledgerTotal = Number(ledger.data?.total_aoa ?? 0);
 	const activityResult = await supabase
 		.from('user_activity_events')
 		.select('source, action, reference_id, dedupe_key, occurred_at')
@@ -139,7 +139,8 @@ export async function readProgress(userId: string): Promise<ProgressView | null>
 	for (const row of rows) {
 		breakdown[bucketFor(String(row.source))] += Number(row.aoa_amount ?? 0);
 	}
-	const totalAoa = rows.reduce((sum, row) => sum + Number(row.aoa_amount ?? 0), 0);
+	const eventTotal = rows.reduce((sum, row) => sum + Number(row.aoa_amount ?? 0), 0);
+	const totalAoa = Math.max(eventTotal, ledgerTotal);
 	const level = getLevelProgress(totalAoa);
 
 	let networkRank: number | null = null;

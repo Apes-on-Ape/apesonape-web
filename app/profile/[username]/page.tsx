@@ -49,7 +49,7 @@ export default function ProfileByUsernamePage({ params }: { params: Promise<{ us
 				setError(null);
 				const [profileRes, studioRes] = await Promise.all([
 					fetch(`/api/profile/public?username=${encodeURIComponent(username)}`, { cache: 'no-store' }),
-					fetch(`/api/studio/creations?creator=${encodeURIComponent(username)}&limit=50&type=visual`, { cache: 'no-store' }),
+					fetch(`/api/studio/creations/?creator=${encodeURIComponent(username)}&limit=50&type=visual`, { cache: 'no-store' }),
 				]);
 				const profileJson = await profileRes.json().catch(() => ({}));
 				if (!profileRes.ok) throw new Error(profileJson?.error || 'Ape not found.');

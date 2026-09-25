@@ -17,6 +17,20 @@ function shortAddress(addr: string) {
 	return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
 
+function studioFilePath(uri: string): string | null {
+	if (!uri) return null;
+	const path = uri.startsWith('/studio/') ? uri : (() => {
+		try {
+			const parsed = new URL(uri);
+			return parsed.pathname.startsWith('/studio/') ? parsed.pathname : '';
+		} catch {
+			return '';
+		}
+	})();
+	if (!path || path.includes('..') || !/^\/studio\/[A-Za-z0-9._-]+$/.test(path)) return null;
+	return path;
+}
+
 type Props = {
 	creation: CreationRecord;
 };
@@ -36,8 +50,8 @@ export default function CreationDetailClient({ creation }: Props) {
 	const session = useSessionWallets();
 	const { getAccessToken } = (usePrivy() as unknown) as { getAccessToken?: () => Promise<string | null> };
 	const walletAddr = session.primaryAddress;
-	const isOwner =
-		!!walletAddr && walletAddr === (creation.creatorAddress || '').toLowerCase();
+	const creator = (creation.creatorAddress || '').toLowerCase();
+	const isOwner = session.addresses.includes(creator) || (!!walletAddr && walletAddr === creator);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -46,7 +60,8 @@ export default function CreationDetailClient({ creation }: Props) {
 				let text: string | null = null;
 				for (const url of metadataGateways) {
 					try {
-						const proxyUrl = `/api/studio/ipfs?url=${encodeURIComponent(url)}`;
+						const studioPath = studioFilePath(url);
+						const proxyUrl = studioPath || `/api/studio/ipfs?url=${encodeURIComponent(url)}`;
 						const res = await fetch(proxyUrl, { cache: 'no-store' });
 						if (!res.ok) continue;
 						text = await res.text();
@@ -87,7 +102,7 @@ export default function CreationDetailClient({ creation }: Props) {
 		try {
 			setDeleting(true);
 			const token = await getAccessToken?.();
-			const res = await fetch(`/api/studio/creations/${creation.id}`, {
+			const res = await fetch(`/api/studio/creations/${creation.id}/`, {
 				method: 'DELETE',
 				headers: {
 					'Content-Type': 'application/json',

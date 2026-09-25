@@ -2,12 +2,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadArtifact, uploadMetadata } from '@/lib/studio/storage';
-import { createCreation, listCreations } from '@/lib/studio/persistence';
+import { createCreation, countTransmissionsToday, listCreations } from '@/lib/studio/persistence';
 import { CreationRecord, CreationType, GlyphProfile } from '@/lib/studio/types';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { authFailure, requireAuthenticatedApe } from '@/lib/auth/ape';
 import { awardDailyActivity } from '@/lib/progress/hooks';
 import { recordPersistedStudioCreation } from '@/lib/progress/studio-activity';
+import { AOA_DAILY_CAPS } from '@/lib/progress/rewards';
 
 const TITLE_LIMIT = 80;
 const TAG_LIMIT = 5;
@@ -87,12 +88,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
 	try {
-		const ape = await requireAuthenticatedApe(req);
 		const form = await req.formData();
 		const type = (form.get('type') as CreationType | null) || null;
 		const title = cleanText(String(form.get('title') || ''), TITLE_LIMIT);
 		const prompt = cleanText(String(form.get('prompt') || ''), PROMPT_LIMIT);
 		const requestedAddress = cleanText(String(form.get('creatorAddress') || ''), 200).toLowerCase();
+		const linkedWallets = parseLinkedWallets(form.get('linkedWallets'));
+		const ape = await requireAuthenticatedApe(req, [requestedAddress, ...linkedWallets], linkedWallets);
 		const creatorAddress = ape.wallets.includes(requestedAddress) ? requestedAddress : (ape.primaryWallet || '');
 		const glyphId = ape.userId;
 		const privyUserId = ape.userId;
@@ -119,6 +121,11 @@ export async function POST(req: NextRequest) {
 		if (!creatorAddress) return validationError('Link a wallet before publishing.');
 		if (tags.length > TAG_LIMIT) return validationError('Too many tags');
 
+		const publishedToday = await countTransmissionsToday(ape.userId, ape.wallets);
+		if (publishedToday >= AOA_DAILY_CAPS.studioPublish) {
+			return validationError('You can publish 5 transmissions a day. The next one opens after midnight UTC.', 429);
+		}
+
 		const id = crypto.randomUUID();
 		const createdAt = new Date().toISOString();
 
@@ -126,7 +133,9 @@ export async function POST(req: NextRequest) {
 		if (artifact.size > MAX_FILE_BYTES) {
 			return validationError(`File too large. Max ${MAX_FILE_MB}MB`);
 		}
-		if (!artifact.type.startsWith('image/')) {
+		const imageName = (artifact.name || '').toLowerCase();
+		const imageByName = /\.(png|jpe?g|gif|webp|avif)$/.test(imageName);
+		if (!artifact.type.startsWith('image/') && !imageByName) {
 			return validationError('Only image uploads are supported');
 		}
 

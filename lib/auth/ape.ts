@@ -27,7 +27,7 @@ export type AuthenticatedApe = {
  * are not already owned by a different Ape. A hinted wallet is never authority
  * for who the caller is.
  */
-export async function requireAuthenticatedApe(req: Request, hintedWallets: string[] = []): Promise<AuthenticatedApe> {
+export async function requireAuthenticatedApe(req: Request, hintedWallets: string[] = [], linkedWallets: string[] = []): Promise<AuthenticatedApe> {
 	let userId = '';
 	try {
 		userId = await verifyPrivyUserId(req.headers.get('authorization'));
@@ -55,7 +55,7 @@ export async function requireAuthenticatedApe(req: Request, hintedWallets: strin
 		}
 	}
 
-	const wallets = await allowedWallets(userId, [...hintedWallets, ...stored]);
+	const wallets = await allowedWallets(userId, hintedWallets, [...stored, ...linkedWallets]);
 	const primary = normalizeAliasWallet(String(profile?.wallet_address ?? ''));
 	return {
 		userId,

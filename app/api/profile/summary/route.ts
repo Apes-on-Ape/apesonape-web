@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     const supabase = getSupabaseServerClient();
 
     // 1. Get user profile (bananas) — maybeSingle: row may not exist yet for new Glyph users
+    // Legacy bananas and gamify quests. AOA level comes from user_progress, not these fields.
     const { data: profile } = await supabase
       .from('user_profiles')
       .select(

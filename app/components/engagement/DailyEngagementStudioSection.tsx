@@ -26,7 +26,7 @@ export default function DailyEngagementStudioSection({ userId }: { userId: strin
 		void (async () => {
 			const token = await getAccessToken?.();
 			if (!token) return;
-			await fetch('/api/engagement/daily-checkin', {
+			await fetch('/api/engagement/daily-checkin/', {
 				method: 'POST',
 				headers: { Authorization: `Bearer ${token}` },
 			}).catch(() => {});

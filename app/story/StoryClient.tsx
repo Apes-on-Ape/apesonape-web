@@ -5,7 +5,7 @@ import { getArtist } from '@/app/data/artists';
 import BroadcastLabel from '@/app/components/signal/BroadcastLabel';
 import SectionMarker from '@/app/components/signal/SectionMarker';
 import NoiseOverlay from '@/app/components/signal/NoiseOverlay';
-import { CURRENT_ART, ORIGINAL_ART, STORY_FAQS, storyEntry } from './record';
+import { CURRENT_ART, ORIGINAL_ART, STORY_APE_ID, STORY_FAQS, storyEntry } from './record';
 
 const discord = SOCIALS.find((item) => item.platform === 'discord');
 
@@ -132,35 +132,35 @@ export default function StoryClient() {
             <figure>
               <img
                 src={ORIGINAL_ART}
-                alt="Original Apes on Ape art, file aoa-original-7650"
+                alt={`Original Apes on Ape art, Ape ${STORY_APE_ID}`}
                 width={800}
                 height={800}
                 loading="lazy"
                 className="aspect-square w-full object-cover"
               />
               <figcaption className="aoa-meta mt-3">
-                Original art on file · Ape 7650
+                Original art on file · Ape {STORY_APE_ID}
               </figcaption>
             </figure>
             <figure>
               <img
                 src={CURRENT_ART}
-                alt="Current collection thumbnail for Ape 7650"
+                alt={`Current collection thumbnail for Ape ${STORY_APE_ID}`}
                 width={800}
                 height={800}
                 loading="lazy"
                 className="aspect-square w-full object-cover"
               />
               <figcaption className="aoa-meta mt-3">
-                Current collection thumbnail · Ape 7650
+                Current collection thumbnail · Ape {STORY_APE_ID}
               </figcaption>
             </figure>
           </div>
           <p className="aoa-meta mt-4 max-w-2xl">
             Same token number. The left file is the original art kept in the site archive. The right image is the live collection thumbnail.
           </p>
-          <Link href="/collection/7650" className="aoa-meta mt-4 inline-block text-[var(--signal)]">
-            Open Ape 7650
+          <Link href={`/collection/${STORY_APE_ID}`} className="aoa-meta mt-4 inline-block text-[var(--signal)]">
+            Open Ape {STORY_APE_ID}
           </Link>
         </div>
       </section>

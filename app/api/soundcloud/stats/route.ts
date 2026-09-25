@@ -5,10 +5,12 @@ const SOUNDCLOUD_CLIENT_ID = process.env.SOUNDCLOUD_CLIENT_ID;
 // Public Widget API client_id (used by SoundCloud's own widget)
 const WIDGET_CLIENT_ID = 'gqKBMSuBw5rbN9rDRYPqKNvF17ovlObu';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
+export const maxDuration = 26;
 export const revalidate = 3600; // Cache for 1 hour
 
-const PLAYLIST_CHUNK_SIZE = 10; // Resolve this many playlists per chunk
+const PLAYLIST_CHUNK_SIZE = 3; // Keep each request short enough for the host timeout
+let playlistCache: { at: number; playlists: any[] } | null = null;
 const COMPACT_TRACKS_PER_CHUNK = 500; // Max compact tracks to fetch per chunk (batch /tracks?ids=)
 
 type TrackData = {
@@ -207,20 +209,25 @@ export async function GET(request: Request) {
       const user = await userRes.json();
 
       let allPlaylists: any[] = [];
-      let nextUrl = `https://api-widget.soundcloud.com/users/${user.id}/playlists?format=json&client_id=${clientId}&limit=50&linked_partitioning=1`;
-      let pages = 0;
-      while (nextUrl && pages < 10) {
-        pages++;
-        const res = await fetch(nextUrl, {
-          headers: { 'Accept': 'application/json' },
-          next: { revalidate: 3600 },
-        });
-        if (!res.ok) break;
-        const data = await res.json();
-        const pls = Array.isArray(data) ? data : (data.collection || []);
-        allPlaylists = allPlaylists.concat(pls);
-        nextUrl = data.next_href ? `${data.next_href}&client_id=${clientId}` : '';
-        if (pls.length === 0 || !nextUrl) break;
+      if (playlistCache && Date.now() - playlistCache.at < 10 * 60 * 1000) {
+        allPlaylists = playlistCache.playlists;
+      } else {
+        let nextUrl = `https://api-widget.soundcloud.com/users/${user.id}/playlists?format=json&client_id=${clientId}&limit=50&linked_partitioning=1`;
+        let pages = 0;
+        while (nextUrl && pages < 10) {
+          pages++;
+          const res = await fetch(nextUrl, {
+            headers: { 'Accept': 'application/json' },
+            next: { revalidate: 3600 },
+          });
+          if (!res.ok) break;
+          const data = await res.json();
+          const pls = Array.isArray(data) ? data : (data.collection || []);
+          allPlaylists = allPlaylists.concat(pls);
+          nextUrl = data.next_href ? `${data.next_href}&client_id=${clientId}` : '';
+          if (pls.length === 0 || !nextUrl) break;
+        }
+        playlistCache = { at: Date.now(), playlists: allPlaylists };
       }
 
       const startIdx = chunkIndex * PLAYLIST_CHUNK_SIZE;

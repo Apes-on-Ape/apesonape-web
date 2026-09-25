@@ -147,6 +147,7 @@ async function dbCreate(record: CreationRecord): Promise<CreationRecord> {
 	const payload = {
 		id: record.id,
 		creator_address: record.creatorAddress,
+		user_id: record.glyphProfile?.glyphId || null,
 		type: record.type,
 		title: record.title,
 		description: record.description,
@@ -249,6 +250,32 @@ async function dbReleaseApeUse(apeId: number, usedBy?: string) {
 // -------- Public API with fallback --------
 export async function createCreation(record: CreationRecord): Promise<CreationRecord> {
 	return dbCreate(record);
+}
+
+/** Creations this Ape published since UTC midnight, including rows saved before user_id existed. */
+export async function countTransmissionsToday(userId: string, wallets: string[]): Promise<number> {
+	const svc = supabaseClient();
+	const since = new Date();
+	since.setUTCHours(0, 0, 0, 0);
+	const sinceIso = since.toISOString();
+	const ids = new Set<string>();
+
+	const byUser = await svc.from('studio_creations').select('id').gte('created_at', sinceIso).eq('user_id', userId);
+	if (byUser.error) throw new Error(byUser.error.message);
+	for (const row of byUser.data ?? []) ids.add(String(row.id));
+
+	const byGlyph = await svc.from('studio_creations').select('id').gte('created_at', sinceIso).eq('glyph_profile->>glyphId', userId);
+	if (byGlyph.error) throw new Error(byGlyph.error.message);
+	for (const row of byGlyph.data ?? []) ids.add(String(row.id));
+
+	const addresses = [...new Set(wallets.map((wallet) => wallet.toLowerCase()).filter(Boolean))];
+	if (addresses.length) {
+		const byWallet = await svc.from('studio_creations').select('id').gte('created_at', sinceIso).in('creator_address', addresses);
+		if (byWallet.error) throw new Error(byWallet.error.message);
+		for (const row of byWallet.data ?? []) ids.add(String(row.id));
+	}
+
+	return ids.size;
 }
 
 export async function getCreation(id: string): Promise<CreationRecord | null> {

@@ -93,6 +93,8 @@ export function storyEntry(title: string) {
   return entry;
 }
 
+/** Token 7649 is the dagger ape. The archive file is still named 7650. */
+export const STORY_APE_ID = 7649;
 export const ORIGINAL_ART = '/aoa-original-7650.png';
 export const CURRENT_ART =
-  'https://bqcrbcpmimfojnjdhvrz.supabase.co/storage/v1/object/public/collection/collection-thumbs/7650.webp';
+  'https://bqcrbcpmimfojnjdhvrz.supabase.co/storage/v1/object/public/collection/collection-thumbs/7649.webp';

@@ -13,23 +13,21 @@ export async function POST(req: NextRequest) {
 
 		const supabase = getSupabaseServerClient();
 
-		const { data: questDone, error: qErr } = await supabase.rpc('progress_quest', {
+		let questDone = false;
+		let streakJson: unknown = null;
+		const quest = await supabase.rpc('progress_quest', {
 			p_glyph_user_id: userId,
 			p_quest_code: 'daily_studio_mosaic_visit',
 			p_increment: 1,
 		});
-		if (qErr) {
-			console.error('daily-checkin progress_quest:', qErr);
-			return NextResponse.json({ error: qErr.message }, { status: 500 });
-		}
+		if (quest.error) console.error('daily-checkin progress_quest:', quest.error.message);
+		else questDone = !!quest.data;
 
-		const { data: streakJson, error: sErr } = await supabase.rpc('touch_engagement_streak', {
+		const streak = await supabase.rpc('touch_engagement_streak', {
 			p_glyph_user_id: userId,
 		});
-		if (sErr) {
-			console.error('daily-checkin touch_engagement_streak:', sErr);
-			return NextResponse.json({ error: sErr.message }, { status: 500 });
-		}
+		if (streak.error) console.error('daily-checkin touch_engagement_streak:', streak.error.message);
+		else streakJson = streak.data;
 
 		try {
 			await awardDailyActivity(userId);

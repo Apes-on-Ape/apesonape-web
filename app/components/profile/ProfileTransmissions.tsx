@@ -32,7 +32,7 @@ export default function ProfileTransmissions({
 		const creators = key ? key.split(',').filter(Boolean) : [];
 		Promise.all(
 			creators.map((address) =>
-				fetch(`/api/studio/creations?creator=${encodeURIComponent(address)}&limit=50&type=visual`, { cache: 'no-store' })
+				fetch(`/api/studio/creations/?creator=${encodeURIComponent(address)}&limit=50&type=visual`, { cache: 'no-store' })
 					.then((response) => response.json())
 					.then((json: { items?: CreationRecord[] }) => json.items ?? [])
 					.catch(() => [] as CreationRecord[]),

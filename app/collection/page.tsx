@@ -128,6 +128,7 @@ export default function CollectionPage() {
   const [rarityLoading, setRarityLoading] = useState(false);
   const [raritySearch, setRaritySearch] = useState('');
   const [rarityDebouncedSearch, setRarityDebouncedSearch] = useState('');
+  const [rarityDirect, setRarityDirect] = useState<RarityEntry | null>(null);
   const [rarityActiveTier, setRarityActiveTier] = useState<Tier | ''>('');
   const [tierCounts, setTierCounts] = useState<Record<Tier, number>>({} as Record<Tier, number>);
 
@@ -592,9 +593,15 @@ export default function CollectionPage() {
     let searchSet: Set<string> | null = null;
     if (hasSearch) {
       searchSet = new Set<string>();
-      for (let i = 0; i < totalCount; i++) {
-        const token = String(i);
-        if (token.includes(q)) searchSet.add(token);
+      const exactId = q.replace(/^#/, '');
+      if (/^\d+$/.test(exactId)) {
+        const id = Number(exactId);
+        if (id >= 0 && id < totalCount) searchSet.add(String(id));
+      } else {
+        for (let i = 0; i < totalCount; i++) {
+          const token = String(i);
+          if (token.includes(q)) searchSet.add(token);
+        }
       }
     }
 
@@ -689,13 +696,10 @@ export default function CollectionPage() {
     });
 
     setFilteredItems(filtered);
-    // Only reset to page 1 when actual filter criteria changed
-    if (filtersChanged) {
-      setPage(1);
-      setDisplayedItems(filtered.slice(0, itemsPerPage));
-    }
-    const canPlanMore = (plannedUntil + 1) < totalCount;
-    setHasMore(filtered.length > itemsPerPage || canPlanMore);
+    const visibleCount = (filtersChanged ? 1 : page) * itemsPerPage;
+    if (filtersChanged) setPage(1);
+    setDisplayedItems(filtered.slice(0, visibleCount));
+    setHasMore(filtered.length > visibleCount);
   }, [driveItems, searchTerm, sortBy, selectedByType, cdnTraitIndex, plannedUntil, totalCount]);
 
   // Infinite scroll: append more items when sentinel enters view
@@ -768,6 +772,26 @@ export default function CollectionPage() {
     return () => clearTimeout(t);
   }, [raritySearch]);
 
+  useEffect(() => {
+    const exactId = rarityDebouncedSearch.trim().replace(/^#/, '');
+    if (!/^\d+$/.test(exactId)) {
+      setRarityDirect(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/rarity/?id=${exactId}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled) setRarityDirect(data?.entry ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setRarityDirect(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rarityDebouncedSearch]);
+
   const fetchRarity = useCallback(async () => {
     if (viewMode !== 'rarity') return;
     setRarityLoading(true);
@@ -801,13 +825,15 @@ export default function CollectionPage() {
     setRarityPage(1);
   };
 
-  // Client-side search filter within loaded rarity entries
-  const displayedRarityEntries = rarityDebouncedSearch
-    ? rarityEntries.filter(e =>
-        String(e.id).includes(rarityDebouncedSearch) ||
-        e.traits.some(t => t.value.toLowerCase().includes(rarityDebouncedSearch.toLowerCase()))
-      )
-    : rarityEntries;
+  const exactRarityId = /^\d+$/.test(rarityDebouncedSearch.trim().replace(/^#/, ''));
+  const displayedRarityEntries = exactRarityId
+    ? (rarityDirect ? [rarityDirect] : [])
+    : rarityDebouncedSearch
+      ? rarityEntries.filter(e =>
+          String(e.id).includes(rarityDebouncedSearch) ||
+          e.traits.some(t => t.value.toLowerCase().includes(rarityDebouncedSearch.toLowerCase()))
+        )
+      : rarityEntries;
 
   const toggleTraitValue = (type: string, value: string) => {
     setSelectedByType(prev => {
@@ -908,9 +934,10 @@ export default function CollectionPage() {
     return [...new Set(combined)];
   }, [modalResolved]);
 
-  const searchQuery = searchTerm.trim();
-  const locatedToken = searchQuery && !loading && filteredItems.length === 1 && filteredItems[0]?.tokenId === String(Number(searchQuery))
-    ? String(Number(searchQuery)).padStart(4, '0')
+  const searchQuery = searchTerm.trim().replace(/^#/, '');
+  const locatedId = /^\d+$/.test(searchQuery) ? Number(searchQuery) : null;
+  const locatedToken = locatedId !== null && !loading && filteredItems.some((item) => item.tokenId === String(locatedId))
+    ? String(locatedId)
     : null;
 
   return (
@@ -1146,7 +1173,9 @@ export default function CollectionPage() {
               </div>
             </div>
             {locatedToken ? (
-              <p className="aoa-meta mt-3 text-[var(--signal)]">Signal located // Ape {locatedToken}</p>
+              <p className="aoa-meta mt-3 text-[var(--signal)]">
+                <Link href={`/collection/${locatedToken}`}>Signal located // Ape {locatedToken}</Link>
+              </p>
             ) : null}
             {!loading ? (
               <p className="aoa-meta mt-3">

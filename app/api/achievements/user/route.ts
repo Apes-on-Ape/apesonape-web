@@ -168,6 +168,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Legacy arcade counters on user_profiles. Not AOA level or the AOA ledger.
     return NextResponse.json({
       level: user.level ?? 1,
       experience: user.experience ?? 0,

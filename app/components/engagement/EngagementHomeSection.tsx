@@ -27,7 +27,7 @@ export default function EngagementHomeSection() {
 				void (async () => {
 					const token = await getAccessToken?.();
 					if (!token) return;
-					await fetch('/api/engagement/daily-checkin', {
+					await fetch('/api/engagement/daily-checkin/', {
 						method: 'POST',
 						headers: { Authorization: `Bearer ${token}` },
 					});

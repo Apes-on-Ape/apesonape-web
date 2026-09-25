@@ -126,7 +126,7 @@ export default function StudioPublishPage() {
 			setBusy(true);
 			setStatus('Uploading artifact');
 			const token = await privy.getAccessToken?.();
-			const res = await fetch('/api/studio/creations', {
+			const res = await fetch('/api/studio/creations/', {
 				method: 'POST',
 				headers: token ? { Authorization: `Bearer ${token}` } : undefined,
 				body: form,
@@ -245,7 +245,7 @@ export default function StudioPublishPage() {
 						<div>
 							<p className="aoa-meta text-[var(--signal)]">03 // Verify</p>
 							<ul className="mt-3 space-y-1 text-sm text-[var(--ink-dim)]">
-								<li>Image and prompt are stored. IPFS is tried first.</li>
+								<li>Five transmissions a day. The count resets at midnight UTC.</li>
 								<li>Metadata is hashed with keccak256.</li>
 								<li>Glyph: {glyphVerified ? 'verified' : 'not verified'}.</li>
 								<li>Wallet: {shortAddress(address) || 'not connected'}.</li>

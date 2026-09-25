@@ -50,7 +50,7 @@ export default function ApeDetailPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!Number.isFinite(id) || id < 0) return;
     setLoading(true);
     setImgLoaded(false);
     (async () => {
@@ -110,7 +110,7 @@ export default function ApeDetailPage() {
 
   // Fetch on-chain owner from Apechain RPC
   useEffect(() => {
-    if (!id) return;
+    if (!Number.isFinite(id) || id < 0) return;
     setOwnerLoading(true);
     setOwnerData(null);
     fetch(`/api/nft/owner/${id}`)

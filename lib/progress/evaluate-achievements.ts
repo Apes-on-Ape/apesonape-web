@@ -312,14 +312,26 @@ export async function readProfileAchievements(userId: string, stats?: Achievemen
 	}
 	const { data, error } = await supabase
 		.from('user_profile_achievements')
-		.select('achievement_id, unlocked_at')
+		.select('achievement_id, unlocked_at, progress_value')
 		.eq('user_id', userId.trim());
 	if (error) return { unlocked: 0, total, achievements: [] };
 	const unlockedAt = new Map((data ?? []).map((row) => [String(row.achievement_id), String(row.unlocked_at)]));
+	const storedProgress = new Map((data ?? []).map((row) => [String(row.achievement_id), Number(row.progress_value ?? 0)]));
+	const profile = await supabase.from('user_profiles').select('wallet_address').eq('glyph_user_id', userId.trim()).maybeSingle();
+	const wallet = String(profile.data?.wallet_address ?? '').trim();
+	if (wallet) {
+		const legacy = await supabase.from('user_achievements').select('achievement_id, unlocked_at').ilike('wallet_address', wallet);
+		for (const row of legacy.data ?? []) {
+			const achievementId = String(row.achievement_id);
+			if (!unlockedAt.has(achievementId)) unlockedAt.set(achievementId, String(row.unlocked_at ?? ''));
+		}
+	}
 	const catalogIds = new Set(catalog.map((def) => def.id));
 	const cards = catalog.map((def) => {
 		const unlocked = unlockedAt.has(def.id);
-		const current = stats && def.criteriaType !== 'manual' ? progressFor(def, stats) : null;
+		const live = stats && def.criteriaType !== 'manual' ? progressFor(def, stats) : null;
+		const stored = storedProgress.get(def.id) ?? 0;
+		const current = Math.max(live ?? 0, stored, unlocked ? def.criteriaValue : 0);
 		const showProgress = def.criteriaValue > 1 && def.criteriaType !== 'manual' && def.criteriaType !== 'any_score';
 		return {
 			id: def.id,

@@ -43,6 +43,18 @@ function getServiceRoleKey(): string | undefined {
 	return env[key1] || env[key2];
 }
 
+/** True only when the server key is the Supabase service role, which is what can write past RLS. */
+export function hasServiceRole(): boolean {
+	const serviceKey = getServiceRoleKey();
+	if (!serviceKey) return false;
+	try {
+		const payload = JSON.parse(Buffer.from(serviceKey.split('.')[1] || '', 'base64url').toString('utf8')) as { role?: string };
+		return payload.role === 'service_role';
+	} catch {
+		return false;
+	}
+}
+
 export function getSupabaseServiceClient(): SupabaseClient | null {
 	// CRITICAL: This function must NEVER be called from client-side code.
 	// The service role key bypasses RLS and must remain server-only.

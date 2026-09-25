@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authFailure, creationOwnedBy, requireAuthenticatedApe } from '@/lib/auth/ape';
 import { deleteCreation, getCreation } from '@/lib/studio/persistence';
+import { hasServiceRole } from '@/lib/supabase';
 
 export async function GET(
 	_req: NextRequest,
@@ -34,6 +35,9 @@ export async function DELETE(
 		if (!creation) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 		if (!creationOwnedBy(ape, creation)) {
 			return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+		}
+		if (!hasServiceRole()) {
+			return NextResponse.json({ error: 'Studio deletes need the Supabase service role key on the server.' }, { status: 503 });
 		}
 
 		const ok = await deleteCreation(id);

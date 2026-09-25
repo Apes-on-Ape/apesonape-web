@@ -22,6 +22,7 @@ export const PROFILE_ACHIEVEMENT_AOA = {
 
 export const AOA_DAILY_CAPS = {
 	arcadeRun: 10,
+	/** AOA for Studio publishes, and the hard limit on creations per UTC day. */
 	studioPublish: 5,
 } as const;
 

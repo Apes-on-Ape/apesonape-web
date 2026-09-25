@@ -63,7 +63,7 @@ export default function HomeSignalLive() {
       }
 
       try {
-        const response = await fetch('/api/studio/creations?type=visual&limit=2');
+        const response = await fetch('/api/studio/creations/?type=visual&limit=2');
         if (response.ok) {
           const data = (await response.json()) as {
             items?: Array<{ id?: string; title?: string; createdAt?: string; description?: string }>;
