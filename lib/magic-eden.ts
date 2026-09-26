@@ -513,8 +513,8 @@ class MagicEdenAPI {
       for (const res of responses) {
         if (res.result && res.result !== '0x') {
           const tokenId = parseInt(res.result as string, 16);
-          // Contract is 0-indexed; add 1 for the user-facing display ID
-          if (!Number.isNaN(tokenId) && tokenId >= 0) tokenIds.push(tokenId + 1);
+          // On-chain id matches the collection image. Token 0 is Ape #0.
+          if (!Number.isNaN(tokenId) && tokenId >= 0 && tokenId <= 9999) tokenIds.push(tokenId);
         }
       }
     }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -100,39 +101,44 @@ export default function Nav() {
         </div>
       </div>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            id="mobile-menu"
-            className="fixed inset-x-0 bottom-0 z-[80] overflow-y-auto bg-[var(--bg)] xl:hidden"
-            style={{ top: 'var(--aoa-header-h)' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <NoiseOverlay />
-            <nav className="relative flex min-h-full flex-col px-6 py-8" aria-label="Mobile navigation">
-              {PRIMARY_NAV.map((link, index) => (
-                <Link
-                  key={link.href}
-                  ref={index === 0 ? firstLinkRef : undefined}
-                  href={link.href}
-                  className="flex items-baseline justify-between border-b border-[rgba(243,238,228,0.1)] py-4"
-                  aria-current={isActive(link.href) ? 'page' : undefined}
-                  onClick={() => setOpen(false)}
+      {typeof document !== 'undefined'
+        ? createPortal(
+            <AnimatePresence>
+              {open ? (
+                <motion.div
+                  id="mobile-menu"
+                  className="fixed inset-x-0 bottom-0 z-[90] overflow-y-auto bg-[var(--bg)] xl:hidden"
+                  style={{ top: 'var(--aoa-header-h)' }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  <span className={`font-display text-4xl uppercase tracking-wide ${isActive(link.href) ? 'text-[var(--signal)]' : 'text-[var(--ink)]'}`}>{link.label}</span>
-                  <span className="aoa-meta">{String(index + 1).padStart(2, '0')}</span>
-                </Link>
-              ))}
-              <div className="mt-8 pb-[var(--aoa-dock-offset)]">
-                {radio.playing ? <LiveIndicator label="ON AIR" /> : <p className="aoa-meta">AOA Radio</p>}
-              </div>
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                  <NoiseOverlay />
+                  <nav className="relative flex min-h-full flex-col px-6 py-8" aria-label="Mobile navigation">
+                    {PRIMARY_NAV.map((link, index) => (
+                      <Link
+                        key={link.href}
+                        ref={index === 0 ? firstLinkRef : undefined}
+                        href={link.href}
+                        className="flex items-baseline justify-between border-b border-[rgba(243,238,228,0.1)] py-4"
+                        aria-current={isActive(link.href) ? 'page' : undefined}
+                        onClick={() => setOpen(false)}
+                      >
+                        <span className={`font-display text-4xl uppercase tracking-wide ${isActive(link.href) ? 'text-[var(--signal)]' : 'text-[var(--ink)]'}`}>{link.label}</span>
+                        <span className="aoa-meta">{String(index + 1).padStart(2, '0')}</span>
+                      </Link>
+                    ))}
+                    <div className="mt-8 pb-[var(--aoa-dock-offset)]">
+                      {radio.playing ? <LiveIndicator label="ON AIR" /> : <p className="aoa-meta">AOA Radio</p>}
+                    </div>
+                  </nav>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>,
+            document.body,
+          )
+        : null}
     </header>
   );
 }

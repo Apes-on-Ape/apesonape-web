@@ -1287,7 +1287,7 @@ class AchievementSystem {
             
             console.log('📤 Sending data to API:', requestData);
             
-            const response = await fetch('/api/achievements/save_game_stats', {
+            const response = await fetch('/api/achievements/save_game_stats/', {
                 method: 'POST',
                 headers: (function () {
                     var headers = { 'Content-Type': 'application/json' };
@@ -1923,7 +1923,7 @@ window.debugDatabaseOperations = async () => {
     // Test 2: Save game stats
     console.log('💾 Test 2: Saving game stats...');
     try {
-        const response = await fetch('/api/achievements/save_game_stats', {
+        const response = await fetch('/api/achievements/save_game_stats/', {
             method: 'POST',
             headers: (function () {
                 var headers = { 'Content-Type': 'application/json' };

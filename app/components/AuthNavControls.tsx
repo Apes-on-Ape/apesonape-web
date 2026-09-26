@@ -90,14 +90,27 @@ export default function AuthNavControls() {
 	const handleLogin = async () => {
 		try {
 			await login?.();
+			const after = sessionRef.current;
+			const signedInNow = !!after.user || !!after.privyUser;
+			if (!signedInNow) return;
+
 			let allowed = false;
-			for (let i = 0; i < 8 && !allowed; i++) {
+			for (let i = 0; i < 12 && !allowed; i++) {
 				allowed = (await attemptGate()) || (await connectedWalletHoldsApe());
-				if (!allowed) await new Promise((r) => setTimeout(r, 750));
+				if (!allowed) await new Promise((r) => setTimeout(r, 1000));
 			}
-			if (!allowed) {
-				await logout?.();
-			}
+			if (allowed) return;
+
+			const { user: glyphUser, privyUser: currentPrivyUser, wallets: currentWallets } = sessionRef.current;
+			const hasWallet = Boolean(
+				glyphUser?.evmWallet ||
+				glyphUser?.smartWallet ||
+				currentWallets.some((wallet) => wallet.address) ||
+				currentPrivyUser?.linkedAccounts?.some((account) => account.type === 'wallet' && account.address && account.chainType !== 'solana')
+			);
+			// A PWA has no browser-extension wallet. Leave the session open so Rabby can be connected.
+			if (!hasWallet) return;
+			await logout?.();
 		} catch {
 			// ignore
 		}

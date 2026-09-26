@@ -144,9 +144,15 @@ const GameScoreUtils = {
 
             console.log('📤 Sending score to API:', requestData);
 
-            const response = await fetch('/api/achievements/save_game_stats', {
+            const headers = { 'Content-Type': 'application/json' };
+            try {
+                const token = localStorage.getItem('aoaAccessToken');
+                if (token) headers.Authorization = 'Bearer ' + token;
+            } catch (e) { /* private mode */ }
+
+            const response = await fetch('/api/achievements/save_game_stats/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 credentials: 'same-origin',
                 body: JSON.stringify(requestData)
             });

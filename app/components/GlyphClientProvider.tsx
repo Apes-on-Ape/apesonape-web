@@ -51,6 +51,7 @@ export default function GlyphClientProvider({ children }: { children: React.Reac
 					walletChainType: 'ethereum-only',
 					walletList: [
 						'detected_ethereum_wallets',
+						'rabby_wallet',
 						'metamask',
 						'coinbase_wallet',
 						'rainbow',
@@ -68,6 +69,8 @@ export default function GlyphClientProvider({ children }: { children: React.Reac
 				loginMethodsAndOrder: {
 					primary: [
 						'detected_ethereum_wallets',
+						'rabby_wallet',
+						'wallet_connect',
 						GLYPH_APP_LOGIN_METHOD,
 						'email',
 						'google',
@@ -78,7 +81,6 @@ export default function GlyphClientProvider({ children }: { children: React.Reac
 						'metamask',
 						'coinbase_wallet',
 						'rainbow',
-						'wallet_connect',
 					],
 				},
 			}}
